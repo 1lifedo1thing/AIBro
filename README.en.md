@@ -1,72 +1,95 @@
-<p align="center"><img src="app/ai-bro-icon.png" width="80" height="80" alt="AI Bro" /></p>
+<p align="center"><img src="app/ai-bro-icon.png" width="76" height="76" alt="AI Bro" /></p>
 <h1 align="center">AI Bro</h1>
 <p align="center"><strong>Turn a conversation into work you can continue.</strong></p>
-<p align="center">A personal knowledge and task workspace for Mac · Local first · Your choice of model</p>
+<p align="center">Sources to return to. Changes to review. A next step to take.</p>
+<p align="center"><sub>NATIVE MAC WORKSPACE · LOCAL FIRST · YOUR MODELS · OPEN SOURCE</sub></p>
 <p align="center"><a href="README.md">简体中文</a> · English</p>
-<p align="center"><a href="https://github.com/zihenghe04/AIBro/releases">Download for Mac</a> · <a href="https://zihenghe04.github.io/AIBro/?lang=en">Website and demo</a> · <a href="CHANGELOG.md">Changelog</a> · <a href="https://github.com/zihenghe04/AIBro/issues">Report an issue</a></p>
+<p align="center"><a href="https://github.com/zihenghe04/AIBro/releases/tag/v0.8.0"><strong>Download the Mac preview ↗</strong></a> &nbsp; · &nbsp; <a href="https://zihenghe04.github.io/AIBro/?lang=en">Explore the product workflows</a> &nbsp; · &nbsp; <a href="CHANGELOG.md">Changelog</a></p>
 
-AI Bro keeps conversations, source material, editable documents and next steps in the same project. Study a lecture, work through a paper or plan your week: ask with sources in context, review proposed changes, and keep results you can edit, reference and discuss again.
+[![AI Bro: source material, conversations, and editable work in one workspace](launch/dist/assets/demo/hero-workspace.png)](https://zihenghe04.github.io/AIBro/?lang=en)
+<p align="center"><sub>Actual AI Bro 0.8.0 App interface, captured from an isolated demo workspace. Projects, documents, and responses are fictional; animations arrange interface steps and do not represent live model speed. <a href="https://zihenghe04.github.io/AIBro/?lang=en#workspace">Explore the workflows ↗</a></sub></p>
 
-![AI Bro project tasks and timeline in an example English workspace](launch/dist/assets/recordings/tour-en.jpg)
-<p align="center"><sub>A frame from an existing Mac app demonstration, using an example workspace. The interface continues to evolve. <a href="https://zihenghe04.github.io/AIBro/?lang=en#film">Watch the demo</a></sub></p>
+Some work deserves more than a place in your chat history.
 
-> **Developer preview.** The Mac app is the current delivery focus. This page describes the current source; improvements under acceptance testing may not yet be in a public installer. See the relevant [release notes](https://github.com/zihenghe04/AIBro/releases) for the downloadable version, platform support and known issues.
+AI Bro is a personal knowledge and action workspace for Mac. Bring a handout, a paper, a note, or a plan into a project. Read, discuss, and refine it with AI. Keep the resulting documents and next steps together, ready for the next time you return.
 
-## From source material to a next step
+**0.8.0** brings clearer project navigation, a fuller document and review workspace, and connected learning, research, task, and calendar workflows. This is a development preview for Apple Silicon / macOS 14+, not yet Apple-notarized. [Release notes](docs/RELEASE_NOTES.md)
 
-| What you are working on | How AI Bro helps |
-| --- | --- |
-| **A course** | Keep slides, study notes and chats in a course project. Read original PDF pages, follow citations, and put revision tasks and timetables in the agenda. |
-| **Research** | Gather papers, methods, experiments and open questions. Organize knowledge and sources in Research Wiki so later questions can build on the material you already have. |
-| **A document** | Switch between visual editing and Markdown source for headings, lists, tables, code and math. Review AI changes as a diff before deciding what to accept. |
-| **An ongoing conversation** | Reopen the project's chat, add material and ask follow-up questions. Edit and resend a message or branch from it when you want another direction, retaining the original content. |
-| **A plan to carry out** | Organize work with tasks, checklists, boards and scheduling. See deadlines, recurring events and imported ICS timetables in the agenda, with optional system reminders. |
+---
 
-### A project keeps the work together
+## Read. Make it your own. Move it forward.
 
-Projects bring together **chats, sources, outputs and tasks**. Sources keep the originals; outputs link to saved documents. Open a source, read or edit it, then return to the work it came from. Daily, Courses and Research spaces provide organization, while standalone chats can be arranged in folders.
+### 01 &nbsp; Think with your sources beside you.
 
-Documents open in a resizable reader with tabs and an expanded reading view. Markdown has reading, visual editing and source modes, with outline, search and save controls close by. Local project folders require separate authorization before their files can be opened through the tree.
+Open the original PDF, follow a citation, and keep asking questions alongside it. Documents have their own tabs and an adjustable reading area. Switch projects, consult a note, and find your way back.
 
-### Inspect changes and keep the result
+![Actual App interface sequence: a fictional source becomes a cited learning note](launch/dist/assets/demo/source-to-note.gif)
 
-Expand an AI run to inspect its activity, respond to approvals, stop it or retry. Supported document and file changes can be reviewed as diffs and edited after saving. Drafts, saved versions and the trash help recover work. **A completed run does not always create a file**; the available output depends on the task and the model's response.
+- **Connected material and conversations**: import PDFs, Markdown, and other supported files; reference them in chat and return to the original source.
+- **Room to read**: document tabs, PDF navigation and search, fit-to-width or fit-to-page, and focused or side-by-side reading.
+- **Work you can use again**: open saved notes from project outputs without searching through a long conversation.
 
-Model connections are separate from your workspace. Use a compatible API or local official Codex CLI sign-in, then select a model per chat. Skills, project plans and memory provide reusable workflows and context. Available tools, attachment formats and reasoning options depend on the provider.
+### 02 &nbsp; AI suggests a change. You decide what stays.
 
-## Get started
+Move from reading to writing, and from a suggestion to a review. Shape the draft in your own words, with a clear view of what changed and what was saved.
 
-**Release installers target Apple Silicon Macs running macOS 14 or later.** Native Liquid Glass is available on macOS 26, with fallback materials on earlier systems. Python and PDF runtimes are bundled, so using the app does not require developer tools.
+![Actual App interface sequence: review changes to a fictional note and save them](launch/dist/assets/demo/review-to-save.gif)
 
-1. Open [Releases](https://github.com/zihenghe04/AIBro/releases), choose a preview, and download its DMG and checksum file.
-2. Verify the checksum, quit the previous app normally, and drag AI Bro into Applications. Keep a workspace backup before updating.
-3. Connect a model in Settings using an API URL, key and model, or local official Codex CLI sign-in.
-4. Create a project, add one source and start a chat. Check the evidence in the reader, then keep the output and next steps in that project.
+- **Two ways to write**: Milkdown visual editing and CodeMirror source mode, with common lists, tables, code, math, and images. Full source remains available.
+- **Changes you can inspect**: file diffs, side-by-side views, individual changes, and draft acceptance. Continue editing after saving.
+- **Continuity**: document positions and drafts, undo within the current editing session, and explicit version-conflict and save-failure feedback.
 
-Start with a small, concrete task:
+### 03 &nbsp; Give the next step a place to happen.
 
-> “Use these slides to explain the chapter's key concepts, cite the source pages, save a study note, and suggest three revision tasks.”
+A note can become a plan. A discussion can leave a task. Projects keep the material, the outcome, and the action on the same line of work.
 
-Current preview packages are ad-hoc signed and are not Apple-notarized. See the [installation guide](docs/DISTRIBUTION.md) for first-launch prompts, checksums and build instructions.
+![Actual App interface sequence: tasks and calendar entries for a fictional project](launch/dist/assets/demo/plan-to-agenda.gif)
 
-## Where your data lives
+- **A clear home for each project**: conversations, sources, outputs, tasks, scheduling, and overview share consistent navigation.
+- **A practical next step**: checklists, boards, project schedules, due dates, recurring events, reminders, and ICS import.
+- **A way back**: execution records, source links, version history, and a trash view for supported content.
 
-The default workspace is `~/Library/Application Support/ai-workstation` on your Mac. Projects, chats, notes and managed attachments are saved locally. Reading, editing and task management do not require a sync server. When you use a remote model, search or another online tool, content needed for that operation is sent to the relevant service.
+<p align="center"><a href="https://zihenghe04.github.io/AIBro/?lang=en#workspace"><strong>Explore the complete product workflows ↗</strong></a></p>
 
-- **Model credentials are separate.** The current native implementation stores them in local encrypted files, outside workspace exports and cloud sync. The key and ciphertext share the same local user directory; this does not protect against processes that can read that directory. See the [credential storage notes](docs/DESKTOP_APP.md#模型凭据与登录).
-- **Sync is optional.** Host your own service and push or pull supported workspace content over HTTPS or an SSH tunnel. SSH is for synchronization, not a remote file tree, terminal or agent.
-- **Sync and SSH accounts serve different purposes.** SSH connects to the host. The sync account is created by the service operator and identifies the data owner. API keys, local folder permissions and other device settings stay on each device.
-- **Sync is not a backup.** It propagates edits and deletions. The server can read synchronized content; end-to-end encryption is not provided. See [self-hosted sync](docs/CLOUD_SYNC.md) for backups, conflicts and size limits.
+## Made for work that builds on itself
 
-## Current boundaries
+| Learning | Research | Everyday projects |
+| --- | --- | --- |
+| Keep handouts, chapter notes, and revision tasks around a course. Check the original, develop your understanding, and ask the next question. | Keep papers, methods, experiments, and open questions in a research project. Connect knowledge with sources in Research Wiki, reviewing drafts before incorporating them. | Capture an idea or link. Develop it into a document, checklist, or calendar entry. Return to the same work when plans change. |
 
-AI Bro is a developer preview. Performance with long chats, large libraries and complex documents, as well as complete keyboard and VoiceOver coverage, remains under development. Implemented features should not be read as verification of every case. Visual editing covers supported Markdown structures; unsupported extensions remain available in source mode. The open document supports continuous undo across visual and source modes. Reopening restores content and drafts, not the entire undo stack.
+## Your models. Your ongoing work.
 
-Windows and Linux installers are not available. Real-time team collaboration and cloud agent execution are outside the current scope. Current development and acceptance testing focus on the Mac app; see [historical releases](https://github.com/zihenghe04/AIBro/releases) for earlier versions and their available platforms and assets. Report problems in [Issues](https://github.com/zihenghe04/AIBro/issues) with the version, reproduction steps and redacted screenshots.
+Connect a compatible API or a locally configured official Codex CLI, and choose a model per conversation. Skills, project plans, and memory help reuse workflows and context. Tool support, attachments, and reasoning options depend on the provider. AI Bro does not include a model subscription or API credits.
 
-## Run from source
+Your workspace is stored on your Mac by default. Reading, editing, organizing material, and managing tasks do not require a sync server. Requests to remote models or online tools send the necessary content to the service you select.
 
-The native app uses SwiftUI / AppKit, with WKWebView for documents and conversations and a local Python service. Development requires an Apple Silicon Mac, the Xcode 26 toolchain, Node.js 24 and Python 3.12.
+For multiple devices, connect your own sync service over HTTPS or an SSH tunnel to push and pull supported workspace content. SSH provides the connection; the sync account establishes content ownership. Model credentials and local-folder permissions are not included in workspace sync. [Models and local data](docs/DESKTOP_APP.md) · [Self-hosted sync](docs/CLOUD_SYNC.md)
+
+## Start with one document
+
+1. Download the DMG and checksums from [v0.8.0 Releases](https://github.com/zihenghe04/AIBro/releases/tag/v0.8.0), following the [installation guide](docs/DISTRIBUTION.md). Python and PDF support are bundled.
+2. Connect your model service in Settings and select a model.
+3. Create a project, add a document, and start a conversation.
+
+> Summarize the core ideas in this handout, include source page references, save a learning note, and suggest three revision tasks.
+
+<p align="center"><a href="https://github.com/zihenghe04/AIBro/releases/tag/v0.8.0"><strong>Download AI Bro for Mac ↗</strong></a> &nbsp; · &nbsp; <a href="https://zihenghe04.github.io/AIBro/?lang=en">See how it works first</a></p>
+
+<details>
+<summary><strong>Preview boundaries and data handling</strong></summary>
+
+The current focus is the Mac App. Full VoiceOver paths, input-method composition, very long documents, and large libraries remain areas of active work. Visual editing supports common Markdown structures; source mode preserves access to extensions. Restoring a document and its draft does not preserve the entire undo history across restarts. Whether an AI task produces a file depends on its actual execution result.
+
+The default workspace directory is `~/Library/Application Support/ai-workstation`. Native credentials use a separate locally encrypted file. Its key and ciphertext are stored under the same user account, so this does not protect against processes that can read that directory. Sync propagates changes and deletions and is not a backup. The sync server can read synchronized content; end-to-end encryption is not currently provided. See [credential storage](docs/DESKTOP_APP.md) and [sync, conflicts, and backups](docs/CLOUD_SYNC.md).
+
+Remote agents, remote file management, and real-time multiplayer collaboration are outside the current scope. Older platform builds are listed in [release history](https://github.com/zihenghe04/AIBro/releases). Promotional demos use original fictional content, with no personal documents, credentials, or service addresses.
+
+</details>
+
+<details>
+<summary><strong>Build from source and contribute</strong></summary>
+
+A SwiftUI / AppKit native shell, a WKWebView workspace, and a local Python service. Development requires an Apple Silicon Mac, Xcode 26, Node.js 24, and Python 3.12.
 
 ```sh
 git clone https://github.com/zihenghe04/AIBro.git
@@ -78,14 +101,13 @@ python -m pip install -r requirements.txt
 npm run start:native
 ```
 
-Source previews use `.aibro-native-preview.noindex/workspace` beside the repository, separate from the installed app's data directory. The current preview launcher does not automatically select the activated `.venv`; see [development preview](docs/DISTRIBUTION.md#开发预览) for the PDF runtime limitation. Use isolated data without personal material for tests and demonstrations; see [Contributing](CONTRIBUTING.md). After changing component, editor or Markdown reading source, run `npm run build:ui`, `npm run build:editors` or `npm run build:document-markdown`, respectively. Release packaging uses `npm run release:mac`; see [installation and building](docs/DISTRIBUTION.md). Legacy Electron and browser entry points remain development tools rather than current product targets.
+The source preview uses `.aibro-native-preview.noindex/workspace` beside the repository, separately from the installed App. Its launcher does not automatically select an active `.venv`; see the [runtime and build guide](docs/DISTRIBUTION.md). After changing UI or editor sources, run the relevant `npm run build:ui`, `npm run build:editors`, or `npm run build:document-markdown`. Native releases use `npm run release:mac`.
 
-| Documentation | Contents |
-| --- | --- |
-| [Changelog](CHANGELOG.md) | Main changes by release |
-| [Installation and building](docs/DISTRIBUTION.md) | Installation, signing, checksums and release builds |
-| [Self-hosted sync](docs/CLOUD_SYNC.md) · [Server deployment](cloud/README.md) | Accounts, synchronization, conflicts and backups |
-| [Knowledge retrieval](docs/KNOWLEDGE_RETRIEVAL.md) | Local indexing, sources and optional semantic retrieval |
-| [Contributing](CONTRIBUTING.md) · [Third-party notices](docs/THIRD_PARTY.md) | Development, feedback, dependencies and licenses |
+[Install and build](docs/DISTRIBUTION.md) · [Architecture](docs/ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md) · [Third-party sources and licenses](docs/THIRD_PARTY.md)
 
-AI Bro is licensed under [AGPL-3.0-only](LICENSE). Halaska Kit, AICSS, Bencho, Milkdown, CodeMirror and other dependencies retain their respective licenses and attribution; see the third-party notices. User files, notes and credentials are not part of the application source distribution.
+</details>
+
+---
+
+<p align="center">Keep what you learn. Continue what you started.</p>
+<p align="center"><a href="LICENSE">AGPL-3.0-only</a> · <a href="https://github.com/zihenghe04/AIBro/issues">Feedback</a> · <a href="CHANGELOG.md">Changelog</a></p>

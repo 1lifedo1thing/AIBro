@@ -629,7 +629,7 @@ async function run(){
    state.conversations=state.conversations.filter(item=>item.id!=='qa-anchor-conv');
    state.conversations.push({id:'qa-anchor-conv',title:'锚点验收',workspace:'日常',permissionMode:'auto',attachments:[],draftAttachmentIds:[],draft:'',createdAt:now,updatedAt:now,messages:[
      {id:'an1',role:'user',text:'先看 app/server.py 里的路由，昨天报了 TypeError: cannot read property x。',at:now-3000},
-     {id:'an2',role:'agent',text:'已定位到 /Users/czx/workspace/docs/plan.md 提到的方案，参考 https://example.com/spec 与 #1234。',at:now-2000}
+     {id:'an2',role:'agent',text:'已定位到 /Users/example/workspace/docs/plan.md 提到的方案，参考 https://example.com/spec 与 #1234。',at:now-2000}
    ],contextSummary:{version:1,items:[{kind:'goal',messageId:'an1',role:'user',quote:'先看 app/server.py 里的路由'}],updatedAt:now}});
    openConversation('qa-anchor-conv');renderAll();})()`);
   await wait(450);

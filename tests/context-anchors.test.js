@@ -3,11 +3,11 @@ const test=require('node:test');const assert=require('node:assert/strict');const
 const msg=(id,text,extra={})=>({id,role:'user',text,at:Number(id.replace(/\D/g,''))||1,...extra});
 
 test('机械提取覆盖路径、网址、错误串、编号与本应用 ID',()=>{
- const items=Anchors.extract([msg('m1','先看 /Users/czx/workspace/docs/plan.md，再访问 https://example.com/spec 复核。')]);
+ const items=Anchors.extract([msg('m1','先看 /Users/example/workspace/docs/plan.md，再访问 https://example.com/spec 复核。')]);
  const kinds=items.map(item=>item.kind);
  assert.ok(kinds.includes('path'),'绝对路径应被提取');
  assert.ok(kinds.includes('url'),'网址应被提取');
- assert.ok(items.some(item=>item.value==='/Users/czx/workspace/docs/plan.md'),'锚点必须是原文片段');
+ assert.ok(items.some(item=>item.value==='/Users/example/workspace/docs/plan.md'),'锚点必须是原文片段');
  assert.ok(items.some(item=>item.value==='https://example.com/spec'));
  const mixed=Anchors.extract([msg('m2','docs/readme.md 里有 TypeError: cannot read property x，见 #1234 与 skill_ab12cd 的记录。')]);
  assert.ok(mixed.some(item=>item.kind==='path'&&item.value==='docs/readme.md'),'带扩展名的相对路径应被提取');
@@ -51,7 +51,7 @@ test('上限同时约束条数与字符数，且不截断单条锚点',()=>{
  const limited=Anchors.extract(many,{limit:10});
  assert.equal(limited.length,10,'条数上限生效');
  assert.ok(limited.every(item=>/^docs\/file-\d+\.md$/.test(item.value)),'不得截断锚点内容');
- const wide=Anchors.extract([msg('m1','路径 /Users/czx/'+'a'.repeat(180)+'/deep/path/file.md 很长。')],{maxChars:60});
+ const wide=Anchors.extract([msg('m1','路径 /Users/example/'+'a'.repeat(180)+'/deep/path/file.md 很长。')],{maxChars:60});
  assert.deepEqual(wide,[],'超预算时宁可少给，不给出残缺锚点');
 });
 

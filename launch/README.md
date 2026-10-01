@@ -1,70 +1,51 @@
 # AI Bro product page
 
-A bilingual static product website for the Mac app. The current page explains the path from source material to conversation, editable output and a next step. It is a marketing/documentation surface, separate from the app's WKWebView implementation and release package.
+A bilingual static product website for the Mac App. The design retains the earlier site's immersive dark hero, large product imagery, alternating workflow chapters and viewport-aware motion. Product images come from the actual **AI Bro 0.8.0 native App**, captured in an isolated workspace containing only fictional materials.
 
-Chinese is the default; `?lang=en` selects English. The official target is [zihenghe04.github.io/AIBro](https://zihenghe04.github.io/AIBro/). Current download buttons point to the [Releases list](https://github.com/zihenghe04/AIBro/releases), including previews, without pinning an outdated package version.
+Chinese is the default; `?lang=en` selects English. The canonical site is [zihenghe04.github.io/AIBro](https://zihenghe04.github.io/AIBro/), and download links target [v0.8.0](https://github.com/zihenghe04/AIBro/releases/tag/v0.8.0). Website changes do not rebuild or replace the App.
 
-## Files and local preview
+## Local preview
 
-| File | Purpose |
-| --- | --- |
-| `dist/index.html` | Chinese content, semantic structure, links, FAQ and recording disclosure |
-| `dist/style.css` | Dark olive palette, system typography, responsive layout and focus/reduced-motion styles |
-| `dist/script.js` | English text, language/history handling, anchor disclosure and recording lifecycle |
-| `dist/assets/mark.png` | Existing brand mark; changing the website does not select or install a new app logo |
-| `dist/assets/recordings/tour-{zh,en}.{jpg,mp4}` | Language-specific historical recording posters and videos |
-
-Serve the static directory; no npm installation or build is needed:
+No dependency installation or build is required:
 
 ```sh
 python3 -m http.server 8080 --bind 127.0.0.1 --directory launch/dist
 ```
 
-Run this from the repository root, then open `http://127.0.0.1:8080/` and `http://127.0.0.1:8080/?lang=en`. Use another available port if necessary. This serves product-page assets, not the app or a user workspace.
+Open `http://127.0.0.1:8080/` and `http://127.0.0.1:8080/?lang=en`. This serves public marketing assets, not a user workspace. The page has no external font service, analytics script, or media CDN.
 
-The page has no external font service, analytics script or media CDN. Text is present in the Chinese HTML without JavaScript; the language switch is revealed after initialization. English translations live in the `EN` object in `script.js`, keyed by HTML `data-t` and `data-label` attributes. Add the Chinese text and matching English key together, including accessible labels. Language changes preserve the URL's existing query/hash; browser back/forward updates the selected language.
-
-`features.json`, per-feature clips and the former iOS gallery remain as historical assets. The current page does **not** fetch `features.json` or render the earlier auto-playing feature grid. Editing that file alone will not update the current website.
-
-## Layout and interaction
-
-- The hero contains a labeled **workflow illustration, not an app screenshot**. It must not be presented as evidence of implemented UI.
-- Sequential workflow, learning/research/daily scenarios, core capabilities, data/model choices, FAQ and download sections share a single scrolling page.
-- Historical recordings are inside a native `details` disclosure. Video uses ordinary playback controls, `preload="none"` and no autoplay; the source is assigned when the disclosure opens.
-- Switching language selects that language's real recording, pauses and clears the previous source, and updates the poster. Closing the recording section or hiding the document pauses playback. A failed video reports a status message and retains the download link.
-- Direct anchors such as `#film`, `#ios` and `#ios-courses` reveal the relevant disclosure. Earlier feature anchors are retained where their content now lives.
-- CSS provides visible keyboard focus, a skip link, responsive grids and reduced-motion overrides. These code paths require browser testing; their presence alone does not establish accessibility or performance acceptance.
-
-The page does not show a fabricated current App screenshot, simulated generation, model-speed claim or an assurance that every source feature is already included in a downloadable build. The iOS companion is a historical FAQ link, while Mac remains the product focus.
-
-## Recording provenance
-
-The visible archive is explicitly labeled **recorded 2026-09-15**, using example workspaces and an earlier interface.
-
-- Chinese: the user's approximately two-minute ScreenCam export, `屏幕录制-20260915-162058.mp4`; source SHA-256 `5cd0fa2ffec80e91a5854ffa9bd7ebe8bcb9b7a6fb6337e6b23c50f412c8c051`. The existing background, cursor and shadows came from that recording.
-- English: a separate task-editing recording, `screen-cam-1789458513.mp4`, edited from source intervals 104–123, 190–205 and 213–220 seconds without increasing playback speed.
-- These are edited recordings of actual interface operations. They are not live model benchmarks or acceptance evidence for the current app version. The English page does not substitute Chinese footage.
-
-The earlier nine Chinese feature intervals are retained for provenance and possible reuse:
-
-| Feature | Original source interval, seconds |
+| File | Purpose |
 | --- | --- |
-| Overview | 0.4–7.2 |
-| File review | 9.1–24.3 |
-| Calendar | 25.4–31.3 |
-| Captures | 39.1–55.2 |
-| Project charts | 57.5–69.8 |
-| Project reader | 78.8–86.9 |
-| Research Wiki | 95.5–103.1 |
-| History and trash | 104.0–112.7 |
-| Model settings | 114.1–117.7 |
+| `dist/index.html` | Semantic Chinese content, real App screenshots, video controls, FAQ and downloads |
+| `dist/style.css` | Typography, dark olive palette, alternating media layout, responsive and reduced-motion styles |
+| `dist/script.js` | English translations, language history, viewport playback, motion controls and image dialog |
+| `dist/assets/mark.png` | Existing App brand mark |
+| `dist/assets/demo/native-*.png` | Actual native App screenshots: overview, reader, editor and agenda |
+| `dist/assets/demo/hero-workspace.png` | Actual App screenshot used by README and the film poster |
+| `dist/assets/demo/workflow-film.mp4` | Combined screenshot sequence |
+| `dist/assets/demo/{source-to-note,review-to-save,plan-to-agenda}.{mp4,gif}` | Three workflow sequences, with GIF alternatives for GitHub |
 
-Legacy iOS images in `assets/ios/` came from an isolated simulator with fictional data; course attendance states were simulated. They are not displayed by the current page. Keep these distinctions if reusing the assets.
+## Interaction and motion
 
-## Maintenance and publication
+- An immersive hero introduces the product; a separate unshaded, high-resolution image lets visitors inspect the real workspace.
+- The film has native playback controls. Workflow chapters preload near the viewport, play when visible, and pause when offscreen or the page is hidden.
+- Visitors can pause page motion, play individual chapters, download GIFs, or enlarge screenshots in a keyboard-accessible native dialog. Escape closes the dialog and focus returns to the trigger.
+- Reduced-motion preferences disable automatic playback and entrance movement. Content remains readable without JavaScript.
+- The English dictionary must cover visible copy and accessible labels. Language changes preserve the URL hash; back/forward navigation restores the selected language.
+- Failed media retains access to the real screenshot and reports a readable status instead of leaving an empty frame.
 
-Before publication, check both languages and narrow/desktop widths, keyboard navigation, FAQ/recording disclosure, direct anchors, back/forward language changes, missing-video feedback, visible focus and reduced motion. Confirm that all local assets are included in the public source export. JavaScript syntax and reference checks are useful, but do not substitute for rendered browser acceptance.
+The page uses CSS transitions and browser media APIs rather than adding a framework runtime solely for presentation. Its motion should direct attention to actual product details, not simulate unimplemented UI.
 
-The deployment workflow is [`.github/workflows/pages.yml`](../.github/workflows/pages.yml). It uploads `launch/dist` on matching `main` changes or manual dispatch, and only deploys for the public `zihenghe04/AIBro` repository. Source mirrors and forks do not deploy the canonical website. A local file edit does not prove successful Pages publication.
+## Media provenance
 
-Use the sanitized public checkout for publication; do not push private development history, workspace data, unreviewed screenshots or recording caches. Keep app release notes and website claims aligned with the actual downloadable version. Publishing this page does not update the installed app, create a GitHub app release or validate new product functionality.
+All current product screenshots were captured from the native 0.8.0 App on 2026-10-01. The capture App uses the released executable and frontend resources, with a distinct bundle identifier and a separate demo workspace. Public examples include a fictional interaction-design course, an urban-transport research project, and a weekend plan. No production workspace, account, credentials, server addresses, or personal documents are included.
+
+The videos and GIFs are **sequences of actual screenshots** with editing transitions. They are not continuous screen recordings, live model executions, or model-speed benchmarks. Both website languages and README captions state this distinction. The screenshots show the Chinese App interface in either website language.
+
+Do not reintroduce generated product mockups, fabricated tool results or unreviewed screenshots. The earlier `assets/recordings/`, `assets/ios/`, and `features.json` remain historical assets and are not referenced by the current landing page. A historical asset is not automatically approved for reuse.
+
+## Publication checklist
+
+Verify Chinese and English at desktop and narrow widths; image enlargement and focus restoration; film and chapter playback; pause controls; keyboard access; reduced motion; local asset references; image encodings; and privacy of every newly published frame. Check readable type, image aspect ratios and media size as well as JavaScript syntax. Browser acceptance is separate from App acceptance.
+
+The [Pages workflow](../.github/workflows/pages.yml) publishes `launch/dist` on matching `main` changes, only for the public `zihenghe04/AIBro` repository. Publish from the sanitized public checkout, never private development history. Confirm the exact commit's successful Pages deployment and the resulting live page. Keep product claims aligned with the downloadable version; a successful website deployment does not establish App feature correctness.
