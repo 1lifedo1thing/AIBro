@@ -95,9 +95,16 @@ class SSHTests(unittest.TestCase):
         import threading
         with tempfile.TemporaryDirectory() as d:
             service=SimpleNamespace(_sync_lock=threading.Lock())
-            launches=[]
+            launches=[]; loaded=True; failed=False
             def runner(args,**kwargs):
-                launches.append(args[1]);return SimpleNamespace(returncode=1 if launches==['bootout','bootstrap'] else 0)
+                nonlocal loaded,failed
+                launches.append(args[1])
+                if args[1]=='print': return SimpleNamespace(returncode=0 if loaded else 113)
+                if args[1]=='bootout': loaded=False
+                if args[1]=='bootstrap':
+                    if not failed: failed=True;return SimpleNamespace(returncode=1)
+                    loaded=True
+                return SimpleNamespace(returncode=0)
             manager=CloudSSH(service,home=Path(d).resolve(),runner=runner)
             manager.path.parent.mkdir(parents=True)
             original=plistlib.dumps({'Label':LABEL,'ProgramArguments':['/usr/bin/ssh','-N','-L','127.0.0.1:18787:127.0.0.1:8787','old-host']})
@@ -105,7 +112,7 @@ class SSHTests(unittest.TestCase):
             with patch.object(manager,'_bound',return_value={'accountId':'fixture'}),patch.object(manager,'_remote',return_value={'remotePort':8787}):
                 with self.assertRaisesRegex(CloudSyncError,'还原旧配置'):manager.save({'config':{'target':'new-host'}})
             self.assertEqual(manager.path.read_bytes(),original)
-            self.assertEqual(launches,['bootout','bootstrap','bootout','bootstrap'])
+            self.assertEqual(launches,['print','bootout','print','bootstrap','bootout','print','bootstrap','print'])
             self.assertFalse(service._sync_lock.locked());self.assertFalse(manager.lock.locked())
             self.assertEqual(len(list(manager.path.parent.glob('*.backup-*'))),1)
 
@@ -113,5 +120,79 @@ class SSHTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             ssh=CloudSSH(None,home=d,runner=lambda *a,**k:self.fail('must not run commands'))
             with self.assertRaisesRegex(CloudSyncError,'确认'):ssh.move({})
+
+    def test_move_attempt_identity_survives_completion_and_changes_on_same_path_retry(self):
+        from types import SimpleNamespace
+        import threading
+
+        with tempfile.TemporaryDirectory() as d:
+            source, destination = '/srv/fixture/source', '/srv/fixture/destination'
+            settings = {'autoSync': True}
+            service = SimpleNamespace(
+                _sync_lock=threading.Lock(),
+                status=lambda: {**settings, 'target': {'serverUrl': 'http://127.0.0.1:18787', 'accountId': 'fixture-account'}},
+                settings=lambda patch: settings.update(patch),
+            )
+            deferred, requests = [], []
+
+            class DeferredThread:
+                def __init__(self, *, target, daemon, name):
+                    deferred.append(target)
+
+                def start(self):
+                    pass
+
+            def runner(args, **kwargs):
+                self.assertEqual(args[0], '/usr/bin/ssh')
+                payload = json.loads(kwargs['input'])
+                self.assertIn(payload['action'], ('move', 'move-status'))
+                self.assertEqual(payload['expectedPath'], source)
+                self.assertEqual(payload['dataPath'], destination)
+                requests.append(payload)
+                if len(requests) == 1:
+                    return SimpleNamespace(returncode=1, stdout='', stderr='synthetic first-attempt failure')
+                return SimpleNamespace(returncode=0, stdout=json.dumps({
+                    'ok': True, 'remotePort': 8787, 'dataPath': source if payload['action'] == 'move-status' else destination,
+                    'databasePath': destination + '/cloud.sqlite3', 'active': True,
+                    'job': {'id': payload['jobId'], 'source': source, 'destination': destination,
+                            'state': 'error' if payload['action'] == 'move-status' else 'completed',
+                            'phase': 'rejected' if payload['action'] == 'move-status' else 'verified', 'message': 'synthetic result'},
+                }))
+
+            manager = CloudSSH(service, home=Path(d).resolve(), runner=runner)
+            manager.path.parent.mkdir(parents=True)
+            manager.path.write_bytes(plistlib.dumps({
+                'Label': LABEL,
+                'ProgramArguments': ['/usr/bin/ssh', '-N', '-L', '127.0.0.1:18787:127.0.0.1:8787', 'fixture-host'],
+            }))
+            manager.remote_info = {'dataPath': source, 'remotePort': 8787}
+            payload = {'confirmed': True, 'expectedPath': source, 'dataPath': destination}
+            attempt_ids = []
+
+            with patch('cloud_ssh.threading.Thread', DeferredThread):
+                for terminal_state in ['uncertain', 'completed']:
+                    running = manager.move(payload)['job']
+                    self.assertEqual(running['state'], 'running')
+                    self.assertRegex(running['id'], r'^[a-f0-9]{32}$')
+                    self.assertNotIn(running['id'], attempt_ids)
+                    attempt_ids.append(running['id'])
+                    self.assertTrue(manager.lock.locked())
+                    self.assertTrue(service._sync_lock.locked())
+                    self.assertEqual(len(deferred), 1)
+
+                    deferred.pop()()
+                    terminal = manager.status()['job']
+                    self.assertEqual(terminal['state'], terminal_state)
+                    self.assertEqual(terminal['id'], running['id'])
+                    self.assertEqual((terminal['source'], terminal['destination']), (source, destination))
+                    self.assertFalse(manager.lock.locked())
+                    self.assertFalse(service._sync_lock.locked())
+                    if terminal_state == 'uncertain':
+                        with self.assertRaisesRegex(CloudSyncError, '尚未确认'): manager.move(payload)
+                        manager.reconcile({'jobId': running['id']})
+                        manager.remote_info = {'dataPath': source, 'remotePort': 8787}
+
+            self.assertEqual(len(requests), 3)
+            self.assertEqual(manager.remote_info['dataPath'], destination)
 
 if __name__=='__main__':unittest.main()

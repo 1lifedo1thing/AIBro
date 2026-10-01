@@ -3,6 +3,7 @@
 Only explicitly selected knowledge fields leave this database. Credentials,
 local paths, execution permissions and renderer state stay device-local.
 """
+import fcntl
 import hashlib
 import json
 import os
@@ -12,17 +13,18 @@ import sqlite3
 import time
 import uuid
 from contextlib import contextmanager
+from functools import lru_cache
 
 COLLECTIONS = ('projects', 'tasks', 'notes', 'imports', 'papers', 'conversations', 'attachments', 'links', 'trash', 'skills')
 COMMON = set('id title name description workspace projectId project folderId folderPath createdAt updatedAt archived deletedAt tags sourceAttachmentIds sourceAttachmentId sourceConversationId agentRunId'.split())
 FIELDS = {
  'projects': COMMON | set('status dueAt deadline completedAt color icon'.split()),
- 'tasks': COMMON | set('status priority startAt dueAt completedAt checklist sourceNoteIds dependsOn'.split()),
- 'notes': COMMON | set('content kind paperId userEdited userEditedAt revisionHistory aiDraft sourceNoteIds relatedNoteIds mergedNoteIds consolidatedSections projectMemoryType memoryDate memoryRunIds managedIndex wikiFileBacked wikiCategory wikiMigratedAt wikiImportHash wikiOriginalName wikiImportBatch'.split()),
+ 'tasks': COMMON | set('status priority startAt dueAt completedAt checklist sourceNoteIds dependsOn provenance'.split()),
+ 'notes': COMMON | set('content kind paperId userEdited userEditedAt revisionHistory aiDraft aiDraftHistory provenance sourceNoteIds relatedNoteIds mergedNoteIds consolidatedSections sourceComparison projectMemoryType memoryDate memoryRunIds managedIndex wikiFileBacked wikiCategory wikiMigratedAt wikiImportHash wikiOriginalName wikiImportBatch'.split()),
  'imports': COMMON | set('originalName content pages parser mimeType size url warning error blobHash analysis importOrigin'.split()),
- 'papers': COMMON | set('noteId authors year venue doi arxivId url sourceUrl canonicalKey metadata paperType structured userEdits confidence reviewed reviewedAt relations'.split()),
- 'conversations': COMMON | set('attachments skillId modelOverride'.split()),
- 'messages': set('id conversationId position role content text at createdAt updatedAt attachments attachmentIds retrievedSources provider model reasoningEffort modelLabel actualModel'.split()),
+ 'papers': COMMON | set('noteId authors year venue doi arxivId url sourceUrl canonicalKey metadata paperType structured userEdits confidence reviewed reviewedAt relations provenance'.split()),
+ 'conversations': COMMON | set('attachments skillId skillIds modelOverride favorite pinnedAt'.split()),
+ 'messages': set('id conversationId position role content text at createdAt updatedAt attachments attachmentIds retrievedSources provider model reasoningEffort modelLabel actualModel skillSnapshot'.split()),
  'attachments': COMMON | set('type relation taskId noteId importId sourceId targetId sourceType targetType'.split()),
  'links': COMMON | set('sourceId targetId sourceType targetType relation'.split()),
  'trash': set('id type title deletedAt counts data'.split()),
@@ -37,16 +39,117 @@ def dump(value): return json.dumps(value, ensure_ascii=False, separators=(',', '
 def copy(value): return json.loads(dump(value))
 def new_id(): return uuid.uuid4().hex
 
-def clean(value, depth=0):
+
+class ConflictRevisionError(ValueError):
+    """A choice must refer to exactly the two versions the user reviewed."""
+    def __init__(self, changed=False):
+        super().__init__('冲突版本已变化，请重新查看两边内容后再选择。' if changed else '请重新打开冲突比较，取得有效的版本标识后再选择。')
+        self.code = 'CONFLICT_CHANGED' if changed else 'INVALID_CONFLICT_REVISION'
+        self.status = 409 if changed else 400
+
+
+def validate_conflict_revision(revision):
+    if not isinstance(revision, str) or DIGEST.fullmatch(revision) is None:
+        raise ConflictRevisionError()
+
+@lru_cache(maxsize=32768)
+def _cached_wire_id(parent, identifier):
+    return uuid.uuid5(uuid.NAMESPACE_URL, dump([parent, identifier])).hex
+
+def wire_id(parent, identifier):
+    # IDs remain exactly compatible with existing peers. Bound both entry count
+    # and cached key length; uncommon legacy ID shapes retain the uncached path.
+    if isinstance(parent, str) and isinstance(identifier, str) and len(parent) <= 200 and len(identifier) <= 200:
+        return _cached_wire_id(parent, identifier)
+    return uuid.uuid5(uuid.NAMESPACE_URL, dump([parent, identifier])).hex
+
+@lru_cache(maxsize=4096)
+def public_key(key):
+    normalized = re.sub('[^a-z]', '', key.lower())
+    return not key.startswith('_') and normalized not in SENSITIVE and not normalized.endswith(('apikey', 'accesstoken', 'refreshtoken', 'password', 'clientsecret'))
+
+def _provenance_fields(value, strings=None, integers=(), booleans=()):
+    """Copy only typed scalar metadata; unknown nested objects never leave here."""
+    if not isinstance(value, dict): return {}
+    result = {}
+    for key, limit in (strings or {}).items():
+        item = value.get(key)
+        if key not in value or not public_key(key): continue
+        if item is None: result[key] = None
+        elif isinstance(item, str) and not re.search(r'[\x00-\x1f\x7f]', item): result[key] = item[:limit]
+    for key in integers:
+        item = value.get(key)
+        if key in value and (item is None or type(item) is int and 0 <= item <= 9007199254740991): result[key] = item
+    for key in booleans:
+        if type(value.get(key)) is bool: result[key] = value[key]
+    return result
+
+def clean_provenance(value):
+    """Portable v1 provenance only, including when nested in note history.
+
+    This is a sync projection, not a mutation of the device's exact snapshot.
+    Local file identities can embed paths in id/refKey/title, so none of those
+    navigation fields are sent to another device.
+    """
+    if not isinstance(value, dict) or type(value.get('version')) is not int or value['version'] != 1: return None
+    output = _provenance_fields(value.get('output'), {'type': 20, 'id': 200, 'variant': 20})
+    if output.get('type') not in ('note', 'paper', 'task') or not output.get('id') or output.get('variant') not in ('body', 'draft'): return None
+    origin = _provenance_fields(value.get('origin'), {'runId': 200, 'conversationId': 200, 'userMessageId': 200, 'model': 160, 'provider': 80, 'effort': 40}, ('at',), ('recorded', 'private'))
+    if origin.get('recorded') is not True or not origin.get('runId'): return None
+    result = _provenance_fields(value, {'operation': 20, 'outputStamp': 160}, ('omittedInputs',), ('evidenceLimitReached', 'evidenceExcerptLimitReached'))
+    if result.get('operation') not in ('created', 'updated', 'drafted', 'captured'): result.pop('operation', None)
+    result.update(version=1, output=output, origin=origin, inputs=[])
+    inputs = value.get('inputs')
+    seen = set()
+    # Excerpt budgets apply to retained text, not to the supplied-page index.
+    # Keep every validated metadata record, including pages after the old 128
+    # item boundary. Deduplicate only identical portable projections so a new
+    # page, version, evidence ID or capture state never disappears in transit.
+    for raw in inputs if isinstance(inputs, list) else []:
+        if not isinstance(raw, dict) or raw.get('provided') is not True or raw.get('type') not in ('note', 'paper', 'task', 'import', 'local'): continue
+        item = _provenance_fields(raw, {'type': 20, 'id': 200, 'title': 240, 'sourceId': 200, 'projectId': 200, 'variant': 20, 'version': 300, 'origin': 80, 'media': 40, 'bodyHash': 80, 'bodyVariant': 20, 'bodyFormat': 40, 'excerptState': 20, 'textRepresentation': 40}, ('page', 'offset', 'end', 'capturedAt', 'excerptCharacters'), ('provided', 'private'))
+        if item.get('variant') not in ('current', 'draft'): item.pop('variant', None)
+        if item.get('bodyVariant') not in ('current', 'draft'): item.pop('bodyVariant', None)
+        if item.get('bodyFormat') != 'canonical-v1': item.pop('bodyFormat', None)
+        if item.get('excerptState') not in ('retained', 'omitted'): item.pop('excerptState', None)
+        if item.get('textRepresentation') != 'normalized-page': item.pop('textRepresentation', None)
+        if type(item.get('excerptCharacters')) is not int: item.pop('excerptCharacters', None)
+        if item.get('media') not in (None, 'page_image', 'original_file', 'original_image'): item.pop('media', None)
+        if item.get('variant') == 'draft' and item.get('bodyVariant') != 'draft': item.pop('bodyHash', None)
+        if item['type'] == 'local':
+            item.pop('id', None); item.pop('title', None)
+            if not isinstance(item.get('version'), str) or not DIGEST.fullmatch(item['version']): item.pop('version', None)
+        elif not item.get('id'): continue
+        identity = dump(item)
+        if identity in seen: continue
+        seen.add(identity)
+        result['inputs'].append(item)
+    return result
+
+def clean(value, depth=0, provenance_context=None):
     if depth > 40: raise ValueError('同步内容嵌套过深。')
     if isinstance(value, dict):
-        return {key: clean(item, depth+1) for key, item in value.items() if isinstance(key, str) and not key.startswith('_') and re.sub('[^a-z]', '', key.lower()) not in SENSITIVE and not re.sub('[^a-z]', '', key.lower()).endswith(('apikey', 'accesstoken', 'refreshtoken', 'password', 'clientsecret'))}
-    if isinstance(value, list): return [clean(item, depth+1) for item in value]
+        result = {}
+        for key, item in value.items():
+            if not isinstance(key, str) or not public_key(key): continue
+            if key == 'provenance':
+                projected = clean_provenance(item) if provenance_context in ('artifact', 'note', 'draft-history-entry') else None
+                if projected is not None: result[key] = projected
+            else:
+                context = None
+                if provenance_context == 'note': context = {'aiDraft': 'artifact', 'revisionHistory': 'history', 'aiDraftHistory': 'draft-history'}.get(key)
+                elif provenance_context == 'draft-history-entry' and key == 'draft': context = 'artifact'
+                result[key] = clean(item, depth+1, context)
+        return result
+    if isinstance(value, list):
+        context = {'history': 'artifact', 'draft-history': 'draft-history-entry'}.get(provenance_context)
+        return [clean(item, depth+1, context) for item in value]
     return value
 
 def record(kind, item):
     if not isinstance(item, dict): raise ValueError('同步记录格式无效。')
-    result = clean({key: value for key, value in item.items() if key in FIELDS[kind]})
+    context = 'note' if kind == 'notes' else 'artifact' if kind in ('tasks', 'papers') else None
+    result = clean({key: value for key, value in item.items() if key in FIELDS[kind]}, provenance_context=context)
     if kind == 'trash':
         data = item.get('data') or {}; result['data'] = {}
         for key in COLLECTIONS:
@@ -82,13 +185,13 @@ def project(snapshot):
                 for position, message in enumerate(item.get('messages', [])):
                     mid = message.get('id')
                     if not mid: raise ValueError('消息缺少稳定 ID。')
-                    wire = uuid.uuid5(uuid.NAMESPACE_URL, dump([identifier, mid])).hex
+                    wire = wire_id(identifier, mid)
                     if ('messages', wire) in output: raise ValueError('同一对话存在重复消息 ID。')
                     output[('messages', wire)] = record('messages', {**message, 'conversationId': identifier, 'position': position})
     for group in ('projects', 'conversations'):
         for folder in (snapshot.get('folders') or {}).get(group, []):
             if not folder.get('id'): raise ValueError('文件夹缺少稳定 ID。')
-            wire = uuid.uuid5(uuid.NAMESPACE_URL, dump([group, folder['id']])).hex
+            wire = wire_id(group, folder['id'])
             if ('folders', wire) in output: raise ValueError('同类文件夹存在重复 ID。')
             output[('folders', wire)] = record('folders', {**folder, 'kind': group})
     return output
@@ -101,6 +204,19 @@ class SyncStore:
     @contextmanager
     def db(self):
         self.directory.mkdir(parents=True, exist_ok=True)
+        # BEGIN IMMEDIATE serializes transactions, but WAL configuration and
+        # schema setup happen before it. A simultaneous first status request
+        # can otherwise fail that configuration with SQLITE_BUSY. Cover the
+        # whole connection lifetime across threads, instances and processes;
+        # closing the descriptor also releases the lock after exceptions.
+        descriptor = os.open(self.directory / '.sqlite.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            with self._connection() as connection:
+                yield connection
+        finally: os.close(descriptor)
+    @contextmanager
+    def _connection(self):
         if self.path.is_symlink(): raise ValueError('工作站数据库不能是符号链接。')
         connection = sqlite3.connect(self.path, timeout=15, isolation_level=None)
         connection.row_factory = sqlite3.Row
@@ -114,6 +230,9 @@ class SyncStore:
                 CREATE TABLE IF NOT EXISTS outbox (op_id TEXT PRIMARY KEY, kind TEXT NOT NULL, id TEXT NOT NULL, base_version INTEGER NOT NULL, data TEXT, deleted INTEGER NOT NULL, blocked INTEGER NOT NULL DEFAULT 0, UNIQUE(kind,id));
                 CREATE TABLE IF NOT EXISTS sent (op_id TEXT PRIMARY KEY, kind TEXT NOT NULL, id TEXT NOT NULL, data TEXT, deleted INTEGER NOT NULL);
                 CREATE TABLE IF NOT EXISTS conflicts (id TEXT PRIMARY KEY, kind TEXT NOT NULL, entity_id TEXT NOT NULL, remote_version INTEGER NOT NULL, remote_data TEXT, remote_deleted INTEGER NOT NULL, UNIQUE(kind,entity_id));
+                CREATE TRIGGER IF NOT EXISTS capture_projection_insert AFTER INSERT ON entities BEGIN DELETE FROM meta WHERE key='captureProjectionDigest'; END;
+                CREATE TRIGGER IF NOT EXISTS capture_projection_update AFTER UPDATE ON entities BEGIN DELETE FROM meta WHERE key='captureProjectionDigest'; END;
+                CREATE TRIGGER IF NOT EXISTS capture_projection_delete AFTER DELETE ON entities BEGIN DELETE FROM meta WHERE key='captureProjectionDigest'; END;
             ''')
             connection.execute('BEGIN IMMEDIATE')
             yield connection
@@ -128,6 +247,9 @@ class SyncStore:
     def snapshot(self):
         if not self.path.exists(): return None
         with self.db() as db: return self._get(db, 'snapshot')
+    def has_snapshot(self):
+        if not self.path.exists(): return False
+        with self.db() as db: return db.execute("SELECT 1 FROM meta WHERE key='snapshot'").fetchone() is not None
     def file_transaction_committed(self, identifier):
         if not self.path.exists(): return False
         with self.db() as db: return self._get(db,'filetx:'+identifier,False) is True
@@ -148,10 +270,19 @@ class SyncStore:
             if current is not None and current.get('_revision',0)==revision: return current
             return self._get(db,'history:'+str(revision))
     def _save_snapshot(self, db, snapshot):
-        previous=self._get(db,'snapshot')
-        if previous is not None and previous.get('_revision',0)!=snapshot.get('_revision',0):
-            self._put(db,'history:'+str(previous.get('_revision',0)),previous)
-        self._put(db,'snapshot',snapshot)
+        serialized = dump(snapshot)
+        previous = db.execute("SELECT value FROM meta WHERE key='snapshot'").fetchone()
+        # Publication may attach Wiki mappings between the two saves. Keep both
+        # transaction checkpoints, but do not decode and rewrite an identical
+        # large snapshot when publication did not change it.
+        if previous is None or previous['value'] != serialized:
+            if previous is not None:
+                revision = json.loads(previous['value']).get('_revision', 0)
+                if revision != snapshot.get('_revision', 0):
+                    # Preserve the exact committed baseline inside this SQLite
+                    # transaction instead of another JSON round trip.
+                    db.execute("INSERT OR REPLACE INTO meta(key,value) SELECT ?,value FROM meta WHERE key='snapshot'", ('history:'+str(revision),))
+            db.execute('INSERT OR REPLACE INTO meta VALUES (?,?)', ('snapshot', serialized))
         size=0
         rows=db.execute("SELECT key,length(CAST(value AS BLOB)) AS size FROM meta WHERE key LIKE 'history:%' ORDER BY CAST(substr(key,9) AS INTEGER) DESC").fetchall()
         for index,row in enumerate(rows):
@@ -197,21 +328,43 @@ class SyncStore:
     def capture(self, snapshot, before_commit=None):
         snapshot = self._with_hashes(snapshot)
         projected = project(snapshot)
+        values = {key: dump(value) for key, value in projected.items()}
+        digest = hashlib.sha256(b'capture-projection-v1\0')
+        for (kind, identifier), value in sorted(values.items()):
+            # JSON escapes embedded NULs; kinds and wire IDs cannot contain one.
+            digest.update(kind.encode() + b'\0' + identifier.encode() + b'\0' + value.encode('utf-8') + b'\0')
+        fingerprint = digest.hexdigest()
         with self.db() as db:
-            rows = {(r['kind'],r['id']):r for r in db.execute('SELECT * FROM entities')}
-            for key in set(projected) | set(rows):
-                kind, identifier = key; row = rows.get(key)
-                deleted = key not in projected; value = None if deleted else dump(projected[key])
-                if row and row['data'] == value and bool(row['deleted']) == deleted: continue
-                version = row['remote_version'] if row else 0
-                db.execute('INSERT INTO entities(kind,id,data,deleted) VALUES (?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data,deleted=excluded.deleted', (kind,identifier,value,int(deleted)))
-                conflict = db.execute('SELECT 1 FROM conflicts WHERE kind=? AND entity_id=?',key).fetchone()
-                # Even permanent local deletion is represented by a tombstone.
-                self._enqueue(db,kind,identifier,value,deleted,version,int(bool(conflict)))
+            # The trigger invalidates this transactional certificate on *every*
+            # entity write, including sync, other processes and older clients.
+            # Matching projections may skip only entity/outbox comparison; all
+            # snapshot history, file publication and FULL commit still happen.
+            if self._get(db, 'captureProjectionDigest') != fingerprint:
+                self._capture_entities(db, values)
+                self._put(db, 'captureProjectionDigest', fingerprint)
             self._save_snapshot(db,snapshot)
             if before_commit: before_commit(snapshot)
             self._save_snapshot(db,snapshot)
         return snapshot
+    def _capture_entities(self, db, values):
+        # Compare canonical JSON as UTF-8 bytes, without decoding every old
+        # body or loading remote_data (unused by local capture). Restore the
+        # connection's text factory before all other queries/publication.
+        factory = db.text_factory
+        try:
+            db.text_factory = bytes
+            rows = {(r['kind'].decode(), r['id'].decode()): r for r in db.execute('SELECT kind,id,data,deleted,remote_version FROM entities')}
+        finally: db.text_factory = factory
+        for key in set(values) | set(rows):
+            kind, identifier = key; row = rows.get(key)
+            deleted = key not in values; value = None if deleted else values[key]
+            encoded = value.encode('utf-8') if value is not None else None
+            if row and row['data'] == encoded and bool(row['deleted']) == deleted: continue
+            version = row['remote_version'] if row else 0
+            db.execute('INSERT INTO entities(kind,id,data,deleted) VALUES (?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data,deleted=excluded.deleted', (kind,identifier,value,int(deleted)))
+            conflict = db.execute('SELECT 1 FROM conflicts WHERE kind=? AND entity_id=?',key).fetchone()
+            # Even permanent local deletion is represented by a tombstone.
+            self._enqueue(db,kind,identifier,value,deleted,version,int(bool(conflict)))
     def pending(self, limit=100):
         with self.db() as db:
             rows = db.execute('SELECT * FROM outbox WHERE blocked=0 ORDER BY rowid LIMIT ?', (max(1,min(100,int(limit))),)).fetchall()
@@ -306,22 +459,37 @@ class SyncStore:
             self._put(db,'cursor',cursor)
             self._publish_files(db,before_commit,snapshot)
             return {'changed':changed,'snapshot':snapshot}
+    @staticmethod
+    def _conflict_revision(conflict, local):
+        # Hash only the sync projection, not the full workspace or credentials.
+        # Include both deletion flags: an absent entity is not a live null body.
+        value = {'id': conflict['id'], 'type': conflict['kind'], 'entityId': conflict['entity_id'],
+                 'local': {'data': local['data'], 'deleted': bool(local['deleted'])} if local else None,
+                 'remote': {'data': conflict['remote_data'], 'deleted': bool(conflict['remote_deleted']),
+                            'version': conflict['remote_version']}}
+        return hashlib.sha256(dump(value).encode('utf-8')).hexdigest()
+
     def conflicts(self):
         with self.db() as db:
             result=[]
             for c in db.execute('SELECT * FROM conflicts'):
                 row=db.execute('SELECT data,deleted FROM entities WHERE kind=? AND id=?',(c['kind'],c['entity_id'])).fetchone()
                 local=json.loads(row['data']) if row and row['data'] else None; remote=json.loads(c['remote_data']) if c['remote_data'] else None
-                result.append({'id':c['id'],'type':c['kind'],'entityId':c['entity_id'],'title':(local or remote or {}).get('title') or (local or remote or {}).get('name') or c['entity_id'],'local':local,'remote':remote,'remoteVersion':c['remote_version']})
+                result.append({'id':c['id'],'type':c['kind'],'entityId':c['entity_id'],'title':(local or remote or {}).get('title') or (local or remote or {}).get('name') or c['entity_id'],'local':local,'remote':remote,'remoteVersion':c['remote_version'],'revision':self._conflict_revision(c,row)})
             return result
-    def resolve_conflict(self, identifier, choice, before_commit=None):
+    def resolve_conflict(self, identifier, choice, revision=None, before_commit=None):
         if choice not in ('local','remote'): raise ValueError('请选择保留本机或使用云端版本。')
+        validate_conflict_revision(revision)
         with self.db() as db:
             conflict=db.execute('SELECT * FROM conflicts WHERE id=?',(identifier,)).fetchone()
-            if not conflict: raise ValueError('这条冲突已经处理。')
+            if not conflict: raise ConflictRevisionError(changed=True)
             key=(conflict['kind'],conflict['entity_id']); previous=self._get(db,'snapshot',{})
+            local=db.execute('SELECT * FROM entities WHERE kind=? AND id=?',key).fetchone()
+            # This is the authoritative CAS, inside the same write transaction
+            # as resolution and before any file-publication callback runs.
+            if self._conflict_revision(conflict,local) != revision:
+                raise ConflictRevisionError(changed=True)
             if choice=='local':
-                local=db.execute('SELECT * FROM entities WHERE kind=? AND id=?',key).fetchone()
                 if not local: raise ValueError('本机记录已不存在。')
                 db.execute('UPDATE entities SET remote_version=?,remote_data=?,remote_deleted=? WHERE kind=? AND id=?',(conflict['remote_version'],conflict['remote_data'],conflict['remote_deleted'],*key))
                 self._enqueue(db,*key,local['data'],local['deleted'],conflict['remote_version'])

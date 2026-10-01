@@ -19,7 +19,7 @@ function harness(files = [{ name: 'lesson.pdf', type: 'application/pdf', size: 1
     currentConversation: () => c.state.conversations.find(x => x.id === c.state.currentConversationId),
     workspaceName: value => ['日常','课程','科研'].includes(value) ? value : '日常',
     calls: [], saves: 0, renders: 0, cache: [],
-    save: () => { c.saves++; }, renderAll: () => { c.renders++; },
+    save: () => { c.saves++; }, saveDocumentDurably: async () => { c.saves++; return true; }, renderAll: () => { c.renders++; },
     renderFileSelection() {}, showView: () => { c.navigated=true; }, toast: value => { c.message=value; },
     setTimeout: () => 1, clearTimeout() {},
     fileStorePut: async (id,blob) => { c.cache.push({id,blob}); if(options.cacheFails) throw Error('browser cache unavailable'); if(options.cacheStalls) return new Promise(()=>{}); },
@@ -187,4 +187,144 @@ test('capture removed during upload retains failed file for retry and never atta
  const file={name:'figure.png',type:'image/png',size:12};const pending=c.importMaterials(event,{files:[file],captureNoteId:'capture'});
  c.state.notes=[];upload.resolve(response());const result=await pending;
  assert.equal(c.state.imports.length,0);assert.equal(result.failedFiles[0],file);assert.equal(c.state.attachments.length,0);
+});
+
+function workspaceUI(c, targetOptions = () => ({ conversationId: 'a' })) {
+  const events = []; c.window = { ImportWorkspace: {
+    targetOptions, begin: data => events.push({ kind: 'begin', data }),
+    fileStatus: (index, data) => events.push({ kind: 'file', index, data }),
+    finish: data => events.push({ kind: 'finish', data })
+  } }; return events;
+}
+const ticks = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
+
+test('an import waits for actual metadata acknowledgement before success, selection clearing, and PDF indexing', async () => {
+  const c = harness(), receipt = deferred(); const events = workspaceUI(c);
+  c.$('#fileInput').value = 'chosen.pdf'; c.$('#urlInput').value = '';
+  c.saveDocumentDurably = () => receipt.promise;
+  let complete = false; const pending = c.importMaterials(event).then(value => { complete = true; return value; });
+  await ticks(); assert.equal(complete, false); assert.equal(c.message, undefined);
+  assert.equal(c.state.imports.length, 1); assert.equal(c.$('#fileInput').value, 'chosen.pdf');
+  assert.equal(c.calls.some(call => call.url === '/__parse'), false);
+  assert.equal(events.some(entry => entry.data.status === 'saved'), false);
+  receipt.resolve(true); const result = await pending;
+  assert.equal(result.imported.length, 1); assert.equal(c.$('#fileInput').value, '');
+  assert.equal(events.filter(entry => entry.kind === 'file' && entry.data.status === 'saved').length, 1);
+  assert.equal(c.$('#importDialog').closed, undefined, 'the workspace receipt stays open');
+  await c.finish();
+});
+
+test('failed metadata commit retains the same ids and retries persistence without uploading twice', async () => {
+  const file = { name:'source.png',type:'image/png',size:20 }; const c = harness([file]); const events = workspaceUI(c);
+  c.$('#fileInput').value = 'selected source'; let commits = 0;
+  c.saveDocumentDurably = async () => { if (++commits === 1) throw Error('disk full'); return true; };
+  const first = await c.importMaterials(event), id = c.state.imports[0].id;
+  assert.equal(first.imported.length, 0); assert.equal(first.failedFiles.length, 0);
+  assert.equal(first.pendingSave.count, 1); assert.equal(c.$('#fileInput').value, 'selected source');
+  assert.equal(c.message, undefined); assert.equal(c.calls.length, 1);
+  assert.equal(c.importMaterials.pending().files[0], file);
+  await c.importMaterials(event, { files:[file] }); assert.equal(c.calls.length, 1);
+  const second = await c.importMaterials.retryPersistence();
+  assert.deepEqual(Array.from(second.imported, item => item.id), [id]); assert.equal(c.state.imports.length, 1);
+  assert.equal(c.state.conversations[0].attachments.length, 1); assert.equal(c.calls.length, 1);
+  assert.equal(c.importMaterials.pendingSave, undefined); assert.equal(c.importMaterials.retryPersistence, undefined);
+  assert.equal(events.filter(entry => entry.kind === 'finish').length, 2);
+});
+
+test('URL fetch errors and unusable empty responses remain failed with the link retained', async () => {
+  for (const data of [{ error:'network unavailable' }, { content:'' }, { rawBase64:'abc',mimeType:'text/html' }]) {
+    const c = harness([]); c.$('#urlInput').value = 'https://fixture.invalid/page';
+    c.fetch = async () => response(data, !data.error);
+    const result = await c.importMaterials(event);
+    assert.equal(result.imported.length, 0); assert.equal(result.failedFiles.length, 1);
+    assert.equal(result.failedFiles[0].isUrl, true); assert.equal(c.state.imports.length, 0);
+    assert.equal(c.state.attachments.length, 0); assert.equal(c.message, undefined);
+    assert.equal(c.$('#urlInput').value, 'https://fixture.invalid/page'); assert.equal(c.$('#importDialog').closed, undefined);
+  }
+});
+
+test('local text parse failure can still import its durably saved original', async () => {
+  const c = harness([{name:'legacy.docx',type:'application/octet-stream',size:30}]);
+  const originalFetch = c.fetch;
+  c.fetch = (url, init) => url === '/__parse' ? Promise.resolve(response({error:'unsupported parser'}, false)) : originalFetch(url, init);
+  const result = await c.importMaterials(event);
+  assert.equal(result.imported.length, 1); assert.equal(result.imported[0].fileStored, true);
+  assert.equal(result.imported[0].status, 'parse-error'); assert.equal(result.failures.length, 0);
+});
+
+test('dialog conversation target is explicit and cannot follow the hidden current conversation', async () => {
+  const c = harness([{name:'source.png',type:'image/png',size:20}]); workspaceUI(c, () => ({conversationId:'b'}));
+  await c.importMaterials(event);
+  assert.equal(c.state.conversations[0].attachments.length, 0); assert.equal(c.state.conversations[1].attachments.length, 1);
+  assert.equal(c.state.attachments[0].conversationId, 'b'); assert.equal(c.navigated, undefined);
+});
+
+test('workspace-only imports save unattached sources without reading or changing the background conversation', async () => {
+  const c = harness([{name:'source.png',type:'image/png',size:20}]); workspaceUI(c, () => ({workspaceOnly:true,workspace:'课程'}));
+  const before = JSON.stringify(c.state.conversations); c.currentConversation = () => { throw Error('hidden chat accessed'); };
+  const result = await c.importMaterials(event);
+  assert.equal(result.imported.length, 1); assert.equal(result.imported[0].workspace, '课程');
+  assert.equal(result.imported[0].projectId, undefined); assert.equal(result.imported[0].importOrigin, 'workspace');
+  assert.equal(JSON.stringify(c.state.conversations), before); assert.equal(c.state.attachments.length, 0);
+  assert.equal(c.navigated, undefined); assert.equal(result.target.kind, 'workspace');
+});
+
+test('invalid or conflicting explicit destinations reject before any file write', async () => {
+  for (const target of [{conversationId:'missing'},{workspaceOnly:true,workspace:'unknown'},{projectId:null},{conversationId:'a',workspaceOnly:true,workspace:'课程'},null]) {
+    const c = harness([{name:'source.png',type:'image/png',size:20}]); workspaceUI(c, () => target);
+    await c.importMaterials(event); assert.equal(c.calls.length, 0); assert.equal(c.state.imports.length, 0);
+  }
+});
+
+test('pending persistence retry cannot resurrect removed, moved, or detached records or deleted owners', async () => {
+  for (const mode of ['record','conversation','move','detach']) {
+    const c = harness([{name:'source.png',type:'image/png',size:20}]); c.saveDocumentDurably = async () => { throw Error('offline'); };
+    await c.importMaterials(event);
+    const old = c.state.imports[0];
+    if (mode === 'record') c.state.imports = [];
+    if (mode === 'conversation') c.state.conversations.shift();
+    if (mode === 'move') old.projectId = 'another-project';
+    if (mode === 'detach') c.state.conversations[0].attachments = [];
+    let saved = false; c.saveDocumentDurably = async () => { saved = true; return true; };
+    const result = await c.importMaterials.retryPersistence();
+    assert.equal(result.invalidated, true, mode); assert.equal(saved, false, mode);
+    assert.equal(result.imported.length, 0, mode); assert.equal(c.calls.length, 1, mode);
+    assert.equal(c.importMaterials.pendingSave, undefined, mode);
+    if (mode === 'record') assert.equal(c.state.imports.length, 0);
+  }
+});
+
+test('late acknowledgement does not report deleted or moved records as successfully imported', async () => {
+  for (const mode of ['record','conversation','move','detach']) {
+    const c = harness([{name:'source.png',type:'image/png',size:20}]), receipt = deferred();
+    c.saveDocumentDurably = () => receipt.promise; const pending = c.importMaterials(event); await ticks();
+    if (mode === 'record') c.state.imports = [];
+    if (mode === 'conversation') c.state.conversations.shift();
+    if (mode === 'move') c.state.imports[0].workspace = '科研';
+    if (mode === 'detach') c.state.conversations[0].attachments = [];
+    receipt.resolve(true); const result = await pending;
+    assert.equal(result.imported.length, 0, mode); assert.equal(c.message, undefined, mode);
+    assert.ok(result.failures.length, mode);
+  }
+});
+
+test('retrying only failed files keeps the acknowledged members of a partial batch exactly once', async () => {
+  const first = {name:'one.png',type:'image/png',size:20}, second = {name:'two.png',type:'image/png',size:30};
+  const c = harness([first,second]); let count = 0; const fetch = c.fetch;
+  c.fetch = (url, init) => ++count === 2 ? Promise.resolve(response({error:'disk full'}, false)) : fetch(url, init);
+  const a = await c.importMaterials(event), firstId = a.imported[0].id;
+  assert.equal(a.failedFiles.length, 1); const b = await c.importMaterials(event,{files:a.failedFiles});
+  assert.equal(b.imported.length, 1); assert.equal(c.state.imports.length, 2);
+  assert.equal(c.state.imports.filter(item => item.id === firstId).length, 1);
+  assert.deepEqual(Array.from(c.state.imports, item => item.name), ['one.png','two.png']);
+});
+
+test('saving the same capture again resumes its pending metadata with no duplicate original', async () => {
+  const file = {name:'capture.png',type:'image/png',size:20}, c = harness([]);
+  c.state.notes = [{id:'capture',kind:'随记',sourceAttachmentIds:[]}]; let calls = 0;
+  c.saveDocumentDurably = async () => { if (++calls === 1) throw Error('offline'); return true; };
+  const a = await c.importMaterials(event,{files:[file],captureNoteId:'capture'});
+  assert.equal(a.pendingSave.count, 1);
+  const b = await c.importMaterials(event,{files:[file],captureNoteId:'capture'});
+  assert.equal(b.imported.length, 1); assert.equal(c.calls.length, 1); assert.equal(c.state.notes[0].sourceAttachmentIds.length, 1);
 });

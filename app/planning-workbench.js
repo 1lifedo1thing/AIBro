@@ -1,8 +1,9 @@
 (function (root, factory) {
-  const api = factory();
+  const common = typeof module === 'object' && module.exports;
+  const api = factory(root, common ? require('./citation-evidence.js') : null, common ? require('./task-dependencies.js') : null);
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.PlanningWorkbench = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (root, evidence, dependencies) {
   'use strict';
   const SPACES = ['日常', '课程', '科研'];
   const STATUSES = { todo: '待开始', in_progress: '进行中', done: '已完成', blocked: '受阻' };
@@ -10,12 +11,12 @@
   const TYPES = { task: '任务', note: '知识', import: '资料', project: '项目' };
   const DAY = 86400000;
   const list = value => Array.isArray(value) ? value.filter(Boolean) : [];
-  const active = value => !!value?.id && !value.archived && !value.archivedAt && !value.deleted && !value.deletedAt;
+  const active = value => !!value?.id && !value.archived && !value.archivedAt && !value.deleted && !value.deletedAt && !['archived', 'deleted'].includes(value.status) && !value.private && !value.ephemeral && !value.incognito;
   const workspace = value => SPACES.includes(value) ? value : '日常';
   const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const keyFor = (type, id) => JSON.stringify([type, id]);
   const byName = (a, b) => String(a.name || a.title || '').localeCompare(String(b.name || b.title || ''), 'zh-CN') || String(a.id).localeCompare(String(b.id));
-  let hooks = {}, createDialog, moveDialog, creating = false, moving = false;
+  let hooks = {}, createDialog, moveDialog, creating = false, moving = false, createSession = null, moveSession = null;
   const stateNow = () => hooks.getState?.() || {};
   const clock = () => hooks.now?.() ?? Date.now();
   const doc = () => hooks.document || globalThis.document;
@@ -94,15 +95,21 @@
   }
   function nextDay(timestamp) { const next = new Date(timestamp); next.setDate(next.getDate() + 1); next.setHours(0, 0, 0, 0); return next.getTime(); }
   function scopeInfo(state, scope = {}) {
-    const projects = new Map(list(state.projects).filter(active).map(project => [project.id, project]));
+    const access = (evidence || root.CitationEvidence)?.createAccessContext?.(state);
+    const readable = (type, item) => {
+      if (!active(item) || !access) return false;
+      const ref = type === 'project' ? { type: 'local', projectId: item.id, candidateId: item.localFolder?.id } : { type, id: item.id };
+      return access.access(ref).kind === 'available' && !access.isAmbiguous(ref);
+    };
+    const projects = new Map(list(state.projects).filter(project => readable('project', project)).map(project => [project.id, project]));
     const project = scope.projectId ? projects.get(scope.projectId) : null;
     const valid = (!scope.projectId || !!project) && (!scope.workspace || SPACES.includes(scope.workspace)) && (!project || !scope.workspace || workspace(project.workspace) === scope.workspace);
-    const matches = item => active(item) && (!item.projectId || projects.has(item.projectId)) && valid && (!scope.projectId || item.projectId === scope.projectId) && (!scope.workspace || workspace(projects.get(item.projectId)?.workspace || item.workspace) === scope.workspace);
+    const matches = (item, type = 'task') => readable(type, item) && (!item.projectId || projects.has(item.projectId)) && valid && (!scope.projectId || item.projectId === scope.projectId) && (!scope.workspace || workspace(projects.get(item.projectId)?.workspace || item.workspace) === scope.workspace);
     return { projects, project, valid, matches };
   }
   function destination(state, input = {}) {
     if (input.projectId) {
-      const project = list(state.projects).find(item => item.id === input.projectId && active(item));
+      const project = scopeInfo(state).projects.get(input.projectId);
       if (!project) throw new Error('目标项目已归档、删除或不可用，请重新选择。');
       return { projectId: project.id, project: project.name || '未命名项目', workspace: workspace(project.workspace) };
     }
@@ -131,11 +138,19 @@
     if (tasks.some(task => !task)) throw new Error('所选任务已归档、删除或移出当前范围，请重新选择。');
     const patch = destination(state, target), now = context.now ?? Date.now();
     const updates = tasks.filter(task => task.projectId !== patch.projectId || workspace(task.workspace) !== patch.workspace || (task.project || null) !== patch.project).map(task => ({ id: task.id, patch: { ...patch, updatedAt: now } }));
+    if (updates.length) {
+      const validator = dependencies || root.TaskDependencies;
+      if (typeof validator?.validate !== 'function') throw new Error('任务依赖检查尚未就绪，请稍后重试。');
+      const patches = new Map(updates.map(update => [update.id, update.patch]));
+      const candidate = { ...state, tasks: list(state.tasks).map(task => patches.has(task.id) ? { ...task, ...patches.get(task.id) } : task) };
+      // Validate against the complete batch, so related tasks can move together.
+      for (const task of candidate.tasks) if (patches.has(task.id)) validator.validate(candidate, task, task.dependsOn || []);
+    }
     return { updates, count: updates.length, selectedCount: unique.length, destination: patch };
   }
   function derive(state, scope = {}, options = {}) {
     const info = scopeInfo(state, scope), now = options.now ?? Date.now();
-    const tasks = list(state.tasks).filter(info.matches), notes = list(state.notes).filter(info.matches), imports = list(state.imports).filter(info.matches);
+    const tasks = list(state.tasks).filter(item => info.matches(item, 'task')), notes = list(state.notes).filter(item => info.matches(item, 'note')), imports = list(state.imports).filter(item => info.matches(item, 'import'));
     const projects = [...info.projects.values()].filter(project => info.valid && (!scope.projectId || project.id === scope.projectId) && (!scope.workspace || workspace(project.workspace) === scope.workspace)).sort(byName);
     const counts = { total: tasks.length, done: 0, todo: 0, in_progress: 0, blocked: 0, overdue: 0, notes: notes.length, imports: imports.length, projects: projects.length };
     const timeline = []; let unscheduled = 0, invalidDates = 0;
@@ -173,12 +188,13 @@
   }
 
   function projectOptions(state, selected = '') {
-    return '<option value="">未归属项目</option>' + list(state.projects).filter(active).sort((a, b) => SPACES.indexOf(workspace(a.workspace)) - SPACES.indexOf(workspace(b.workspace)) || byName(a, b)).map(project => `<option data-i18n-template="${esc(workspace(project.workspace))} · {project}" data-i18n-vars="${esc(JSON.stringify({project:project.name || '未命名项目'}))}" value="${esc(project.id)}"${project.id === selected ? ' selected' : ''}>${esc(workspace(project.workspace))} · ${esc(project.name || '未命名项目')}</option>`).join('');
+    return '<option value="">未归属项目</option>' + publicProjects(state).map(project => `<option data-i18n-template="${esc(workspace(project.workspace))} · {project}" data-i18n-vars="${esc(JSON.stringify({project:project.name || '未命名项目'}))}" value="${esc(project.id)}"${project.id === selected ? ' selected' : ''}>${esc(workspace(project.workspace))} · ${esc(project.name || '未命名项目')}</option>`).join('');
   }
+  const publicProjects = state => [...scopeInfo(state).projects.values()].sort((a, b) => SPACES.indexOf(workspace(a.workspace)) - SPACES.indexOf(workspace(b.workspace)) || byName(a, b));
   const spaceOptions = value => SPACES.map(space => `<option${space === value ? ' selected' : ''}>${space}</option>`).join('');
   function bindDestination(space, project) {
-    project.onchange = () => { const selected = list(stateNow().projects).find(item => item.id === project.value && active(item)); if (selected) space.value = workspace(selected.workspace); };
-    space.onchange = () => { const selected = list(stateNow().projects).find(item => item.id === project.value && active(item)); if (selected && workspace(selected.workspace) !== space.value) project.value = ''; };
+    project.onchange = () => { const selected = scopeInfo(stateNow()).projects.get(project.value); if (selected) space.value = workspace(selected.workspace); };
+    space.onchange = () => { const selected = scopeInfo(stateNow()).projects.get(project.value); if (selected && workspace(selected.workspace) !== space.value) project.value = ''; };
   }
   function ensureDialog(kind) {
     if (kind === 'create' && createDialog) return createDialog;
@@ -193,60 +209,109 @@
     if (scope?.projectId) return destination(stateNow(), scope);
     return destination(stateNow(), { workspace: scope?.workspace || '日常' });
   }
-  async function persist() { if (await hooks.save?.() === false) throw new Error('任务尚未保存，请检查工作区状态后重试。'); }
+  async function persist(session) {
+    if (typeof session.hooks.save !== 'function' || await session.hooks.save() !== true) throw new Error('任务尚未确认保存，请检查工作区状态后重试。');
+  }
+  const currentSession = session => session && session.hooks === hooks && session.owner === stateNow() && session.dialog.open && (session.kind === 'create' ? createSession === session : moveSession === session);
+  function releaseCreate(session) {
+    session?.island?.unmount(); if (session) session.island = null;
+    if (createSession === session) createSession = null;
+  }
+  function closeCreate(session) {
+    if (createSession !== session || session.busy) return false;
+    session.dialog.close(); releaseCreate(session); return true;
+  }
   function createTask(scope = {}) {
     if (creating) { hooks.toast?.('任务正在保存，请稍候。'); return false; }
     let target; try { target = defaultDestination(scope); } catch (error) { hooks.toast?.(error.message); return false; }
-    const dialog = ensureDialog('create'); if (dialog.open) { $('#planningTaskTitle')?.focus(); return true; }
-    dialog.innerHTML = `<form id="planningCreateForm"><div class="dialog-header"><div><p class="eyebrow">手动安排</p><h2 id="${dialog.id}Title">添加任务</h2></div><button type="button" class="icon" data-planning-cancel aria-label="关闭">×</button></div>
-      <label for="planningTaskTitle">任务名称</label><input id="planningTaskTitle" autocomplete="off" maxlength="500" required placeholder="下一步要完成什么？" />
-      <label for="planningTaskDescription">详情</label><textarea id="planningTaskDescription" maxlength="20000" placeholder="目标、背景或验收标准（可选）"></textarea>
-      <div class="planning-form-grid"><div><label for="planningTaskWorkspace">所属空间</label><select id="planningTaskWorkspace">${spaceOptions(target.workspace)}</select></div><div><label for="planningTaskProject">归属项目 · 所有空间</label><select id="planningTaskProject">${projectOptions(stateNow(), target.projectId)}</select></div>
-      <div><label for="planningTaskStatus">状态</label><select id="planningTaskStatus">${Object.entries(STATUSES).map(([key, value]) => `<option value="${key}">${value}</option>`).join('')}</select></div><div><label for="planningTaskPriority">优先级</label><select id="planningTaskPriority">${Object.entries(PRIORITIES).map(([key, value]) => `<option value="${key}"${key === 'medium' ? ' selected' : ''}>${value}</option>`).join('')}</select></div>
-      <div><label for="planningTaskStart">开始日期</label><input id="planningTaskStart" type="date" /></div><div><label for="planningTaskDue">截止日期</label><input id="planningTaskDue" type="date" /></div></div>
-      <p class="muted">日期可留空；只填截止日期时，时间线会显示一个截止点。</p><p class="planning-error" role="alert" id="planningCreateError"></p>
-      <div class="dialog-actions"><button type="button" class="secondary" data-planning-cancel>取消</button><button type="submit" class="primary" id="planningCreateSubmit">添加任务</button></div></form>`;
-    dialog.querySelectorAll('[data-planning-cancel]').forEach(button => { button.onclick = () => dialog.close(); });
-    bindDestination($('#planningTaskWorkspace'), $('#planningTaskProject'));
-    $('#planningCreateForm').onsubmit = async event => {
-      event.preventDefault(); const submit = $('#planningCreateSubmit'); if (submit.disabled) return;
+    const dialog = ensureDialog('create');
+    if (dialog.open && currentSession(createSession)) { $('#planningTaskTitle')?.focus(); return true; }
+    if (createSession) closeCreate(createSession);
+    const session = createSession = { kind: 'create', owner: stateNow(), hooks, dialog, busy: false, blocked: false, island: null };
+    dialog.innerHTML = '<div id="planningCreateSurface"></div>';
+    dialog.oncancel = event => { if (session.busy) event.preventDefault(); };
+    // Native close is queued. A previous close event must not retire a form
+    // that was synchronously reopened in the same dialog before delivery.
+    dialog.onclose = () => { if (!dialog.open) releaseCreate(session); };
+    const update = (busy, error = session.error || '') => { session.error = error; if (currentSession(session)) session.island?.update({ busy, error }); };
+    const submit = async values => {
+      if (!currentSession(session) || session.busy || session.blocked) return false;
       let task, initialTask, committed = false;
       try {
-        task = planCreate(stateNow(), { title: $('#planningTaskTitle').value, description: $('#planningTaskDescription').value, workspace: $('#planningTaskWorkspace').value, projectId: $('#planningTaskProject').value, status: $('#planningTaskStatus').value, priority: $('#planningTaskPriority').value, startAt: inputDate($('#planningTaskStart').value, '开始日期'), dueAt: inputDate($('#planningTaskDue').value, '截止日期') }, { now: clock(), uid: hooks.uid });
-        creating = true; submit.disabled = true; $('#planningCreateError').textContent = ''; initialTask = JSON.stringify(task); stateNow().tasks ||= []; stateNow().tasks.push(task);
-        await persist(); committed = true; if (dialog.open) dialog.close(); hooks.renderAll?.(); hooks.toast?.('任务已添加，进度与时间线已更新。');
+        const fields = ['title', 'description', 'workspace', 'projectId', 'status', 'priority', 'startAt', 'dueAt'];
+        if (!values || fields.some(key => typeof values[key] !== 'string')) throw new Error('任务表单无效，请检查输入后重试。');
+        task = planCreate(session.owner, { ...values, startAt: inputDate(values.startAt, '开始日期'), dueAt: inputDate(values.dueAt, '截止日期') }, { now: clock(), uid: session.hooks.uid });
+        creating = session.busy = true; update(true, ''); initialTask = JSON.stringify(task);
+        session.owner.tasks ||= []; session.owner.tasks.push(task);
+        await persist(session); committed = true;
+        if (!currentSession(session)) return false;
+        if (list(session.owner.tasks).filter(item => item.id === task.id).length !== 1 || !session.owner.tasks.includes(task) || JSON.stringify(task) !== initialTask || !scopeInfo(session.owner).matches(task)) {
+          session.blocked = true; throw new Error('保存期间任务或工作区已变化，请关闭后核对最新任务。');
+        }
+        session.busy = false; closeCreate(session); session.hooks.renderAll?.(); session.hooks.toast?.('任务已添加'); return true;
       } catch (error) {
-        if (!committed && task && JSON.stringify(task) === initialTask) { const current = stateNow(); current.tasks = list(current.tasks).filter(item => item !== task); }
-        if (committed || !dialog.open) hooks.toast?.(committed ? '任务已保存，界面刷新失败，请重新打开总览。' : error.message || '添加任务失败，请重试。');
-        else $('#planningCreateError').textContent = error.message || '添加任务失败，请重试。';
-      } finally { creating = false; submit.disabled = false; }
+        if (!committed && task) {
+          if (session.owner === stateNow() && list(session.owner.tasks).includes(task) && JSON.stringify(task) === initialTask) session.owner.tasks = session.owner.tasks.filter(item => item !== task);
+          else session.blocked = true;
+        }
+        if (currentSession(session)) update(false, error.message || '添加任务失败，请重试。');
+        return false;
+      } finally { creating = session.busy = false; if (currentSession(session)) update(false, session.blocked ? '任务或工作区已变化，请关闭后核对最新任务。' : undefined); }
     };
-    showDialog(dialog); $('#planningTaskTitle').focus(); return true;
+    try {
+      const mount = session.hooks.mount || ((host, name, props) => root.HalaskaUI.mount(host, name, props));
+      session.island = mount($('#planningCreateSurface'), 'TaskCreateForm', {
+        initial: { workspace: target.workspace, projectId: target.projectId || '', status: 'todo', priority: 'medium', title: '', description: '', dueAt: '', startAt: '' },
+        projects: publicProjects(session.owner).map(project => ({ id: project.id, name: project.name || '未命名项目', workspace: workspace(project.workspace) })),
+        busy: false, error: '', onSubmit: submit, onCancel: () => closeCreate(session)
+      });
+      showDialog(dialog); $('#planningTaskTitle')?.focus(); return true;
+    } catch (error) { releaseCreate(session); hooks.toast?.(error.message || '任务表单暂不可用。'); return false; }
   }
   function moveTasks(ids, scope = {}) {
     if (moving) { hooks.toast?.('移动正在保存，请稍候。'); return false; }
     const current = stateNow(); let check;
     try { const candidate = list(current.tasks).find(task => task.id === ids?.[0]); check = planMove(current, ids, { workspace: workspace(candidate?.workspace), projectId: candidate?.projectId || null }, { scope }); }
     catch (error) { hooks.toast?.(error.message); return false; }
-    const dialog = ensureDialog('move'); if (dialog.open) return false;
+    const dialog = ensureDialog('move'); if (dialog.open && currentSession(moveSession)) return false;
+    if (dialog.open) dialog.close();
+    const session = moveSession = { kind: 'move', owner: current, hooks, dialog, busy: false, blocked: false };
+    ids = [...ids]; scope = { ...scope };
     dialog.innerHTML = `<form id="planningMoveForm"><div class="dialog-header"><div><p class="eyebrow">调整归属</p><h2 id="${dialog.id}Title">移动 ${check.selectedCount} 个任务</h2></div><button class="icon" type="button" data-planning-cancel aria-label="关闭">×</button></div>
       <label for="planningMoveWorkspace">所属空间</label><select id="planningMoveWorkspace">${spaceOptions(check.destination.workspace)}</select><label for="planningMoveProject">目标项目 · 所有空间</label><select id="planningMoveProject">${projectOptions(current, check.destination.projectId)}</select>
       <p class="muted">任务的状态、日期、检查清单和来源关联都会保留；选择“未归属项目”可直接移入所选空间。</p><p class="planning-error" id="planningMoveError" role="alert"></p>
       <div class="dialog-actions"><button type="button" class="secondary" data-planning-cancel>取消</button><button type="submit" class="primary" id="planningMoveSubmit">移动任务</button></div></form>`;
-    dialog.querySelectorAll('[data-planning-cancel]').forEach(button => { button.onclick = () => dialog.close(); }); bindDestination($('#planningMoveWorkspace'), $('#planningMoveProject'));
+    dialog.querySelectorAll('[data-planning-cancel]').forEach(button => { button.onclick = () => { if (moveSession === session && !session.busy) dialog.close(); }; });
+    dialog.oncancel = event => { if (session.busy) event.preventDefault(); };
+    dialog.onclose = () => { if (!dialog.open && moveSession === session) moveSession = null; };
+    bindDestination($('#planningMoveWorkspace'), $('#planningMoveProject'));
     $('#planningMoveForm').onsubmit = async event => {
-      event.preventDefault(); const submit = $('#planningMoveSubmit'); if (submit.disabled) return;
+      event.preventDefault(); const submit = $('#planningMoveSubmit');
+      if (!currentSession(session) || session.busy || session.blocked || submit.disabled) return false;
       const undo = []; let committed = false;
+      const controls = [...dialog.querySelectorAll('input,select,textarea,button')].map(control => [control, control.disabled]);
       try {
-        const plan = planMove(stateNow(), ids, { workspace: $('#planningMoveWorkspace').value, projectId: $('#planningMoveProject').value }, { now: clock(), scope });
-        moving = true; submit.disabled = true; $('#planningMoveError').textContent = '';
-        for (const update of plan.updates) { const task = stateNow().tasks.find(item => item.id === update.id); undo.push({ task, before: Object.fromEntries(Object.keys(update.patch).map(key => [key, task[key]])), patch: update.patch }); Object.assign(task, update.patch); }
-        if (plan.count) await persist(); committed = true; if (dialog.open) dialog.close(); hooks.renderAll?.(); hooks.toast?.(plan.count ? `已移动 ${plan.count} 个任务，来源关联已保留。` : '任务已经在所选位置。');
+        const plan = planMove(session.owner, ids, { workspace: $('#planningMoveWorkspace').value, projectId: $('#planningMoveProject').value }, { now: clock(), scope });
+        moving = session.busy = true; submit.disabled = true; controls.forEach(([control]) => { control.disabled = true; }); $('#planningMoveError').textContent = '';
+        for (const update of plan.updates) {
+          const task = session.owner.tasks.find(item => item.id === update.id);
+          undo.push({ task, before: Object.fromEntries(Object.keys(update.patch).filter(key => Object.hasOwn(task, key)).map(key => [key, task[key]])), patch: update.patch }); Object.assign(task, update.patch);
+        }
+        if (plan.count) await persist(session); committed = true;
+        if (!currentSession(session)) return false;
+        if (undo.some(({ task, patch }) => list(session.owner.tasks).filter(item => item.id === task.id).length !== 1 || !session.owner.tasks.includes(task) || Object.keys(patch).some(key => task[key] !== patch[key]) || !scopeInfo(session.owner).matches(task))) {
+          session.blocked = true; throw new Error('保存期间任务或工作区已变化，请关闭后核对最新归属。');
+        }
+        session.busy = false; dialog.close(); session.hooks.renderAll?.(); session.hooks.toast?.(plan.count ? `已移动 ${plan.count} 个任务，来源关联已保留。` : '任务已经在所选位置。'); return true;
       } catch (error) {
-        if (!committed) for (const { task, before, patch } of undo) if (stateNow().tasks?.includes(task) && Object.keys(patch).every(key => task[key] === patch[key])) Object.assign(task, before);
-        if (committed || !dialog.open) hooks.toast?.(committed ? '任务已移动，界面刷新失败，请重新打开总览。' : error.message || '移动失败，请重试。');
-        else $('#planningMoveError').textContent = error.message || '移动失败，请重试。';
-      } finally { moving = false; submit.disabled = false; }
+        if (!committed) for (const { task, before, patch } of undo) {
+          if (session.owner === stateNow() && session.owner.tasks?.includes(task) && Object.keys(patch).every(key => task[key] === patch[key])) {
+            for (const key of Object.keys(patch)) { if (Object.hasOwn(before, key)) task[key] = before[key]; else delete task[key]; }
+          } else session.blocked = true;
+        }
+        if (currentSession(session)) $('#planningMoveError').textContent = session.blocked ? '任务或工作区已变化，请关闭后核对最新归属。' : error.message || '移动失败，请重试。';
+        return false;
+      } finally { moving = session.busy = false; if (currentSession(session)) { submit.disabled = false; controls.forEach(([control, disabled]) => { control.disabled = disabled; }); } }
     };
     showDialog(dialog); return true;
   }
@@ -255,7 +320,7 @@
     let extra = $('#planningTaskEditorFields');
     if (!extra) { extra = doc().createElement('div'); extra.id = 'planningTaskEditorFields'; extra.className = 'task-field task-inline planning-editor-fields'; project.closest('.task-field').before(extra); }
     extra.innerHTML = '<div><label for="taskWorkspaceInput">所属空间</label><select id="taskWorkspaceInput"></select></div><div><label for="taskStartInput">开始日期（可选）</label><input id="taskStartInput" type="date" /></div>';
-    const current = list(stateNow().projects).find(item => item.id === task.projectId && active(item));
+    const current = scopeInfo(stateNow()).projects.get(task.projectId);
     $('#taskWorkspaceInput').innerHTML = spaceOptions(workspace(current?.workspace || task.workspace)); $('#taskStartInput').value = dateField(task.startAt);
     project.innerHTML = projectOptions(stateNow(), task.projectId); project.value = current?.id || '';
     const label = doc().querySelector('label[for="taskProjectInput"]'); if (label) label.textContent = '归属项目 · 所有空间';
@@ -272,7 +337,8 @@
   }
 
   function openEntity(type, id) {
-    const state = stateNow(), available = type === 'project' ? list(state.projects).some(item => item.id === id && active(item)) : list(state[`${type === 'import' ? 'import' : type}s`]).some(item => item.id === id && scopeInfo(state).matches(item));
+    const state = stateNow(), info = scopeInfo(state);
+    const available = type === 'project' ? info.projects.has(id) : ['task', 'note', 'import'].includes(type) && list(state[`${type}s`]).some(item => item.id === id && info.matches(item, type));
     if (!available) { hooks.toast?.('内容已归档、删除或不可用。'); hooks.renderAll?.(); return; }
     hooks.openEntity?.(type, id);
   }
@@ -317,6 +383,9 @@
     };
     return model;
   }
-  return { init(options = {}) { hooks = options; createDialog = null; moveDialog = null; return this; },
+  return { init(options = {}) {
+    releaseCreate(createSession); createDialog?.remove?.(); moveDialog?.remove?.();
+    hooks = options; createDialog = null; moveDialog = null; createSession = null; moveSession = null; return this;
+  }, isBusy: () => creating || moving,
     derive, planCreate, planMove, parseDate, dateField, validateDates, timelineScale, active, createTask, moveTasks, render, enhanceTaskEditor, readTaskEditor };
 });

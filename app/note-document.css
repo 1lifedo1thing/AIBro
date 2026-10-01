@@ -30,3 +30,6 @@
 @container(max-width:390px){.note-document-count{flex:1 1 80px;font-size:9px}.note-document-button{padding:5px 8px}.note-document-preview{font-size:13px}.note-document-title-field input{font-size:18px}.note-document-source textarea{padding:12px}}
 @media(prefers-reduced-motion:reduce){.note-document-button{transition:none}}
 @media(prefers-reduced-transparency:reduce){.note-document-outline,.note-document-toolbar{background:var(--panel);backdrop-filter:none}}
+
+/* The modern source editor has its own Kit outline toggle at every width. */
+.note-document[data-editor-foundation=modern][data-mode=edit] .note-document-outline[open]{display:block}

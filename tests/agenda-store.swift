@@ -30,7 +30,7 @@ struct ContentRecord {let id:String;let title:String;let workspace:String;let pr
   let reminder=store.occurrences(from:now,to:range).first{$0.event.id=="notify"}!
   try store.toggleDone(reminder);check(!store.plannedNotifications(now:now).contains{$0.2=="Reminder"},"completed occurrence has no pending reminder")
   try store.save(remind);try store.cancel(remind);check(!store.plannedNotifications(now:now).contains{$0.2=="Reminder"},"cancelled series has no reminder")
-  try store.restore(remind);check(!store.plannedNotifications(now:now.addingTimeInterval(3500)).contains{$0.2=="Reminder"},"past trigger never fires unexpectedly on reopen")
+  try store.restore(store.events.first{$0.id==remind.id}!);check(!store.plannedNotifications(now:now.addingTimeInterval(3500)).contains{$0.2=="Reminder"},"past trigger never fires unexpectedly on reopen")
   preferences.taskReminderMinutes=15;try store.updatePreferences(preferences)
   check(store.plannedNotifications(now:now).contains{$0.2=="Date only" && $0.1==dated.start.addingTimeInterval(-900)},"task reminder preference participates in scheduling")
   var t=ContentRecord(id:"explicit",title:"Explicit",workspace:"日常",projectId:"",kind:"task",status:"todo",start:nil,due:now.addingTimeInterval(600).timeIntervalSince1970*1000,completed:nil)
@@ -41,6 +41,47 @@ struct ContentRecord {let id:String;let title:String;let workspace:String;let pr
   preferences.taskReminderMinutes=0;try store.updatePreferences(preferences);check(store.plannedNotifications(now:now).contains{$0.2=="Explicit"},"changing global preference rebuilds task reminders")
   preferences.briefingHour=99;do{try store.updatePreferences(preferences);fatalError("invalid time accepted")}catch{};check(store.preferences.briefingHour != 99,"invalid notification preferences never persist")
   let corrupt=folder.appendingPathComponent("corrupt");try FileManager.default.createDirectory(at:corrupt,withIntermediateDirectories:true);try Data("broken".utf8).write(to:corrupt.appendingPathComponent("agenda.json"));let bad=AgendaStore();bad.load(folder:corrupt,qa:true);do{try bad.save(event);fatalError("corrupt store overwritten")}catch{};check(try String(contentsOf:corrupt.appendingPathComponent("agenda.json"),encoding:.utf8)=="broken","corrupt store is not overwritten")
+  var edited=AgendaEvent();edited.title="Editor baseline";try store.save(edited,expected:nil)
+  let baseline=edited;edited.title="Latest synced version";try store.save(edited)
+  var stale=baseline;stale.title="Unsaved editor text"
+  do{try store.save(stale,expected:baseline);fatalError("stale editor overwrote synced version")}catch{}
+  check(store.events.first{$0.id==edited.id}==edited && stale.title=="Unsaved editor text","stale edit rejected while caller draft and latest event survive")
+  do{try store.save(stale,expected:nil);fatalError("new editor overwrote existing identity")}catch{}
+  check(store.events.first{$0.id==edited.id}==edited,"new draft baseline cannot overwrite event created elsewhere")
+  stale.title="Confirmed fresh edit";try store.save(stale,expected:edited)
+  let confirmed=AgendaStore();confirmed.load(folder:folder,qa:true)
+  check(confirmed.events.first{$0.id==stale.id}==stale,"fresh editor commit confirmed by independent disk reload")
+  var failureDraft=AgendaEvent();failureDraft.title="Unsaved failure draft"
+  do{try bad.save(failureDraft,expected:nil);fatalError("failed editor save accepted")}catch{}
+  check(bad.events.isEmpty && failureDraft.title=="Unsaved failure draft","failed storage commit leaves store and editor draft intact")
+  let firstSession=UUID(),secondSession=UUID();store.setEditorDraft(firstSession,dirty:false)
+  check(!store.hasUnsavedEditorDrafts,"pristine editor does not block exit")
+  store.setEditorDraft(firstSession,dirty:true);store.setEditorDraft(secondSession,dirty:true);store.endEditorDraft(firstSession)
+  check(store.hasUnsavedEditorDrafts,"closing one editor does not clear another dirty session")
+  store.setEditorDraft(secondSession,dirty:false)
+  check(!store.hasUnsavedEditorDrafts,"reverting editor to its original values clears dirty exit gate")
+  store.setEditorDraft(secondSession,dirty:true);store.endEditorDraft(secondSession)
+  check(!store.hasUnsavedEditorDrafts,"confirmed save or explicit discard removes editor exit gate")
+  var invalidDay=ContentRecord(id:"invalid-day",title:"Invalid calendar day",workspace:"日常",projectId:"p",kind:"task",status:"todo",start:nil,due:day.timeIntervalSince1970*1000,completed:nil,dueDay:"2026-02-30")
+  store.updateTasks([invalidDay])
+  check(!store.occurrences(from:day.addingTimeInterval(-86400),to:day.addingTimeInterval(172800)).contains{$0.taskID==invalidDay.id} && !store.plannedNotifications(now:now).contains{$0.2==invalidDay.title},"invalid calendar day never falls back to normalized timestamp or reminder")
+  invalidDay.dueDay=f.string(from:day);invalidDay=ContentRecord(id:"day-only-without-millis",title:"Valid local day",workspace:"日常",projectId:"p",kind:"task",status:"todo",start:nil,due:nil,completed:nil,dueDay:invalidDay.dueDay)
+  store.updateTasks([invalidDay])
+  check(store.occurrences(from:day,to:Calendar.current.date(byAdding:.day,value:1,to:day)!).contains{$0.taskID==invalidDay.id && $0.event.allDay},"valid day-only record does not require a redundant parsed timestamp")
+  let oldOccurrence=AgendaOccurrence(event:baseline,start:baseline.start,end:baseline.end)
+  do{try store.skip(oldOccurrence);fatalError("stale skip accepted")}catch{}
+  do{try store.toggleDone(oldOccurrence);fatalError("stale completion accepted")}catch{}
+  do{try store.cancel(baseline);fatalError("stale cancel accepted")}catch{}
+  do{try store.restore(baseline);fatalError("stale restore accepted")}catch{}
+  do{try store.move(oldOccurrence,to:baseline.start.addingTimeInterval(3600));fatalError("stale move accepted")}catch{}
+  check(store.events.first{$0.id==stale.id}==stale,"all stale detail actions reject without overwriting latest event")
+  let emptyFolder=folder.appendingPathComponent("empty");try FileManager.default.createDirectory(at:emptyFolder,withIntermediateDirectories:true)
+  let empty=AgendaStore();empty.load(folder:emptyFolder,qa:true)
+  var removedSeries=baseline;removedSeries.frequency="weekly"
+  let removedOccurrence=AgendaOccurrence(event:removedSeries,start:removedSeries.start,end:removedSeries.end)
+  do{try empty.move(removedOccurrence,to:removedSeries.start.addingTimeInterval(3600));fatalError("removed series move accepted")}catch{}
+  do{try empty.save(removedSeries,expected:removedSeries);fatalError("removed series editor resurrected event")}catch{}
+  check(empty.events.isEmpty,"removed recurring event cannot crash movement or be resurrected by stale editor")
   print("\(count) agenda store checks passed")
  }
 }

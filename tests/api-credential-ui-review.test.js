@@ -28,7 +28,7 @@ function harness(options = {}) {
   const c = vm.createContext({ $, $$: () => [], window, Core, URL, AbortController,
     apiSettingsDirty: false, apiCredentialReady: null, apiCredentialState: null, apiCredentialError: '', apiCredentialVersion: 0, settingsHydrated: false,
     state, localStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
-    save: () => snapshots.push(JSON.stringify(state)), syncComposerModel() {},
+    save: () => snapshots.push(JSON.stringify(state)), saveDocumentDurably: async () => { snapshots.push(JSON.stringify(state)); return true; }, syncComposerModel() {},
     setTimeout: () => 1, clearTimeout() {}, fetch: async (url, init) => { calls.push(['fetch', url, init]); return new Response(JSON.stringify({ data: [{ id: 'fixture-model' }] }), { headers: { 'content-type': 'application/json' } }); },
   });
   vm.runInContext(app.slice(start, end), c);

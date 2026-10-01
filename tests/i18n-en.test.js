@@ -126,3 +126,21 @@ test('recorded research and citation shell labels, page counts and relative upda
   };
   for(const [chinese,english] of Object.entries(examples))assert.equal(translate(chinese),english,chinese);
 });
+
+test('numeric placeholders inside patterns survive JavaScript string parsing', () => {
+  // 踩过的坑：pattern 写进文件时丢了转义，JS 解析后 (\d+) 变成字面 (d+)，
+  // 于是 ^(d+) 个分支$ 会去匹配 "ddd 个分支" 而匹配不到真实数字——而它依然是合法正则，
+  // 所以语法检查与一般性断言都抓不到。这里直接要求：意图匹配数字处不得出现字面 (d+)。
+  const broken = dictionary.patterns.filter(rule => rule.source.includes('(d+)')).map(rule => rule.source);
+  assert.deepEqual(broken, [], `数字占位丢了转义：${broken.join(' | ')}`);
+  // 并且真的能用数字匹配上（不只是"长得对"）：用两个具体样本验证，不做猜测性的通用构造。
+  const samples = [
+    ['审查者已连续 3 次不建议执行，自动推进已停止，请人工检查目标或调整方案。', /^The reviewer objected 3 times in a row/],
+    ['审查者建议不要执行，已交回你决定（连续被拒 2 次）。', /handed back to you \(2 consecutive objections\)/]
+  ];
+  for (const [chinese, expected] of samples) {
+    const rule = dictionary.patterns.find(item => new RegExp(item.source).test(chinese));
+    assert.ok(rule, `没有 pattern 能匹配实际界面文案：${chinese}`);
+    assert.match(chinese.replace(new RegExp(rule.source), rule.replacement), expected);
+  }
+});

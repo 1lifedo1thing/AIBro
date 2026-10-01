@@ -7,8 +7,15 @@
   'use strict';
   const labels = { none: '不使用推理', minimal: '最少', low: '低', medium: '中', high: '高', xhigh: '非常高', max: '最大', ultra: '极高' };
   const idOf = entry => entry?.model || entry?.id || '';
+  let pendingPreference=null;
+  function committedConversation(conversation){
+    if(!pendingPreference||pendingPreference.conversation!==conversation)return conversation;
+    const view={...conversation},before=pendingPreference.before.get('modelConfig');
+    if(before.exists)view.modelConfig=structuredClone(before.value);else delete view.modelConfig;
+    return view;
+  }
   function configuration(conversation, defaults = {}) {
-    const source = conversation?.modelConfig || defaults;
+    const source = committedConversation(conversation)?.modelConfig || defaults;
     return { provider: source.provider === 'openai-auth' ? 'openai-auth' : 'api', model: String(source.model || '').trim(), effort: source.effort && source.effort !== 'auto' ? String(source.effort) : '' };
   }
   function remember(state, config) {
@@ -17,6 +24,11 @@
     state.settings.recentConversationModel = configuration({ modelConfig: config });
   }
   function forNewConversation(state, defaults = {}) {
+    if(pendingPreference?.state===state){
+      const pending=pendingPreference,settings={...state.settings};
+      if(pending.hadRecent)settings.recentConversationModel=pending.recent;else delete settings.recentConversationModel;
+      state={...state,settings,conversations:(state.conversations||[]).map(committedConversation)};
+    }
     if (state?.settings?.recentConversationModel) return configuration({ modelConfig: state.settings.recentConversationModel });
     // Migrate existing workspaces from their latest chosen/used configuration.
     const candidates = (state?.conversations || []).flatMap(c => {
@@ -40,97 +52,101 @@
   function describe(config) {
     return `${config.model || (config.provider === 'openai-auth' ? '账号默认模型' : '选择模型')} · ${config.effort ? (labels[config.effort] || config.effort) : '默认推理'}`;
   }
-  let hooks = {}, models = [], version = 0, targetId = null, drafts = {}, loading = false, modelError = '';
-  const $ = id => root.document.getElementById(id);
-  const defaults = () => hooks.getDefaults?.() || {};
-  const current = () => configuration(hooks.getConversation?.(), defaults());
-  const target = () => hooks.getState?.().conversations.find(x => x.id === targetId && !x.archived);
-  const selected = () => ({ provider: $('conversationProvider').value, model: $('conversationProvider').value === 'openai-auth' ? $('conversationAccountModel').value : $('conversationApiModel').value.trim(), effort: $('conversationEffort').value });
-  async function fetchModels() {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
-    try {
-      const response = await fetch('/__auth/models', { signal: controller.signal });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error?.message || result.message || '请先在设置中连接 OpenAI 账号。');
-      return (result.data || result.models || []).filter(x => idOf(x));
-    } catch (error) { if (error.name === 'AbortError') throw new Error('读取模型超时，请重新打开选择器重试。'); throw error; }
-    finally { clearTimeout(timeout); }
+  const t=(zh,en)=>root.WorkstationI18n?.getLanguage?.()==='en'||/^en(?:-|$)/i.test(root.document?.documentElement?.lang||'')?en:zh;
+  const effortLabel=value=>({none:t('不使用推理','No reasoning'),minimal:t('最少','Minimal'),low:t('低','Low'),medium:t('中','Medium'),high:t('高','High'),xhigh:t('非常高','Extra high'),max:t('最大','Maximum'),ultra:t('极高','Ultra')})[value]||value;
+  const active=value=>value&&!value.archived&&!value.archivedAt&&!value.deleted&&!value.deletedAt;
+  let hooks={},models=[],version=0,targetId=null,drafts={},loading=false,modelError='',saveError='',notice='',selection={provider:'api',model:'',effort:''},saving=false,island=null,fetchAbort=null,initialized=false,returnFocus=null,presented=false,closing=false;
+  const $=id=>root.document.getElementById(id);
+  const isOpen=()=>presented&&$('modelPicker')?.hidden===false;
+  const defaults=()=>hooks.getDefaults?.()||{};
+  const resolved=conversation=>hooks.getResolvedConfig?.(committedConversation(conversation))||configuration(conversation,defaults());
+  const current=()=>resolved(hooks.getConversation?.());
+  const target=()=>hooks.getState?.()?.conversations?.find(value=>value.id===targetId&&active(value));
+  const selected=()=>configuration({modelConfig:selection});
+  const sourceLabel=source=>({conversation:t('对话设定','Conversation'),project:t('项目设定','Project'),workspace:t('工作区设定','Workspace'),default:t('全局默认','Global default')})[source]||t('继承默认','Inherited default');
+  async function fetchModels(parentSignal){
+    const controller=new AbortController(),abort=()=>controller.abort();parentSignal?.addEventListener?.('abort',abort,{once:true});if(parentSignal?.aborted)abort();
+    const timeout=setTimeout(abort,20000);
+    try{const response=await root.fetch('/__auth/models',{signal:controller.signal});const result=await response.json();if(!response.ok)throw Error(result.error?.message||result.message||t('请先在设置中连接 OpenAI 账号。','Connect your OpenAI account in settings first.'));return (result.data||result.models||[]).filter(entry=>idOf(entry));}
+    catch(error){if(error.name==='AbortError')throw Error(t('读取模型超时，请重试。','Loading models timed out. Try again.'));throw error;}
+    finally{clearTimeout(timeout);parentSignal?.removeEventListener?.('abort',abort);}
   }
-  function position() {
-    const dialog = $('modelPicker'); if (!dialog?.open) return;
-    const anchor = $('composerModel').getBoundingClientRect();
-    const bounds = dialog.getBoundingClientRect();
-    dialog.style.left = `${Math.max(12, Math.min(anchor.right - bounds.width, root.innerWidth - bounds.width - 12))}px`;
-    dialog.style.top = `${Math.max(12, Math.min(anchor.top - bounds.height - 10, root.innerHeight - bounds.height - 12))}px`;
+  function position(){
+    const dialog=$('modelPicker');if(!isOpen())return;const anchor=$('composerModel')?.getBoundingClientRect(),bounds=dialog.getBoundingClientRect();if(!anchor)return;
+    dialog.style.left=`${Math.max(12,Math.min(anchor.right-bounds.width,root.innerWidth-bounds.width-12))}px`;
+    dialog.style.top=`${Math.max(12,Math.min(anchor.top-bounds.height-10,root.innerHeight-bounds.height-12))}px`;
   }
-  function paintEfforts(wanted = '') {
-    const value = selected();
-    const available = value.provider === 'openai-auth' ? effortsFor(models, value.model) : Object.keys(labels);
-    const select = $('conversationEffort');
-    select.replaceChildren(new Option('模型默认', ''));
-    available.forEach(effort => select.add(new Option(`${labels[effort] || effort} · ${effort}`, effort)));
-    if (loading && wanted && !available.includes(wanted)) select.add(new Option(labels[wanted] || wanted, wanted));
-    select.value = available.includes(wanted) || loading ? wanted : '';
-    select.disabled = value.provider === 'openai-auth' && (!available.length || loading);
-    const status = $('modelPickerStatus');
-    status.textContent = value.provider === 'openai-auth' ? modelError || (loading ? '正在读取账号可用模型…' : wanted && !available.includes(wanted) ? '此模型不支持原推理档位，已选择模型默认。' : '使用账号支持的模型与推理档位。切换从下一条消息生效。') : 'API 推理能力由服务商决定；不确定时使用模型默认。';
-    status.classList.toggle('auth-error', !!modelError && value.provider === 'openai-auth');
-    $('applyModelSelection').disabled = value.provider === 'openai-auth' && (loading || !!modelError || !models.length);
-    position();
+  function normalizeEffort(wanted=selection.effort){
+    const available=selection.provider==='openai-auth'?effortsFor(models,selection.model):Object.keys(labels);notice='';
+    if(selection.provider==='openai-auth'&&!loading&&wanted&&!available.includes(wanted)){selection.effort='';notice=t('此模型不支持原推理档位，已选择模型默认。','This model does not support the previous reasoning level. Model default is selected.');}
   }
-  function paintProvider(value) {
-    const auth = value.provider === 'openai-auth';
-    $('conversationProvider').value = value.provider;
-    $('conversationAccountModelField').hidden = !auth;
-    $('conversationApiModelField').hidden = auth;
-    $('conversationApiModel').value = value.model;
-    const select = $('conversationAccountModel');
-    select.replaceChildren(new Option('账号默认模型', ''));
-    models.forEach(entry => select.add(new Option(entry.displayName || idOf(entry), idOf(entry))));
-    if (value.model && !models.some(x => idOf(x) === value.model)) {
-      const unavailable = new Option(`${value.model}（暂不可用）`, value.model); unavailable.disabled = true; select.add(unavailable);
-    }
-    select.value = value.model;
-    select.disabled = loading || !models.length;
-    paintEfforts(value.effort);
+  function props(){
+    const conversation=target(),config=conversation?resolved(conversation):current(),auth=selection.provider==='openai-auth',efforts=auth?effortsFor(models,selection.model):Object.keys(labels);
+    const accountOptions=[{value:'',label:t('账号默认模型','Account default model')},...models.map(entry=>({value:idOf(entry),label:entry.displayName||idOf(entry)}))];
+    if(selection.model&&!models.some(entry=>idOf(entry)===selection.model))accountOptions.push({value:selection.model,label:t(`${selection.model}（暂不可用）`,`${selection.model} (unavailable)`),disabled:true});
+    const effortOptions=[{value:'',label:t('模型默认','Model default')},...efforts.map(value=>({value,label:`${effortLabel(value)} · ${value}`}))];
+    if(loading&&selection.effort&&!efforts.includes(selection.effort))effortOptions.push({value:selection.effort,label:effortLabel(selection.effort)});
+    const unavailable=auth&&(!models.length||!!modelError||!!selection.model&&!models.some(entry=>idOf(entry)===selection.model)||!selection.model&&!models.some(entry=>entry.isDefault));
+    return {ownerKey:`${targetId}:${version}`,title:conversation?.title||t('新对话','New conversation'),selection:{...selection},source:sourceLabel(config.source||(conversation?.modelConfig?'conversation':null)),currentModel:config.model||t('未选择模型','No model selected'),accountOptions,effortOptions,loading,saving,accountDisabled:loading||!models.length,effortDisabled:auth&&(loading||!efforts.length),applyDisabled:saving||auth&&(loading||unavailable),error:saveError||(auth?modelError:''),status:auth?(loading?t('正在读取账号可用模型…','Loading available account models…'):notice||t('使用账号支持的模型与推理档位。切换从下一条消息生效。','Use supported account models and reasoning levels. Changes apply to your next message.')):t('API 推理能力由服务商决定；不确定时使用模型默认。','Reasoning support depends on your API provider. Use the model default when unsure.'),onProvider:changeProvider,onModel:value=>{if(saving)return;selection.model=value;saveError='';normalizeEffort();paint();},onEffort:value=>{if(saving)return;selection.effort=value;saveError='';paint();},onSubmit:apply,onReset:reset,onClose:close,onSettings:()=>{if(!saving){close();hooks.openSettings?.();}},onRetry:loadCatalogue};
   }
-  async function open() {
-    const conversation = hooks.getConversation?.(); if (!conversation) return;
-    targetId = conversation.id;
-    const initial = current();
-    drafts = { ...conversation.modelChoices, [initial.provider]: { ...initial } };
-    modelError = ''; loading = true;
-    const ownVersion = ++version;
-    paintProvider(initial);
-    const description = $('modelPickerDescription');
-    description.setAttribute('data-i18n-template', '{title} · 仅影响后续消息');
-    description.setAttribute('data-i18n-vars', JSON.stringify({title:conversation.title || '新对话'}));
-    description.textContent = `${conversation.title || '新对话'} · 仅影响后续消息`;
-    $('modelPicker').showModal(); $('composerModel').setAttribute('aria-expanded', 'true'); position();
-    try { const next = await fetchModels(); if (ownVersion === version) models = next; }
-    catch (error) { if (ownVersion === version) { models = []; modelError = error.message; } }
-    finally {
-      if (ownVersion === version && $('modelPicker').open) { const active = selected(); loading = false; paintProvider(active); }
-    }
+  function paint(){if(!island)return;island.update(props());position();}
+  function finishClose(restoreFocus=true){
+    if(!presented)return;presented=false;++version;fetchAbort?.abort();$('composerModel')?.setAttribute('aria-expanded','false');
+    if(restoreFocus){const dialog=$('modelPicker');if(returnFocus?.isConnected&&returnFocus.tabIndex>=0&&!returnFocus.disabled&&!dialog.contains?.(returnFocus))returnFocus.focus({preventScroll:true});else $('composerModel')?.focus({preventScroll:true});}
   }
-  function apply() {
-    const conversation = target(); if (!conversation) { $('modelPicker').close(); return; }
-    const value = selected();
-    if (value.provider === 'api' && !value.model) { $('conversationApiModel').focus(); hooks.toast?.('请输入模型名称'); return; }
-    if (value.provider === 'openai-auth' && (loading || modelError || (value.model && !models.some(x => idOf(x) === value.model)))) { hooks.toast?.('该模型当前不可用，请重新选择。'); return; }
-    conversation.modelChoices = { ...drafts };
-    setSelection(conversation, value);
-    remember(hooks.getState?.(), value);
-    hooks.save?.(); $('modelPicker').close(); sync(); hooks.toast?.('当前对话的模型已更新');
+  function close({restoreFocus=true,force=false}={}){
+    if(saving&&!force)return false;if(closing)return true;closing=true;
+    try{
+      // Hide the ordinary panel before restoring focus. This surface never
+      // enters HTMLDialogElement's focus or top-layer lifecycle.
+      const panel=$('modelPicker');if(panel&&!panel.hidden)panel.hidden=true;finishClose(restoreFocus);return true;
+    }finally{closing=false;}
   }
-  function sync() {
-    const button = $('composerModel'); if (!button) return;
-    const config = current();
-    const name = root.document.createElement('span'); name.className = 'model-name'; name.textContent = config.model || (config.provider === 'openai-auth' ? '账号默认模型' : '选择模型');
-    const effort = root.document.createElement('small'); effort.textContent = config.effort ? (labels[config.effort] || config.effort) : '默认推理';
-    button.replaceChildren(name, effort);
-    button.title = `${config.provider === 'openai-auth' ? 'OpenAI 账号' : '自定义 API'} · ${hooks.getConversation?.().modelConfig ? '当前对话' : '继承默认'} · 点击切换`;
+  function changeProvider(provider){
+    if(saving||!['api','openai-auth'].includes(provider)||provider===selection.provider)return;
+    drafts[selection.provider]={model:selection.model,effort:selection.effort};const fallback=defaults();selection=configuration({modelConfig:{provider,...(drafts[provider]||(fallback.provider===provider?fallback:{model:'',effort:''}))}});saveError='';normalizeEffort();paint();
+  }
+  async function loadCatalogue(){
+    if(!isOpen()||saving)return;fetchAbort?.abort();fetchAbort=new AbortController();const ownVersion=version,ownRequest=fetchAbort;loading=true;modelError='';paint();
+    try{const next=await fetchModels(ownRequest.signal);if(ownVersion===version&&fetchAbort===ownRequest){models=next;if(!next.length)modelError=t('账号没有返回可用模型，请检查连接后重试。','No account models were returned. Check the connection and retry.');}}
+    catch(error){if(ownVersion===version&&fetchAbort===ownRequest){models=[];modelError=String(error.message||error);}}
+    finally{if(ownVersion===version&&fetchAbort===ownRequest&&isOpen()){loading=false;normalizeEffort();paint();}}
+  }
+  async function open(){
+    const conversation=hooks.getConversation?.();if(!active(conversation)||saving)return;targetId=conversation.id;selection=configuration({modelConfig:current()});drafts={...conversation.modelChoices,[selection.provider]:{...selection}};modelError='';saveError='';notice='';loading=true;++version;returnFocus=$('composerModel');
+    // Model preferences are anchored to the composer. Reading and navigation
+    // stay available; this surface never makes the whole workspace inert.
+    // Keep the transient surface after persistent workspace regions. Native
+    // WKWebView AX drops following siblings after this panel is hidden; a
+    // terminal overlay preserves the reader and splitter without rebuilding them.
+    // Reassert on open because the reader and other workspaces mount lazily.
+    const panel=$('modelPicker');root.document.body?.append?.(panel);
+    presented=true;panel.hidden=false;paint();$('composerModel').setAttribute('aria-expanded','true');position();$('conversationProvider')?.focus();await loadCatalogue();
+  }
+  async function persist(conversation,change){
+    const state=hooks.getState?.(),fields=['modelConfig','modelChoices'],before=new Map(fields.map(key=>[key,{exists:Object.hasOwn(conversation,key),value:structuredClone(conversation[key])}]));
+    const hadSettings=!!state.settings,hadRecent=!!state.settings&&Object.hasOwn(state.settings,'recentConversationModel'),recent=structuredClone(state.settings?.recentConversationModel);
+    const pending={state,conversation,before,hadRecent,recent};pendingPreference=pending;
+    change();const applied=new Map(fields.map(key=>[key,JSON.stringify(conversation[key])])),appliedRecent=JSON.stringify(state.settings?.recentConversationModel);
+    try{if(await hooks.save?.()===false)throw Error(t('模型设置未能保存，请重试。','Model settings could not be saved. Try again.'));}
+    catch(error){for(const key of fields)if(JSON.stringify(conversation[key])===applied.get(key)){const old=before.get(key);if(old.exists)conversation[key]=old.value;else delete conversation[key];}if(JSON.stringify(state.settings?.recentConversationModel)===appliedRecent){if(hadRecent)state.settings.recentConversationModel=recent;else if(state.settings)delete state.settings.recentConversationModel;if(!hadSettings&&state.settings&&!Object.keys(state.settings).length)delete state.settings;}throw error;}
+    finally{if(pendingPreference===pending)pendingPreference=null;}
+  }
+  async function saveChange(resetSelection){
+    if(saving||!isOpen())return false;const conversation=target();if(!conversation||hooks.getConversation?.()?.id!==targetId){close({restoreFocus:false,force:true});return false;}const value=selected();
+    if(hooks.canSave?.()===false){saveError=t('正在准备请求，请稍后再应用模型设置。','A request is being prepared. Apply model settings after it starts.');paint();return false;}
+    if(!resetSelection&&value.provider==='api'&&!value.model){saveError=t('请输入模型名称','Enter a model name');paint();$('conversationApiModel')?.focus();hooks.toast?.(saveError);return false;}
+    if(!resetSelection&&value.provider==='openai-auth'&&(loading||modelError||!models.some(entry=>value.model?idOf(entry)===value.model:entry.isDefault))){saveError=t('该模型当前不可用，请重新选择。','This model is unavailable. Choose another model.');paint();hooks.toast?.(saveError);return false;}
+    const ownVersion=version;saving=true;saveError='';paint();
+    try{await persist(conversation,()=>{if(resetSelection){delete conversation.modelConfig;remember(hooks.getState?.(),hooks.getResolvedConfig?.({...conversation})||configuration({...conversation},defaults()));}else{conversation.modelChoices={...drafts};setSelection(conversation,value);remember(hooks.getState?.(),value);}});saving=false;sync();if(ownVersion===version){close();hooks.toast?.(resetSelection?t('已恢复继承的模型设置','Inherited model settings restored'):t('当前对话的模型已更新','Conversation model updated'));}return true;}
+    catch(error){saving=false;sync();if(ownVersion===version&&isOpen()){saveError=String(error.message||error);paint();}else hooks.toast?.(t('模型设置未保存：','Model settings were not saved: ')+String(error.message||error));return false;}
+  }
+  const apply=()=>saveChange(false),reset=()=>saveChange(true);
+  function sync(){
+    const button=$('composerModel');if(!button)return;const config=current(),label=config.model||(config.provider==='openai-auth'?t('账号默认模型','Account default model'):t('选择模型','Choose a model')),detail=config.effort?effortLabel(config.effort):t('默认推理','Default reasoning'),title=`${config.provider==='openai-auth'?t('OpenAI 账号','OpenAI account'):t('自定义 API','Custom API')} · ${sourceLabel(config.source||(hooks.getConversation?.()?.modelConfig?'conversation':null))} · ${t('点击切换','Click to change')}`;
+    if(root.ComposerUI?.setModel)root.ComposerUI.setModel({label,detail,title,disabled:false});
+    else{const name=root.document.createElement('span');name.className='model-name';name.textContent=label;const effort=root.document.createElement('small');effort.textContent=detail;button.replaceChildren(name,effort);button.title=title;}
+    if(isOpen()&&(!target()||hooks.getConversation?.()?.id!==targetId))close({restoreFocus:false,force:true});
   }
   async function resolve(config) {
     const snapshot = { ...config };
@@ -145,29 +161,15 @@
     }
     return snapshot;
   }
-  function init(options) {
-    hooks = options;
-    if (!$('modelPicker')) return;
-    $('composerModel').addEventListener('click', open);
-    $('closeModelPicker').addEventListener('click', () => $('modelPicker').close());
-    $('modelPickerForm').addEventListener('submit', event => { event.preventDefault(); apply(); });
-    $('modelPicker').addEventListener('close', () => { ++version; $('composerModel').setAttribute('aria-expanded', 'false'); });
-    $('modelPicker').addEventListener('click', event => { if (event.target === $('modelPicker')) { const rect = event.target.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) event.target.close(); } });
-    let previousProvider;
-    $('conversationProvider').addEventListener('focus', () => { previousProvider = $('conversationProvider').value; });
-    $('conversationProvider').addEventListener('change', () => {
-      const provider = $('conversationProvider').value;
-      const previous = previousProvider || (provider === 'api' ? 'openai-auth' : 'api');
-      drafts[previous] = { model: previous === 'api' ? $('conversationApiModel').value.trim() : $('conversationAccountModel').value, effort: $('conversationEffort').value };
-      const fallback = defaults();
-      paintProvider({ provider, ...(drafts[provider] || (fallback.provider === provider ? fallback : { model: '', effort: '' })) });
-      previousProvider = provider;
-    });
-    $('conversationAccountModel').addEventListener('change', () => paintEfforts($('conversationEffort').value));
-    $('resetModelSelection').addEventListener('click', () => { const conversation = target(); if (conversation) { delete conversation.modelConfig; remember(hooks.getState?.(), defaults()); hooks.save?.(); } $('modelPicker').close(); sync(); });
-    $('modelPickerSettings').addEventListener('click', () => { $('modelPicker').close(); hooks.openSettings?.(); });
-    root.addEventListener('resize', position);
-    sync();
+  function init(options){
+    hooks=options;if(!$('modelPicker'))return;if(initialized){sync();return;}initialized=true;
+    const dialog=$('modelPicker'),host=root.document.createElement('div');host.id='modelPickerKit';dialog.replaceChildren(host);dialog.classList.add('model-picker-kit');dialog.hidden=true;dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','false');island=root.HalaskaUI.mount(host,'ModelPickerSurface',props());
+    $('composerModel').addEventListener('click',()=>isOpen()?close():open());
+    const outside=event=>{if(isOpen()&&!dialog.contains(event.target)&&!$('composerModel')?.contains(event.target))close({restoreFocus:false});};
+    root.document.addEventListener?.('pointerdown',outside,true);
+    root.document.addEventListener?.('focusin',outside);
+    root.document.addEventListener?.('keydown',event=>{if(isOpen()&&event.key==='Escape'&&!event.defaultPrevented&&!event.isComposing&&event.keyCode!==229&&!root.document.querySelector?.('dialog:modal')){event.preventDefault();close();}});
+    root.addEventListener('resize',position);root.document.addEventListener?.('scroll',event=>{if(!dialog.contains(event.target))position();},true);root.document.addEventListener?.('workstation-language-change',()=>{sync();paint();});sync();
   }
-  return { init, configuration, setSelection, remember, forNewConversation, effortsFor, describe, current, resolve, sync };
+  return {init,configuration,setSelection,remember,forNewConversation,effortsFor,describe,current,resolve,sync,open,close,committedConversation,isOpen,isSaving:()=>saving};
 });

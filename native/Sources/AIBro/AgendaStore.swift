@@ -35,6 +35,10 @@ struct AgendaArchive: Codable {var version=1;var events:[AgendaEvent]=[];var pre
     private var reconciling=false
     private var qa=false
     private var loaded=false
+    private var editorDrafts:[UUID:Bool]=[:]
+    var hasUnsavedEditorDrafts:Bool {editorDrafts.values.contains(true)}
+    func setEditorDraft(_ session:UUID,dirty:Bool) {editorDrafts[session]=dirty}
+    func endEditorDraft(_ session:UUID) {editorDrafts.removeValue(forKey:session)}
     var center:UNUserNotificationCenter {UNUserNotificationCenter.current()}
     func load(folder:URL,qa:Bool) {
         self.qa=qa;file=folder.appendingPathComponent("agenda.json")
@@ -84,6 +88,14 @@ struct AgendaArchive: Codable {var version=1;var events:[AgendaEvent]=[];var pre
         if let index=next.firstIndex(where:{$0.id==event.id}) {next[index]=event}else{next.append(event)}
         try persist(next,preferences);events=next;reschedule();onChanged?()
     }
+    /// Editors commit only against the version they originally displayed.
+    /// A nil baseline means a new draft, not permission to overwrite an event.
+    func save(_ event:AgendaEvent,expected:AgendaEvent?) throws {
+        guard events.first(where:{$0.id==event.id}) == expected else {
+            throw AgendaError.message("日程已有更新，当前输入已保留。请返回并重新打开最新日程后再编辑。")
+        }
+        try save(event)
+    }
     func importEvents(_ items:[AgendaEvent],replace:Bool, projectID:String) throws {
         guard Set(items.map(\.id)).count == items.count else {throw AgendaError.message("导入存在重复标识，请重新生成预览。")};var next=events
         for var event in items {try event.validate();if !projectID.isEmpty {event.projectID=projectID}
@@ -93,28 +105,31 @@ struct AgendaArchive: Codable {var version=1;var events:[AgendaEvent]=[];var pre
         try persist(next,preferences);events=next;reschedule();onChanged?()
     }
     func updatePreferences(_ value:AgendaPreferences) throws {try value.validate();try persist(events,value);preferences=value;taskKey="";updateTasks(taskRecords);reschedule()}
-    func skip(_ occurrence:AgendaOccurrence) throws {var e=occurrence.event;e.excluded.append(occurrence.start);try save(e)}
-    func toggleDone(_ occurrence:AgendaOccurrence) throws {var e=occurrence.event;if let i=e.completed.firstIndex(of:occurrence.start){e.completed.remove(at:i)}else{e.completed.append(occurrence.start)};try save(e)}
-    func cancel(_ event:AgendaEvent) throws {var e=event;e.deleted=true;try save(e)}
-    func restore(_ event:AgendaEvent) throws {var e=event;e.deleted=false;try save(e)}
+    func skip(_ occurrence:AgendaOccurrence) throws {var e=occurrence.event;e.excluded.append(occurrence.start);try save(e,expected:occurrence.event)}
+    func toggleDone(_ occurrence:AgendaOccurrence) throws {var e=occurrence.event;if let i=e.completed.firstIndex(of:occurrence.start){e.completed.remove(at:i)}else{e.completed.append(occurrence.start)};try save(e,expected:occurrence.event)}
+    func cancel(_ event:AgendaEvent) throws {var e=event;e.deleted=true;try save(e,expected:event)}
+    func restore(_ event:AgendaEvent) throws {var e=event;e.deleted=false;try save(e,expected:event)}
     func move(_ occurrence:AgendaOccurrence,to date:Date) throws {
+        guard let index=events.firstIndex(where:{$0.id==occurrence.event.id}),events[index]==occurrence.event else {
+            throw AgendaError.message("日程已有更新，未调整旧版本。请重新打开最新日程。")
+        }
         var copy=occurrence.event
         if copy.frequency != "none" {
             var original=copy;original.excluded.append(occurrence.start)
             copy.id=UUID().uuidString;copy.frequency="none";copy.count=nil;copy.until=nil;copy.excluded=[];copy.completed=[]
             copy.start=date;copy.end=date.addingTimeInterval(occurrence.end.timeIntervalSince(occurrence.start));try copy.validate()
-            var next=events;next[next.firstIndex(where:{$0.id==original.id})!]=original;next.append(copy);try persist(next,preferences);events=next;reschedule();onChanged?()
-        } else {let duration=copy.end.timeIntervalSince(copy.start);copy.start=date;copy.end=date.addingTimeInterval(duration);try save(copy)}
+            var next=events;next[index]=original;next.append(copy);try persist(next,preferences);events=next;reschedule();onChanged?()
+        } else {let duration=copy.end.timeIntervalSince(copy.start);copy.start=date;copy.end=date.addingTimeInterval(duration);try save(copy,expected:occurrence.event)}
     }
     func updateTasks(_ records:[ContentRecord]) {
         taskRecords=records
         let key=records.map{"\($0.id)|\($0.title)|\($0.status)|\($0.due ?? 0)|\($0.dueDay ?? "")|\($0.projectId)|\($0.updated ?? 0)|\($0.reminderMinutes ?? -1)|\($0.reminderDisabled ?? false)"}.joined(separator:"\n")
         guard key != taskKey else{return};taskKey=key
-        tasks=records.compactMap{task in guard task.status != "done",let stamp=task.due else{return nil}
-            var event=AgendaEvent();event.id="task:"+task.id;event.title=task.title;event.kind="task";event.start=Date(timeIntervalSince1970:stamp/1000);event.end=event.start.addingTimeInterval(60);event.projectID=task.projectId;event.reminderMinutes=task.reminderDisabled == true ? nil : (task.reminderMinutes ?? preferences.taskReminderMinutes)
-            if let day=task.dueDay {
-                let formatter=DateFormatter();formatter.locale=Locale(identifier:"en_US_POSIX");formatter.dateFormat="yyyy-MM-dd";formatter.timeZone = .current
-                if let date=formatter.date(from:day) {event.start=Calendar.current.date(bySettingHour:9,minute:0,second:0,of:date)!;event.end=event.start.addingTimeInterval(60);event.allDay=true}
+        tasks=records.compactMap{task in guard !["done","archived","deleted"].contains(task.status),let deadline=AgendaDeadline.date(day:task.dueDay,millis:task.due) else{return nil}
+            var event=AgendaEvent();event.id="task:"+task.id;event.title=task.title;event.kind="task";event.start=deadline;event.end=event.start.addingTimeInterval(60);event.projectID=task.projectId;event.reminderMinutes=task.reminderDisabled == true ? nil : (task.reminderMinutes ?? preferences.taskReminderMinutes)
+            if task.dueDay != nil {
+                guard let start=Calendar.current.date(bySettingHour:9,minute:0,second:0,of:deadline) else{return nil}
+                event.start=start;event.end=start.addingTimeInterval(60);event.allDay=true
             }
             return AgendaOccurrence(event:event,start:event.start,end:event.end,taskID:task.id)
         };objectWillChange.send();reschedule()

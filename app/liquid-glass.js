@@ -78,7 +78,8 @@
       if (!pane || !list || !element.isConnected) return;
       const height = Math.round(element.getBoundingClientRect().height);
       if (!height || height === layoutHeight) return;
-      const follow = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+      const reading = env.ConversationReading?.inspect(list);
+      const follow = reading ? reading.following : list.scrollHeight - list.scrollTop - list.clientHeight < 80;
       layoutHeight = height; pane.style.setProperty('--lg-composer-height', height + 'px'); pane.setAttribute('data-glass-chat', 'true');
       if (follow) list.scrollTop = list.scrollHeight;
     }
@@ -105,7 +106,7 @@
     // The latter would leave a partly transparent seam leaking sharp text.
     composite.setAttribute('in', 'clear-rim'); composite.setAttribute('in2', 'frosted-center'); composite.setAttribute('operator', 'arithmetic');
     composite.setAttribute('k1', '0'); composite.setAttribute('k2', '1'); composite.setAttribute('k3', '1'); composite.setAttribute('k4', '0');
-    filter.append(mapImage, calibration, displacement, softness, frost, rimMask, rimLayer, centerLayer, composite); defs.append(filter); svg.append(defs); body.append(svg);
+    filter.append(mapImage, calibration, displacement, softness, frost, rimMask, rimLayer, centerLayer, composite); defs.append(filter); svg.append(defs);
     let timer = null, destroyed = false, cached = '', running = false, nativeActive = false;
     const enabled = () => !destroyed && !media.transparency.matches && !media.contrast.matches && !document.hidden;
     function deactivate() { element.removeAttribute('data-glass-refracting'); element.style.removeProperty('--lg-refraction-filter'); }
@@ -128,6 +129,10 @@
           mapImage.setAttribute('width', String(width)); mapImage.setAttribute('height', String(height)); mapImage.setAttribute('href', url);
           displacement.setAttribute('scale', String(map.scale)); cached = key;
         }
+        // An attached feImage without href creates an empty resource timing URL
+        // in Chromium; Electron's startup resource audit then rejects new URL('').
+        // Mount the filter only after its displacement image is ready.
+        if (!svg.isConnected) body.append(svg);
         element.style.setProperty('--lg-refraction-filter', `url("#${id}")`); element.setAttribute('data-glass-refracting', 'true');
       } catch (_error) { deactivate(); }
       finally { running = false; }

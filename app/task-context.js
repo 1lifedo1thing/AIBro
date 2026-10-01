@@ -158,5 +158,31 @@
     }
     return true;
   }
-  return { build, search, readCatalog, assertUnchanged };
+  // An explicit human recheck may reread content in the original task scope.
+  // It cannot add readable IDs or acknowledge a change of task ownership.
+  // Build the replacement separately so a later invalid target changes nothing.
+  function refreshForReview(state = {}, actions = [], snapshots = {}) {
+    const tasks = uniqueIndex(state?.tasks), projects = uniqueIndex(state?.projects);
+    const refreshed = { ...snapshots };
+    for (const action of list(actions)) {
+      if (!['update_task', 'delete_task'].includes(action.type)) continue;
+      const id = action.taskId, baseline = Object.hasOwn(snapshots || {}, id) ? snapshots[id] : null;
+      let previous;
+      try { previous = typeof baseline?.task === 'string' ? JSON.parse(baseline.task) : null; } catch (_) {}
+      if (!validId(id) || !baseline || !active(previous) || previous.id !== id || !Object.hasOwn(baseline, 'project') ||
+          (previous.projectId ? !baseline.project || baseline.project.id !== previous.projectId : baseline.project !== null)) {
+        const error = new Error('重新核对任务缺少本轮已读取的有效快照；不能借此加入新的任务范围，请重新发送请求。'); error.code = 'TASK_CONTEXT'; throw error;
+      }
+      const current = tasks.get(id), project = current?.projectId ? projects.get(current.projectId) : null;
+      if (!active(current) || (current.projectId && !active(project)) ||
+          (current.projectId ?? null) !== (previous.projectId ?? null) || (current.workspace ?? null) !== (previous.workspace ?? null) ||
+          (project ? project.id : null) !== (baseline.project?.id ?? null) || (project?.workspace ?? null) !== (baseline.project?.workspace ?? null)) {
+        const error = new Error(`任务「${clip(current?.title || previous.title || id, 80)}」已删除、归档、移出原范围或存在重复 ID，不能重新核对；请重新发送请求。`); error.code = 'CANCELLED'; throw error;
+      }
+      Object.defineProperty(refreshed, id, { enumerable: true, configurable: true, writable: true,
+        value: { task: serializeTask(current), project: project ? { id: project.id, workspace: project.workspace ?? null } : null } });
+    }
+    return refreshed;
+  }
+  return { build, search, readCatalog, assertUnchanged, refreshForReview };
 });

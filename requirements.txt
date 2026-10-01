@@ -1,2 +1,4 @@
 # Optional PDF preview and figure extraction. Core storage and OOXML intake use stdlib.
 PyMuPDF==1.26.5
+# Managed document image validation and portable image bundles.
+Pillow==12.3.0

@@ -1,8 +1,8 @@
 (function (root, factory) {
-  const api = factory();
+  const api = factory(root, typeof module === 'object' && module.exports ? require('./citation-evidence.js') : null);
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.WorkstationActivityCore = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (root, evidence) {
   'use strict';
   const WORKSPACES = Object.freeze(['日常', '课程', '科研']);
   const cleanWorkspace = value => WORKSPACES.includes(value) ? value : '日常';
@@ -25,9 +25,14 @@
   function dateLabel(key) {
     const date = localDate(key); return Number.isFinite(date.getTime()) ? `${date.getMonth() + 1}月${date.getDate()}日` : key;
   }
-  function projectIndex(state) {
+  function publicRecord(access, type, item) {
+    if (!item?.id || !access) return false;
+    const ref = type === 'project' ? { type: 'local', projectId: item.id, candidateId: item.localFolder?.id } : { type, id: item.id };
+    return access.access(ref).kind === 'available' && !access.isAmbiguous(ref);
+  }
+  function projectIndex(state, access) {
     const map = new Map();
-    (Array.isArray(state?.projects) ? state.projects : []).forEach(project => { if (project?.id) map.set(project.id, project); });
+    (Array.isArray(state?.projects) ? state.projects : []).forEach(project => { if (publicRecord(access, 'project', project)) map.set(project.id, project); });
     return map;
   }
   function activeEntity(item, projects) {
@@ -45,7 +50,10 @@
     if (!Number.isFinite(today.getTime())) throw new Error('分析日期无效');
     today.setHours(0, 0, 0, 0);
     const keys = Array.from({ length: days }, (_, index) => { const date = new Date(today); date.setDate(today.getDate() - days + index + 1); return dateKey(date); });
-    const projects = projectIndex(state);
+    // Resolve lazily: the browser loads CitationEvidence after this module.
+    // Keep one privacy/identity index for this synchronous aggregation only.
+    const access = (evidence || root.CitationEvidence)?.createAccessContext?.(state);
+    const projects = projectIndex(state, access);
     const selectedProject = options.projectId || null;
     const selectedWorkspace = options.workspace && WORKSPACES.includes(options.workspace) ? options.workspace : null;
     const series = keys.map(key => ({ key, label: dateLabel(key), tasks: 0, materials: 0, entries: [] }));
@@ -53,8 +61,9 @@
     const workspaces = Object.fromEntries(WORKSPACES.map(workspace => [workspace, { workspace, tasks: 0, materials: 0, total: 0, daysActive: 0 }]));
     const activeDays = new Map(WORKSPACES.map(workspace => [workspace, new Set()]));
     const add = (collection, metric, dateField) => {
+      const type = collection === 'tasks' ? 'task' : collection === 'notes' ? 'note' : 'import';
       (Array.isArray(state?.[collection]) ? state[collection] : []).forEach(item => {
-        if (!activeEntity(item, projects) || (selectedProject && item.projectId !== selectedProject)) return;
+        if (!activeEntity(item, projects) || !publicRecord(access, type, item) || (selectedProject && item.projectId !== selectedProject)) return;
         // A reopened task may still have a legacy completion timestamp. It
         // must no longer be counted as completed; records without a status
         // are accepted for older exported workspaces.
@@ -64,7 +73,7 @@
         const workspace = cleanWorkspace(project?.workspace || item.workspace);
         if (selectedWorkspace && workspace !== selectedWorkspace) return;
         day[metric] += 1; workspaces[workspace][metric] += 1; workspaces[workspace].total += 1;
-        if (item.id) day.entries.push({ id: item.id, type: collection === 'tasks' ? 'task' : collection === 'notes' ? 'note' : 'import', metric, title: item.title || item.name || item.originalName || '', workspace, projectId: item.projectId || null, projectName: project?.name || '', timestamp: item[dateField] });
+        day.entries.push({ id: item.id, type, metric, title: item.title || item.name || item.originalName || '', workspace, projectId: item.projectId || null, projectName: project?.name || '', timestamp: item[dateField] });
         activeDays.get(workspace).add(key);
       });
     };

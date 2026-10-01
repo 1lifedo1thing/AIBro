@@ -36,6 +36,13 @@ private struct AgendaDaySelection:Identifiable {
     var id:Date {date}
 }
 
+private struct AgendaDrag:ViewModifier {
+    let entry:AgendaOccurrence
+    @ViewBuilder func body(content:Content)->some View {
+        if entry.taskID == nil {content.draggable(entry.id)}else{content}
+    }
+}
+
 struct AgendaView:View {
     @ObservedObject private var nativeLanguage = NativeL10n.shared
     @ObservedObject var model:Workspace
@@ -110,7 +117,6 @@ struct AgendaView:View {
                     dayAgenda(store.focusDate)
                 }
                 HStack{Image(systemName:"bell");Text(NativeL10n.notificationStatus(store.notificationStatus));Spacer();Text(nativeUI("本机时间：\(TimeZone.current.identifier)", "Local time: \(TimeZone.current.identifier)"))}.font(.caption).foregroundStyle(.secondary)
-                Text(nativeUI("日程保存在当前本机工作区。已设截止日期的任务自动显示；拖动日程到日期可调整本次安排。", "Events are saved in this local workspace. Tasks with deadlines appear automatically. Drag an event to another day to reschedule that occurrence.")).font(.caption).foregroundStyle(.secondary)
             }.padding(30).frame(maxWidth:1400).frame(maxWidth:.infinity)
         }.background(StudioPalette.canvas)
         .sheet(item:$selectedDay){selection in AgendaDayDetail(model:model,store:store,date:selection.date)}
@@ -124,11 +130,8 @@ struct AgendaView:View {
         .alert(nativeUI("日程中心", "Agenda"),isPresented:Binding(get:{store.error != nil},set:{if !$0{store.error=nil}})){Button(nativeUI("好", "OK")){store.error=nil}}message:{Text(store.error ?? "")}
     }
     private var agendaHeading:some View {
-        VStack(alignment:.leading,spacing:8) {
-            Text(nativeUI("AGENDA / 日程中心", "YOUR AGENDA")).font(.system(size:10,weight:.semibold)).tracking(2).foregroundStyle(StudioPalette.jade)
-            Text(nativeUI("给每一天，留好位置。", "Make space for each day.")).font(.system(size:28,weight:.semibold)).fixedSize(horizontal:true,vertical:false)
-            Text(nativeUI("课程、会议与行动，连接到你的知识库。", "Courses, meetings and next steps, connected to your knowledge.")).font(.callout).foregroundStyle(.secondary)
-        }
+        Text(nativeUI("日程", "Agenda")).font(.system(size:28,weight:.semibold))
+            .help(nativeUI("日程保存在本机工作区。任务截止日期自动显示；修改任务请打开任务详情，其他日程可拖到日期调整。", "Events are saved in this workspace. Task deadlines appear automatically; edit them in task details. Drag other events to a day to reschedule."))
     }
     private var headerActions:some View {
         HStack(alignment:.center,spacing:8) {
@@ -146,7 +149,7 @@ struct AgendaView:View {
     private func dayCell(_ day:Date)->some View {
         let entries=items(day),selected=cal.isDate(day,inSameDayAs:store.focusDate)
         return VStack(alignment:.leading,spacing:6){Button{showDay(day)}label:{HStack{Text(day.nativeFormatted(.dateTime.day())).font(.system(size:14,weight:.semibold)).foregroundStyle(mode=="月" && !cal.isDate(day,equalTo:store.focusDate,toGranularity:.month) ? .secondary:.primary);Spacer();if cal.isDateInToday(day){Circle().fill(StudioPalette.jade).frame(width:5,height:5)}}.contentShape(Rectangle())}.buttonStyle(.plain).accessibilityLabel(nativeUI("查看 \(day.nativeFormatted(.dateTime.month().day().weekday())) 的安排", "View events for \(day.nativeFormatted(.dateTime.month().day().weekday()))"))
-            ForEach(entries.prefix(mode=="周" ? 8:3)){entry in Button{open(entry)}label:{HStack(spacing:4){RoundedRectangle(cornerRadius:2).fill(agendaTint(entry.event.kind)).frame(width:3,height:20);Text(entry.event.title).font(.system(size:11)).lineLimit(1).strikethrough(entry.isDone)}.padding(5).frame(maxWidth:.infinity,alignment:.leading).frame(height:30).background(agendaTint(entry.event.kind).opacity(0.10),in:RoundedRectangle(cornerRadius:6))}.buttonStyle(.plain).draggable(entry.id)}
+            ForEach(entries.prefix(mode=="周" ? 8:3)){entry in Button{open(entry)}label:{HStack(spacing:4){RoundedRectangle(cornerRadius:2).fill(agendaTint(entry.event.kind)).frame(width:3,height:20);Text(entry.event.title).font(.system(size:11)).lineLimit(1).strikethrough(entry.isDone)}.padding(5).frame(maxWidth:.infinity,alignment:.leading).frame(height:30).background(agendaTint(entry.event.kind).opacity(0.10),in:RoundedRectangle(cornerRadius:6))}.buttonStyle(.plain).modifier(AgendaDrag(entry:entry))}
             if entries.count>(mode=="周" ? 8:3){Button{showDay(day)}label:{Text(nativeUI("还有 \(entries.count-(mode=="周" ? 8:3)) 项", "\(entries.count-(mode=="周" ? 8:3)) more")).font(.caption2).foregroundStyle(.secondary)}.buttonStyle(.plain)};Spacer(minLength:0)
         }.padding(10).frame(height:mode=="周" ? 340:168,alignment:.topLeading).background {
             Button{showDay(day)}label:{
@@ -160,13 +163,13 @@ struct AgendaView:View {
         return DashboardCard {
             HStack{Text(date.nativeFormatted(.dateTime.month().day().weekday())).font(.title3.bold());Spacer();Text(nativeUI("\(entries.count) 项安排", "\(entries.count) events")).foregroundStyle(.secondary)}
             if entries.isEmpty {VStack(spacing:12){Image(systemName:"sun.max").font(.system(size:30)).foregroundStyle(StudioPalette.amber);Text(nativeUI("这一天还有留白", "A little room in the day")).font(.headline);Button(nativeUI("安排一件事", "Add an event")){newEvent()}}.frame(maxWidth:.infinity).padding(30)}
-            ForEach(entries){entry in Button{open(entry)}label:{HStack(spacing:14){RoundedRectangle(cornerRadius:3).fill(agendaTint(entry.event.kind)).frame(width:4,height:42);VStack(alignment:.leading,spacing:4){Text(entry.event.allDay ? nativeUI("全天", "All day"):entry.start.nativeFormatted(date:.omitted,time:.shortened)).font(.system(size:13,weight:.semibold)).monospacedDigit();Text(agendaKind(entry.event.kind)).font(.caption).foregroundStyle(.secondary)}.frame(width:65,alignment:.leading);VStack(alignment:.leading,spacing:5){Text(entry.event.title).font(.headline).strikethrough(entry.isDone);Text(entry.event.location.isEmpty ? (model.snapshot?.projects.first{$0.id==entry.event.projectID}?.title ?? nativeUI("独立日程", "Standalone event")):entry.event.location).font(.caption).foregroundStyle(.secondary)};Spacer();if entry.isDone{Image(systemName:"checkmark.circle.fill").foregroundStyle(StudioPalette.jade)};Image(systemName:"chevron.right").font(.caption).foregroundStyle(.secondary)}.padding(.vertical,8).contentShape(Rectangle())}.buttonStyle(LiftStyle()).draggable(entry.id)}
+            ForEach(entries){entry in Button{open(entry)}label:{HStack(spacing:14){RoundedRectangle(cornerRadius:3).fill(agendaTint(entry.event.kind)).frame(width:4,height:42);VStack(alignment:.leading,spacing:4){Text(entry.event.allDay ? nativeUI("全天", "All day"):entry.start.nativeFormatted(date:.omitted,time:.shortened)).font(.system(size:13,weight:.semibold)).monospacedDigit();Text(agendaKind(entry.event.kind)).font(.caption).foregroundStyle(.secondary)}.frame(width:65,alignment:.leading);VStack(alignment:.leading,spacing:5){Text(entry.event.title).font(.headline).strikethrough(entry.isDone);Text(entry.event.location.isEmpty ? (model.snapshot?.projects.first{$0.id==entry.event.projectID}?.title ?? nativeUI("独立日程", "Standalone event")):entry.event.location).font(.caption).foregroundStyle(.secondary)};Spacer();if entry.isDone{Image(systemName:"checkmark.circle.fill").foregroundStyle(StudioPalette.jade)};Image(systemName:"chevron.right").font(.caption).foregroundStyle(.secondary)}.padding(.vertical,8).contentShape(Rectangle())}.buttonStyle(LiftStyle()).modifier(AgendaDrag(entry:entry))}
         }
     }
     private func showDay(_ day:Date){store.focusDate=day;selectedDay=AgendaDaySelection(date:day)}
     private func newEvent(){var e=AgendaEvent();let cal=Calendar.current;e.start=cal.date(bySettingHour:9,minute:0,second:0,of:store.focusDate)!;e.end=e.start.addingTimeInterval(3600);editor=e}
     private func shift(_ n:Int){store.focusDate=cal.date(byAdding:mode=="月" ? .month:mode=="周" ? .weekOfYear:.day,value:n,to:store.focusDate)!}
-    private func open(_ entry:AgendaOccurrence){if let id=entry.taskID {model.selection="agent";model.reveal("task",id)}else{detail=entry}}
+    private func open(_ entry:AgendaOccurrence){if let id=entry.taskID {model.reveal("task",id)}else{detail=entry}}
     private func perform(_ action:()throws->Void){do{try action()}catch{store.error=error.localizedDescription}}
 }
 
@@ -233,7 +236,7 @@ private struct AgendaDayDetail:View {
     private func changeDay(_ amount:Int){date=Calendar.current.date(byAdding:.day,value:amount,to:date)!;store.focusDate=date}
     private func newEvent(){var event=AgendaEvent();event.start=Calendar.current.date(bySettingHour:9,minute:0,second:0,of:date)!;event.end=event.start.addingTimeInterval(3600);editor=event}
     private func open(_ entry:AgendaOccurrence){
-        if let id=entry.taskID {dismiss();model.selection="agent";model.reveal("task",id)}else{detail=entry}
+        if let id=entry.taskID {dismiss();model.reveal("task",id)}else{detail=entry}
     }
 }
 
@@ -242,10 +245,33 @@ struct AgendaEditor:View {
     @ObservedObject var model:Workspace
     @ObservedObject var store:AgendaStore
     @State var event:AgendaEvent
+    @State private var initialEvent:AgendaEvent
+    @State private var expected:AgendaEvent?
+    @State private var session=UUID()
+    @State private var discardPrompt=false
     @State private var issue=""
     @Environment(\.dismiss) private var dismiss
+    private var dirty:Bool {event != initialEvent}
+    init(model:Workspace,store:AgendaStore,event:AgendaEvent,expected:AgendaEvent? = nil) {
+        self.model=model;self.store=store
+        _event=State(initialValue:event);_initialEvent=State(initialValue:event)
+        // Details may already be stale when Edit is opened. Preserve the actual
+        // displayed baseline, rather than accepting a newer store version.
+        _expected=State(initialValue:expected)
+    }
+    private func closeEditor() {store.endEditorDraft(session);dismiss()}
+    private func requestDismiss() {if dirty {discardPrompt=true}else{closeEditor()}}
+    private func saveEditor() {
+        do {
+            if !event.documentID.isEmpty && expected == nil && !(model.snapshot?.documents?.contains(where:{$0.id==event.documentID}) ?? false) {
+                throw AgendaError.message(nativeUI("来源资料已不可用，请重新选择关联资料。", "The source is no longer available. Choose another linked source."))
+            }
+            try store.save(event,expected:expected)
+            closeEditor()
+        } catch {issue=error.localizedDescription}
+    }
     var body:some View {
-        VStack(spacing:0){HStack{Text(nativeUI("日程详情", "Event details")).font(.title2.bold());Spacer();Button(nativeUI("取消", "Cancel")){dismiss()};Button(nativeUI("保存", "Save")){do{if !event.documentID.isEmpty && !store.events.contains(where:{$0.id==event.id}) && !(model.snapshot?.documents?.contains(where:{$0.id==event.documentID}) ?? false){throw AgendaError.message(nativeUI("来源资料已不可用，请重新选择关联资料。", "The source is no longer available. Choose another linked source."))};try store.save(event);dismiss()}catch{issue=error.localizedDescription}}.buttonStyle(.borderedProminent)}.padding(22)
+        VStack(spacing:0){HStack{Text(nativeUI("日程详情", "Event details")).font(.title2.bold());Spacer();Button(nativeUI("取消", "Cancel")){requestDismiss()};Button(nativeUI("保存", "Save")){saveEditor()}.buttonStyle(.borderedProminent).keyboardShortcut("s",modifiers:.command)}.padding(22)
             ScrollView{VStack(alignment:.leading,spacing:17){TextField(nativeUI("日程名称", "Event title"),text:$event.title).font(.title3).textFieldStyle(.roundedBorder)
                 if event.source=="随记" {Text(nativeUI("由随记创建的日程草稿。请确认日期、时间和提醒；保存前不会安排通知。", "Drafted from a quick note. Check the date, time and reminder. Notifications are scheduled only after saving.")).font(.caption).foregroundStyle(.secondary)}
                 AgendaChoice(title:nativeUI("类型", "Type"),value:$event.kind,options:[("event",nativeUI("日程", "Agenda")),("course",nativeUI("课程", "Courses")),("meeting",nativeUI("会议", "Meeting"))])
@@ -269,6 +295,16 @@ struct AgendaEditor:View {
                 if !issue.isEmpty{Text(issue).foregroundStyle(.red)}
             }.padding(22)}
         }.frame(width:570,height:690).background(StudioPalette.canvas)
+            .background(NativeDraftQuitSheet())
+            .onAppear{store.setEditorDraft(session,dirty:dirty)}
+            .onChange(of:event){_,_ in store.setEditorDraft(session,dirty:dirty)}
+            .onDisappear{store.endEditorDraft(session)}
+            .interactiveDismissDisabled(dirty)
+            .onExitCommand{requestDismiss()}
+            .confirmationDialog(nativeUI("放弃尚未保存的日程修改？", "Discard unsaved event changes?"),isPresented:$discardPrompt,titleVisibility:.visible) {
+                Button(nativeUI("放弃修改", "Discard changes"),role:.destructive){closeEditor()}
+                Button(nativeUI("继续编辑", "Keep editing"),role:.cancel){}
+            }
     }
 }
 
@@ -287,12 +323,12 @@ struct AgendaDetail:View {
             Text(occurrence.event.title).font(.title.bold());Text(occurrence.start.nativeFormatted()+" — "+occurrence.end.nativeFormatted(date:.omitted,time:.shortened));Text(occurrence.event.timeZone).font(.caption).foregroundStyle(.secondary)
             if !occurrence.event.location.isEmpty{Label(occurrence.event.location,systemImage:"mappin.and.ellipse")}
             if !occurrence.event.details.isEmpty {ScrollView{Text(occurrence.event.details).frame(maxWidth:.infinity,alignment:.leading)}.frame(maxHeight:120)}
-            HStack{if !occurrence.event.projectID.isEmpty{Button(nativeUI("打开项目", "Open project")){model.selection="project:"+occurrence.event.projectID;dismiss()}};if !occurrence.event.documentID.isEmpty{Button(nativeUI("打开关联资料", "Open linked source")){model.selection="agent";model.reveal(occurrence.event.documentKind,occurrence.event.documentID);dismiss()}}}
+            HStack{if !occurrence.event.projectID.isEmpty{Button(nativeUI("打开项目", "Open project")){model.selection="project:"+occurrence.event.projectID;dismiss()}};if !occurrence.event.documentID.isEmpty{Button(nativeUI("打开关联资料", "Open linked source")){model.reveal(occurrence.event.documentKind,occurrence.event.documentID);dismiss()}}}
             Divider();HStack{Button(occurrence.isDone ? nativeUI("标为未完成", "Mark incomplete"):nativeUI("标记完成", "Mark complete")){perform{try store.toggleDone(occurrence)}};Button(nativeUI("编辑整个日程", "Edit series")){editing=true};Button(nativeUI("调整本次", "Reschedule occurrence")){target=occurrence.start;moving=true}}
             if moving {DatePicker(nativeUI("改到", "Move to"),selection:$target);Button(nativeUI("保存本次调整", "Save this change")){perform{try store.move(occurrence,to:target)}}}
             HStack{if occurrence.event.frequency != "none" {Button(nativeUI("跳过本次", "Skip occurrence")){perform{try store.skip(occurrence)}}};Spacer();Button(nativeUI("取消整个日程", "Cancel series"),role:.destructive){perform{try store.cancel(occurrence.event)}}}
             if !issue.isEmpty{Text(issue).foregroundStyle(.red)}
-        }.padding(26).frame(width:570).background(StudioPalette.canvas).sheet(isPresented:$editing,onDismiss:{dismiss()}){AgendaEditor(model:model,store:store,event:occurrence.event)}
+        }.padding(26).frame(width:570).background(StudioPalette.canvas).sheet(isPresented:$editing,onDismiss:{dismiss()}){AgendaEditor(model:model,store:store,event:occurrence.event,expected:occurrence.event)}
     }
     private func perform(_ action:()throws->Void){do{try action();dismiss()}catch{issue=error.localizedDescription}}
 }

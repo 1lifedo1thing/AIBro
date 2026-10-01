@@ -1,0 +1,336 @@
+# Halaska Kit: API reference for coding agents
+# https://ui.halaska.com · file: halaska-kit.jsx · by Halaska
+
+Halaska Kit is a single-file React UI kit for AI products: 38 UX patterns + ~100 styled
+components, inline styles, no CSS/Tailwind setup. Deps: react and react-dom only (no chart library).
+Fonts (Geist) and keyframes self-inject on import. File begins with "use client" (Next.js-safe).
+
+INSTALL
+  curl -o src/halaska-kit.jsx https://ui.halaska.com/halaska-kit.jsx
+  # TypeScript projects: curl -o src/halaska-kit.d.ts https://ui.halaska.com/halaska-kit.d.ts
+
+USAGE
+  import { Button, Card, Orb, PlanPreviewPattern, usePal, tokens } from "./halaska-kit";
+  Every component accepts theme="light" | "dark" (or wrap in <ThemeProvider theme="dark">).
+  Colors: const pal = usePal(theme) → pal.bg, bgElevated, bgSubtle, bgMuted, border, borderSubtle,
+    text, textSecondary, textTertiary, textMuted, accent, accentBg, success, warning, danger (+ *Bg tints).
+  Accent: <AccentContext.Provider value="#8b5cf6">. Every accent-colored element follows.
+  Layout: <Stack gap={16} direction="row" align="center">; tokens.space {xs 4, sm 8, md 16, lg 32, xl 40};
+    tokens.radius {xs 4, sm 8, md 16, lg 24, xl 32, pill 999}; tokens.type {xs…display}; tokens.font.sans/mono.
+  Motion: motion.fast/normal/smooth/spring/slow durations; motion.easeInOut/easeOut/easeIn/emphasized/springCurve.
+
+UX PATTERNS: the lifecycle set is prop-driven with demo defaults. Pass your own copy, data,
+and callbacks (see @prop lines below each): ThinkingTracePattern, StreamingAnswerPattern,
+PlanPreviewPattern, ApprovalCardPattern, AgentStatusPattern, HandoffPattern, ActionReceiptPattern,
+ErrorRepairPattern. The other patterns are working reference implementations with demo data
+(an AI operations agent named Alpha running support, releases, and renewals for a small software team): copy the source out of halaska-kit.jsx, swap the data, keep the
+structure, states, and motion.
+
+DESIGN HEURISTICS (apply when composing new UI)
+  Show what the agent is doing (Orb, AgentStatusPattern) · consent before consequence
+  (PlanPreviewPattern, ApprovalCardPattern) · undo over confirm (ActionReceiptPattern) ·
+  recognition over recall (DigestPattern, AuditLogPattern) · calm error recovery (ErrorRepairPattern).
+
+EXPORTS
+
+## Foundations
+  tokens
+  motion
+  interactiveBase
+  usePal
+  useThemeContext
+  ThemeProvider({ theme = "light", children })
+  AccentContext
+  useAccent
+  injectStyles
+  getAvatarColor
+  setKitMotion
+  setKitFont
+  KIT_MOTION_PRESETS
+  KIT_FONT_PRESETS
+
+## Typography
+  Text({ children, size = "base", weight = "regular", color, mono, muted, secondary, align, truncate, theme, style, as = "span" })
+  Heading({ children, level = 1, theme, style })
+  Label({ children, required, theme, style })
+  Caption({ children, theme, style })
+  Code({ children, theme, style })
+
+## Buttons
+  Button({ children, variant = "primary", size = "md", icon, iconRight, disabled, loading, fullWidth, onClick, theme, style })
+  IconButton({ icon, size = 36, variant = "ghost", onClick, theme, label, style })
+  ButtonGroup({ children, theme })
+  LinkButton({ children, onClick, icon, iconRight, size = "md", theme, style })
+  SplitButton({ children, onClick, items = [], variant = "primary", size = "md", theme })
+
+## Inputs & selectors
+  TextInput({ value, onChange, placeholder, label, caption, error, icon, disabled, type = "text", size = "md", theme, style })
+  TextArea({ value, onChange, placeholder, label, caption, rows = 3, disabled, theme, style })
+  Select({ value, onChange, options, placeholder, label, disabled, size = "md", theme, style })
+  Checkbox({ checked, onChange, label, disabled, theme })
+  Radio({ checked, onChange, label, disabled, theme })
+  RadioGroup({ options, value, onChange, label, theme })
+  SwitchToggle({ checked, onChange, label, theme })
+  Slider({ value, onChange, min = 0, max = 100, label, theme })
+  SpringSlider({ value, onChange, min = 0, max = 100, label, theme })
+  SpringToggle({ checked, onChange, label, theme })
+  SegmentedControl({ options, value, onChange, theme })
+  InputOTP({ length = 6, value = "", onChange, theme })
+  InputGroup({ prefix, suffix, value, onChange, placeholder, label, theme, style })
+  Combobox({ options = [], value, onChange, placeholder = "Select…", label, theme })
+  Calendar({ value, onChange, theme })
+  DatePicker({ value, onChange, label, placeholder = "Pick a date", theme })
+  Chip({ children, selected, onToggle, onRemove, icon, theme })
+  Toggle({ pressed, onPress, children, theme })
+  ToggleGroup({ options, value, onChange, theme })
+  SearchInput({ value, onChange, placeholder = "Search…", shortcut = "⌘K", theme, style })
+  Choicebox({ options, value, onChange, multiple, theme })
+  CopyInput({ value, label, theme, style })
+  Rating({ value = 0, onChange, max = 5, size = 18, readOnly, theme })
+
+## Layout & data display
+  Card({ children, theme, padding, hover, onClick, style })
+  CardHeader({ title, subtitle, action, theme })
+  Divider({ theme, spacing })
+  Stack({ children, gap = "md", direction = "column", align, justify, wrap, style })
+  Badge({ children, variant = "default", theme, style })
+  Tag({ children, color, removable, onRemove, theme })
+  StatusBadge({ status = "default", children, pulse, theme })
+  StatusDot({ status = "online", pulse, size = 8, theme })
+  Avatar({ name, src, size = 32, theme })
+  AvatarGroup({ names, max = 4, size = 28, theme })
+  ListItem({ title, subtitle, left, right, divider = true, onClick, theme })
+  Stat({ label, value, change, theme })
+  Table({ columns, rows, theme })
+  DataTable({ columns, rows, theme })
+  ScrollArea({ children, maxHeight = 200, theme })
+  Pagination({ current, total, onChange, variant = "numbers", theme })
+  MiddleTruncate({ text, tail = 6, mono = true, theme, style })
+  Kbd({ children, theme })
+  Sparkline({ data = [], width = 240, height = 72, color, fill = true, theme, style })
+  DotGrid({ theme, spacing = 20 })
+
+## Feedback & status
+  Progress({ value, theme, height = 6 })
+  ProgressCircle({ value = 0, size = 48, stroke = 4, label, theme })
+  Skeleton({ width, height = 16, rounded, theme })
+  Spinner({ size = 16, color })
+  Toast({ message, variant = "default", icon, theme })
+  AlertBanner({ title, description, variant = "default", theme })
+  EmptyState({ icon, title, description, action, theme })
+  Stepper({ steps, current = 0, theme })
+
+## Navigation & menus
+  Breadcrumb({ items, maxVisible, home, theme })
+  Tabs({ tabs, value, onChange, theme })
+  SubtleTabs({ tabs, value, onChange, theme })
+  Accordion({ items, defaultOpen = -1, theme })
+  Collapsible({ title, children, defaultOpen = false, theme })
+  ContextMenu({ items, children, theme })
+  Menubar({ menus, theme })
+  CommandPalette({ items = [], placeholder = "Type a command or search…", theme })
+  CommandMenu({ open, onClose, items = [], placeholder = "Type a command or search…", theme })
+
+## Overlays
+  Dialog({ open, onClose, title, children, theme })
+  AlertDialog({ open, onClose, title, description, variant = "danger", confirmLabel = "Confirm", cancelLabel = "Cancel", onConfirm, theme })
+  FormDialog({ open, onClose, title, description, children, submitLabel = "Save", onSubmit, theme })
+  CardDialog({ open, onClose, cover, title, description, children, actions, theme })
+  Sheet({ open, onClose, title, children, side = "right", theme })
+  Popover({ trigger, children, theme })
+  DropdownMenu({ trigger, items, theme })
+  Tooltip({ children, text, theme })
+  HoverCard({ trigger, children, theme })
+  ChevronIcon({ size = 12, direction = "right", style })
+
+## Dev surfaces
+  Snippet({ text, prompt = "$", theme, style })
+  FileTree({ data = [], theme, style })
+  BrowserFrame({ url = "localhost:3000", children, theme, style })
+  PhoneFrame({ children, width = 300, height = 560, theme, style })
+
+## AI elements
+  Orb({ variant = "pulse", size = 20, label, pill, color, theme, style })
+  StreamingText({ text, speed = 30, theme })
+  ThinkingIndicator({ label = "Thinking", size = "md", theme })
+  ThinkingSteps({ steps, current = 0, theme })
+  ConfidenceBar({ value, label, theme })
+  AISuggestionBadge({ theme })
+  BeforeAfterToggle({ before, after, theme })
+  CompareSlider({ before, after, theme, initial = 0.5, labels = ["Before", "After"], style })
+  ZoomControl({ zoom, onChange, theme })
+  AgentGlyph({ size = 24, theme })
+
+## UX patterns: conversation core
+  PromptInputPattern({ theme })
+  MessageThreadPattern({ theme })
+  StreamingAnswerPattern({ theme, segments = STREAM_ANSWERS.default.segments, sources = STREAM_SOURCES, followups = STREAM_ANSWERS.default.followups, thinkingLabel = "Checking the inbox", answerLabel = "Answer", sourcesLabel = n => `${n} sources`, followupsLabel = "Follow-ups", thinkMs = 700, charsPerTick = 2, tickMs = 18, autoplay = true, onFollowup, onDone })
+      theme {"light" | "dark"} Palette override (defaults to ThemeProvider context)
+      segments {({ t: string } | { chip: string })[]} The answer as text runs and inline source chips, in order; streaming restarts whenever it changes (default: the Acme ticket demo answer)
+      sources {{ name: string, domain: string }[]} Sources row shown once streaming completes (default: STREAM_SOURCES)
+      followups {string[]} Follow-up prompts listed under the answer (default: the demo follow-ups)
+      thinkingLabel {string} Label beside the dots while thinking (default: "Checking the inbox")
+      answerLabel {string} Caption that replaces the thinking indicator once streaming starts (default: "Answer")
+      sourcesLabel {(n: number) => string} Caption above the sources row, given the source count (default: n => `${n} sources`)
+      followupsLabel {string} Caption above the follow-up list (default: "Follow-ups")
+      thinkMs {number} Thinking duration before the first character appears (default: 700)
+      charsPerTick {number} Characters revealed per tick (default: 2)
+      tickMs {number} Milliseconds between ticks (default: 18)
+      autoplay {boolean} Think → stream on mount; false renders the finished answer immediately with no timers (default: true)
+      onFollowup {(text: string) => void} Fires when a follow-up is clicked; the parent then swaps `segments`/`followups`. When omitted, the demo toggles to its built-in second answer
+      onDone {() => void} Fires when streaming completes (not fired when autoplay is false)
+  AgentChatPattern({ theme })
+  CodeBlockPattern({ theme })
+  ModelContextPattern({ theme })
+
+## UX patterns: trust & transparency
+  ThinkingTracePattern
+      steps {{ label: string, detail?: string }[]} Reasoning steps, revealed one per `stepMs` (default: THINKING_TRACE_STEPS)
+      stepMs {number} Milliseconds per step; total think time = steps.length × stepMs (default: 1100)
+      thinkingLabel {string} Label shown while thinking (default: "Thinking")
+      doneLabel {(seconds: number) => string} Header label once done (default: `Thought for ${seconds.toFixed(1)} seconds`)
+      collapseDelayMs {number} Pause after done before the trace collapses (default: 1000)
+      autoCollapse {boolean} Collapse the trace automatically after done (default: true)
+      autoplay {boolean} Run the timed trace on mount; false renders the finished, collapsed state with no timers (default: true)
+      defaultOpen {boolean} Initial expanded state of the trace (default: autoplay)
+      onDone {(seconds: number) => void} Fires when thinking completes (autoplay only)
+      onToggle {(open: boolean) => void} Fires when the trace expands/collapses, by user click or auto-collapse
+  CitationsPattern({ theme })
+  ContextSourcesPattern({ theme })
+  ConfidencePattern({ theme })
+  RecommendationPattern({ theme })
+  FeedbackPattern({ theme })
+
+## UX patterns: agentic control
+  PlanPreviewPattern({ theme, title = "Alpha wants to clear the support backlog", subtitle = "Nothing runs until you say so.", steps = PLANPREV_STEPS, badgeLabel = "Proposed", proceedLabel = "Proceed", editLabel = "Edit plan", handoffLabel = "I'll do it myself", lockLabel = "Lock plan", doneText, handoffText = "Plan handed off. Alpha is standing by.", stepDelayMs = 700, onProceed, onComplete, onEdit, onHandoff })
+      title {string} Card headline (default: "Alpha wants to clear the support backlog")
+      subtitle {string} Line under the headline while reviewing (default: "Nothing runs until you say so.")
+      steps {string[]} Plain-language steps, shown numbered; copied into state on mount so edits never mutate the prop
+      badgeLabel {string} Status badge text in the review/edit phases (default: "Proposed")
+      proceedLabel {string} Primary action label (default: "Proceed")
+      editLabel {string} Secondary action label (default: "Edit plan")
+      handoffLabel {string} Ghost action label that hands the plan back to the user (default: "I'll do it myself")
+      lockLabel {string} Label of the button that locks an edited plan (default: "Lock plan")
+      doneText {string | (count: number) => string} Footer text once every step has run; default renders "Done · N actions taken · view receipt"
+      handoffText {string} Line shown after the user takes the plan over (default: "Plan handed off. Alpha is standing by.")
+      stepDelayMs {number} Interval between steps checking off while executing (default: 700)
+      onProceed {(steps: string[]) => void} Fires when Proceed is clicked, with the kept (possibly edited) steps
+      onComplete {(steps: string[]) => void} Fires when the last kept step checks off
+      onEdit {(steps: string[]) => void} Fires when the plan is locked after editing, with the kept steps
+      onHandoff {() => void} Fires when the user chooses to do it themselves
+  ApprovalCardPattern({ theme, eyebrow = "Needs your call", badgeLabel = "Paused", question = "How should I reply to Acme's outage complaint?", options = APPROVAL_OPTIONS, approveLabel = "Approve", skipLabel = "Skip", approvedText = APPROVAL_APPROVED_TEXT, skippedText = APPROVAL_SKIPPED_TEXT, onSelect, onApprove, onSkip })
+      theme {"light"|"dark"} Palette override (defaults to ThemeContext)
+      eyebrow {string} Small caption beside the agent glyph (default: "Needs your call")
+      badgeLabel {string} Status badge text while paused (default: "Paused")
+      question {string} The question the agent is asking (default: "How should I reply to Acme's outage complaint?")
+      options {{ id: string, title: string, sub?: string }[]} Radio-row choices (default: APPROVAL_OPTIONS)
+      approveLabel {string} Primary button label (default: "Approve")
+      skipLabel {string} Ghost button label (default: "Skip")
+      approvedText {string | ((option) => string)} Headline of the approved state; a function receives the chosen option (default: `Approved · ${option.title}`)
+      skippedText {string} Headline of the skipped state (default: "Skipped · nothing was changed")
+      onSelect {(option) => void} Fires when a radio row is picked
+      onApprove {(option) => void} Fires when Approve is clicked, with the chosen option
+      onSkip {() => void} Fires when Skip is clicked
+  AutonomyPattern({ theme })
+  PermissionScopePattern({ theme })
+  QueuePattern({ theme })
+  AgentStatusPattern({ theme, phases = AGENTSTATUS_MAIN_PHASES, redirectPhases = AGENTSTATUS_REDIRECT_PHASES, waitingLabel = "Waiting on you · 2 replies need a look", pausedLabel = "Stopped · progress kept", doneLabel = "Done · replies redrafted to your note", phaseMs = 1800, contextLabel = agentstatusContextLabel, redirectPlaceholder = "Tell Alpha what to do instead…", autoplay = true, onPause, onResume, onRedirect, onWaiting, onDone })
+      theme {"light" | "dark"} Palette override (defaults to ThemeContext)
+      phases {(string | { label: string, orb?: "pulse" | "orbit" | "sweep" | "globe" | "spark" })[]} Main working phases, shown in order (default: AGENTSTATUS_MAIN_PHASES with orbit → globe → sweep orbs)
+      redirectPhases {(string | { label: string, orb?: "pulse" | "orbit" | "sweep" | "globe" | "spark" })[]} Phases run after a redirect note is sent (default: AGENTSTATUS_REDIRECT_PHASES with globe → sweep orbs)
+      waitingLabel {string} Pill text once the main cycle ends and the agent needs the user (default: "Waiting on you · 2 replies need a look")
+      pausedLabel {string} Pill text while stopped (default: "Stopped · progress kept")
+      doneLabel {string} Pill text once the redirect cycle finishes (default: "Done · replies redrafted to your note")
+      phaseMs {number} Milliseconds per phase (default: 1800)
+      contextLabel {string | ((step: number, total: number) => string)} Footer line under the pill (default: (step, total) => `Alpha · step ${step} of ${total}`)
+      redirectPlaceholder {string} Placeholder for the redirect note input (default: "Tell Alpha what to do instead…")
+      autoplay {boolean} Cycle phases on mount; false renders the waiting state immediately and a redirect jumps straight to done (default: true)
+      onPause {() => void} Fires when the user stops the run (the control reads Stop)
+      onResume {() => void} Fires when the user resumes
+      onRedirect {(note: string) => void} Fires with the trimmed note when the user sends a redirect
+      onWaiting {() => void} Fires when the main cycle ends and the agent needs the user
+      onDone {() => void} Fires when the redirect cycle finishes
+  ToolStreamPattern({ theme })
+  AgentTasksPattern({ theme })
+  HandoffPattern({ theme, workingLabel = "Reviewing Acme's refund request…", workingMs = 2000, headline = "Alpha is handing this to you", reason = "Refund exceeds your $2, 500 approval cap", context = HANDOFF_CONTEXT_ROWS, takeOverLabel = "Take over", resumeLabel = "Raise cap to $5, 000 & let Alpha finish", takenOverText = "You have control. Alpha left notes in the thread.", resumingLabel = "Resuming with new cap…", resumedText = HANDOFF_RESUMED_TEXT, resumeMs = 1500, autoplay = true, onTakeOver, onResume, onResumed })
+      theme {"light" | "dark"} Palette override; falls back to ThemeContext
+      workingLabel {string} ThinkingIndicator label while the agent is still working (default: "Reviewing Acme's refund request…")
+      workingMs {number} How long the working beat lasts before the handoff card appears (default: 2000)
+      headline {string} Handoff headline on the accent rail (default: "Alpha is handing this to you")
+      reason {string} Because-line under the headline (default: "Refund exceeds your $2,500 approval cap")
+      context {{ label: string, value: string }[]} Prepared context rows the human inherits (value renders mono)
+      takeOverLabel {string} Primary action label (default: "Take over")
+      resumeLabel {string} Secondary action label that raises the cap and lets the agent finish (default: "Raise cap to $5,000 & let Alpha finish")
+      takenOverText {string} Confirmation line after Take over (default: "You have control. Alpha left notes in the thread.")
+      resumingLabel {string} ThinkingIndicator label while the agent resumes (default: "Resuming with new cap…")
+      resumedText {ReactNode} Resolved line after the agent finishes (default: "Done · refunded $3,900 to Acme", amount in mono)
+      resumeMs {number} How long the resuming beat lasts before it resolves (default: 1500)
+      autoplay {boolean} Play the working beat on mount; false shows the handoff card immediately (default: true)
+      onTakeOver {() => void} Fires when the user clicks Take over
+      onResume {() => void} Fires when the user clicks the raise-cap action
+      onResumed {() => void} Fires when the resumed run resolves (after resumeMs)
+  ActionReceiptPattern({ theme, title = "Credit issued", reversedTitle = "Reversed", timestamp = "14:32:07 UTC", reversedTimestamp = "14:32:19 UTC", meta = RECEIPT_META, reversedMeta = RECEIPT_META_REVERSED, before = 0, after = 180, unit = "USD", decimals = 0, stripLabel = "Acme credit", undoSeconds = RECEIPT_UNDO_SECONDS, undoLabel = "Undo", expiredLabel = "Undo window closed", reversedLabel = "Reversal logged · nothing else was affected", auditLabel = "View in audit log", autoplay = true, onUndo, onExpire, onAudit })
+      title {string} Headline while the action stands (default: "Credit issued")
+      reversedTitle {string} Headline after undo (default: "Reversed")
+      timestamp {string} Mono timestamp shown top-right (default: "14:32:07 UTC")
+      reversedTimestamp {string} Timestamp shown after undo (default: "14:32:19 UTC")
+      meta {{ label: string, value: string }[]} What / Where / Authority rows (default: RECEIPT_META)
+      reversedMeta {{ label: string, value: string }[]} Rows shown after undo (default: RECEIPT_META_REVERSED)
+      before {number} Credit balance before the action (default: 0)
+      after {number} Credit balance after the action; counts up on mount (default: 180)
+      unit {string} Unit suffix on the strip and delta (default: "USD")
+      decimals {number} Decimal places for before/after/delta (default: 0)
+      stripLabel {string} Label at the left of the before → after strip (default: "Acme credit")
+      undoSeconds {number} Length of the undo window; drives the ring and countdown (default: 10)
+      undoLabel {string} Undo button text (default: "Undo")
+      expiredLabel {string} Caption once the window closes (default: "Undo window closed")
+      reversedLabel {string} Caption after undo (default: "Reversal logged · nothing else was affected")
+      auditLabel {string} Audit link text in the expired and reversed states (default: "View in audit log")
+      autoplay {boolean} Run the countdown + count-up on mount; false renders the expired state with no timers (default: true)
+      onUndo {() => void} Fires when the user clicks Undo inside the window
+      onExpire {() => void} Fires when the undo window closes untouched
+      onAudit {() => void} Fires when the user clicks the audit link
+  CheckpointPattern({ theme })
+  AuditLogPattern({ theme })
+  ErrorRepairPattern({ theme, headline = "Alpha got this one wrong", acknowledgment = "Alpha archived the Stripe payout notice as a newsletter. It matched the sender rule and never reached your inbox.", fixesTitle = "What Alpha did about it", fixes = REPAIR_FIXES, diff = REPAIR_DIFF, reviewLabel = "Review the fix", flagLabel = "Flag for a human", footer = "Logged to audit · nothing else was affected.", beatMs = 1200, autoplay = true, onReview, onFlag })
+      theme {"light" | "dark"} Palette override (defaults to ThemeProvider context)
+      headline {string} Plain-language admission (default: "Alpha got this one wrong")
+      acknowledgment {string} One sentence on what went wrong, no blame (default: the archived-payout-notice line)
+      fixesTitle {string} Eyebrow above the fix list (default: "What Alpha did about it")
+      fixes {string[]} Corrective actions taken, each drawn in with a check (default: REPAIR_FIXES)
+      diff {{ label: string, before: string, after: string } | null} Before/after line revealed by Review; null hides the Review button and the diff (default: REPAIR_DIFF)
+      reviewLabel {string} Toggle-diff button label (default: "Review the fix")
+      flagLabel {string} Escalation button label (default: "Flag for a human")
+      footer {string} Quiet audit note under the actions; empty string hides it (default: "Logged to audit · nothing else was affected.")
+      beatMs {number} Delay between the three beats when autoplaying (default: 1200)
+      autoplay {boolean} Reveal beats on a timer; false shows all three at once, no timers (default: true)
+      onReview {() => void} Fires when the user toggles the diff open or closed
+      onFlag {() => void} Fires when the user asks for a human
+
+## UX patterns: output & generative UI
+  ArtifactPattern({ theme })
+  DiffViewPattern({ theme })
+  DiffTablePattern({ theme })
+  StructuredDataPattern({ theme })
+  InsightCardsPattern({ theme })
+  ComparisonPattern({ theme })
+
+## UX patterns: ambient & beyond chat
+  TaskboardPattern({ theme })
+  InlineAssistPattern({ theme })
+  NudgePattern({ theme })
+  DigestPattern({ theme })
+  NotificationCenterPattern({ theme })
+  CommandSearchPattern({ theme })
+  AgentSetupPattern({ theme })
+
+## Example screens (one per UX paradigm)
+  ChatParadigmExample({ theme })
+  CanvasParadigmExample({ theme })
+  ChatParadigmBefore({ theme })
+  BeforeAfterSection({ theme })
+
+## Registries (for building indexes and docs)
+  PATTERN_GROUPS
+  UX_PATTERNS
+  DESIGN_HEURISTICS

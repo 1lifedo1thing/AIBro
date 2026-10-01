@@ -1,7 +1,7 @@
 (function(root){
   'use strict';
   const STORAGE='aibro-embedding-settings-v1';
-  let hooks,engine,config=null,controller=null,timer,dirty=false,queued=false,sessionKey='',sessionEndpoint='',progress=null,epoch=0,saving=false;
+  let hooks,engine,config=null,controller=null,timer,dirty=false,queued=false,sessionKey='',sessionEndpoint='',progress=null,epoch=0,saving=false,unlockIsland=null;
   const $=id=>root.document.getElementById(id);
   const t=text=>root.WorkstationI18n?.t(text)||text;
   function report(text){$('embeddingStatus').textContent=t(text);}
@@ -12,6 +12,7 @@
     $('embeddingSave').disabled=!!controller||saving;
     $('embeddingTest').disabled=!!controller||saving;
     $('embeddingClearKey').disabled=!!controller||saving;
+    unlockIsland?.update({disabled:!!controller||saving,children:t('解锁 embedding Key')});
     $('embeddingStop').hidden=!controller;
     if(progress){$('embeddingProgress').hidden=false;$('embeddingProgress').max=Math.max(1,progress.total);$('embeddingProgress').value=progress.ready;$('embeddingCounts').textContent=`${t('已更新段落')} ${progress.ready} / ${progress.total} · ${t('待更新')} ${progress.pending}`;}
   }
@@ -44,7 +45,7 @@
     try {
       const captured=readForm(),entered=$('embeddingKey').value.trim(),bridge=root.workstationDesktop?.embeddingCredentials;
       if(!captured.noKey){
-        if(bridge){await bridge.save({base:captured.base,model:captured.model,token:entered});sessionKey='';sessionEndpoint='';}
+        if(bridge){await (bridge.storageBackend==='encrypted-file'?bridge.save:bridge.authorizeSave||bridge.save).call(bridge,{base:captured.base,model:captured.model,token:entered});sessionKey='';sessionEndpoint='';}
         else if(entered){sessionKey=entered;sessionEndpoint=captured.base;}
         else if(!sessionKey||sessionEndpoint!==captured.base)throw Error('请填写 embedding API Key；浏览器模式仅在本次会话保留');
       }
@@ -53,8 +54,15 @@
       if(config.autoUpdate&&config.enabled)workspaceSaved();return true;
     }catch(error){report(error.message);return false;}finally{saving=false;paint();}
   }
+  async function unlockCredentials(){
+    const bridge=root.workstationDesktop?.embeddingCredentials;
+    if(controller||saving||typeof bridge?.unlock!=='function'||bridge.storageBackend==='encrypted-file')return false;
+    saving=true;paint();report('正在解锁 embedding Key');
+    try{const captured=readForm(),saved=await bridge.unlock({base:captured.base});report(saved.hasKey&&!saved.requiresUnlock?'Embedding Key 已解锁，可测试连接或更新索引':'此服务尚未保存 embedding Key');return !!saved.hasKey&&!saved.requiresUnlock;}
+    catch(error){report(error.message);return false;}finally{saving=false;paint();}
+  }
   async function testConnection(){
-    if(controller)return;
+    if(controller||saving)return;
     try {
       const draft=readForm(),entered=$('embeddingKey').value.trim();
       controller=new AbortController();paint();report('正在测试 embedding 连接');
@@ -114,18 +122,20 @@
       <label class="setting-label" for="embeddingDimensions" data-i18n>向量维度（留空使用模型默认值）</label><input id="embeddingDimensions" class="setting-input" type="number" min="1" step="1">
       <label class="setting-label"><input id="embeddingAuto" type="checkbox"> <span data-i18n>资料保存后自动增量更新</span></label>
       <p class="setting-help" data-i18n>更新会将已保存文本和文件名发送到上述 embedding 服务，可能产生 API 费用。不会自动提取 PDF 全文；无正文的原件仅索引文件信息。向量仅保存在本机。</p>
-      <p class="setting-help" id="embeddingKeyHelp" data-i18n></p><div class="setting-actions"><button class="secondary" id="embeddingSave" data-i18n>保存 embedding 配置</button><button class="secondary" id="embeddingTest" data-i18n>测试 embedding 连接</button><button class="secondary" id="embeddingClearKey" data-i18n>删除 embedding Key</button></div>
+      <p class="setting-help" id="embeddingKeyHelp" data-i18n></p><div class="setting-actions"><span id="embeddingUnlockHost" hidden></span><button class="secondary" id="embeddingSave" data-i18n>保存 embedding 配置</button><button class="secondary" id="embeddingTest" data-i18n>测试 embedding 连接</button><button class="secondary" id="embeddingClearKey" data-i18n>删除 embedding Key</button></div>
       <div class="setting-actions"><button class="primary" id="embeddingUpdate" data-i18n>立即更新向量索引</button><button class="secondary" id="embeddingStop" hidden data-i18n>停止更新</button></div>
       <progress id="embeddingProgress" hidden style="width:100%"></progress><p id="embeddingCounts" class="muted"></p><p id="embeddingStatus" class="setting-help" role="status" aria-live="polite"></p>`;
     $('settings').append(card);
     engine=root.VectorIndex.create({getState:hooks.getState,store:root.workstationDesktop?.vectorIndex || root.VectorIndex.indexedDBStore(),embed,onProgress:value=>{progress=value;paint();}});
     try{const saved=JSON.parse(root.localStorage.getItem(STORAGE)||'null');if(saved)config=root.VectorIndex.configuration(saved);}catch{report('Embedding 配置无法读取，请重新保存');}
     if(config){$('embeddingBase').value=config.base;$('embeddingModel').value=config.model;$('embeddingDimensions').value=config.dimensions||'';$('embeddingEnabled').checked=config.enabled;$('embeddingAuto').checked=config.autoUpdate;$('embeddingNoKey').checked=config.noKey;}
-    $('embeddingKeyHelp').textContent=root.workstationDesktop?t('Key 独立加密保存在此 Mac；留空保留已保存的 Key。'):t('浏览器模式仅在本次会话保留 Key；重开后需重新填写。');
+    const fileCredentials=root.workstationDesktop?.embeddingCredentials?.storageBackend==='encrypted-file';
+    $('embeddingKeyHelp').textContent=fileCredentials?t('Key 独立保存在此 Mac 的加密文件中，无需钥匙串密码。旧 Key 无法迁移时，重新粘贴并保存一次即可。'):root.workstationDesktop?t('Key 独立加密保存在此 Mac；留空保留已保存的 Key。'):t('浏览器模式仅在本次会话保留 Key；重开后需重新填写。');
+    if(!fileCredentials&&typeof root.workstationDesktop?.embeddingCredentials?.unlock==='function'&&root.HalaskaUI?.mount){const host=$('embeddingUnlockHost');host.hidden=false;unlockIsland=root.HalaskaUI.mount(host,'Button',{id:'embeddingUnlockKey',variant:'secondary',size:'sm',children:t('解锁 embedding Key'),onClick:()=>void unlockCredentials()});}
     card.querySelectorAll('input').forEach(input=>input.addEventListener('input',()=>{dirty=true;}));
     $('embeddingSave').onclick=()=>void saveConfiguration();$('embeddingTest').onclick=()=>void testConnection();$('embeddingUpdate').onclick=()=>void update(true);
     $('embeddingStop').onclick=()=>{queued=false;clearTimeout(timer);controller?.abort();};
-    $('embeddingClearKey').onclick=async()=>{if(controller)return;try{await root.workstationDesktop?.embeddingCredentials?.remove();sessionKey='';sessionEndpoint='';$('embeddingKey').value='';if(config&&!config.noKey){config={...config,enabled:false,autoUpdate:false};root.localStorage.setItem(STORAGE,JSON.stringify(config));$('embeddingEnabled').checked=false;$('embeddingAuto').checked=false;epoch++;clearTimeout(timer);}report('Embedding Key 已删除');}catch(error){report(error.message);}};
+    $('embeddingClearKey').onclick=async()=>{if(controller||saving)return;saving=true;paint();try{const bridge=root.workstationDesktop?.embeddingCredentials;if(bridge)await (bridge.storageBackend==='encrypted-file'?bridge.remove:bridge.authorizeRemove||bridge.remove).call(bridge);sessionKey='';sessionEndpoint='';$('embeddingKey').value='';if(config&&!config.noKey){config={...config,enabled:false,autoUpdate:false};root.localStorage.setItem(STORAGE,JSON.stringify(config));$('embeddingEnabled').checked=false;$('embeddingAuto').checked=false;epoch++;clearTimeout(timer);}report('Embedding Key 已删除');}catch(error){report(error.message);}finally{saving=false;paint();}};
     paint();void refresh();
   }
   root.VectorKnowledge={init,retrieve,searchRequest,workspaceSaved,refresh,update};

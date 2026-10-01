@@ -97,3 +97,27 @@ button.collection-project:hover{color:var(--text);background:var(--panel-hover)}
 @media(prefers-reduced-motion:reduce){.collection-folder>summary:before{transition:none}}
 .note-document blockquote,.message-body blockquote{margin:16px 0;padding:10px 14px;border-left:3px solid var(--accent);border-radius:0 8px 8px 0;background:color-mix(in srgb,var(--accent) 6%,transparent);color:var(--muted)}
 .note-document blockquote p,.message-body blockquote p{margin:0}.markdown-table-scroll{overflow:auto;border:1px solid var(--line);border-radius:10px;margin:18px 0}.markdown-table-scroll table{width:100%;border-collapse:collapse;font-size:13px}.markdown-table-scroll th,.markdown-table-scroll td{padding:10px 12px;border-bottom:1px solid var(--line);min-width:85px}.markdown-table-scroll th{font-weight:600;background:color-mix(in srgb,var(--muted) 8%,transparent)}.markdown-table-scroll tr:last-child td{border-bottom:0}
+/* Controls respond to their actual content column, including a docked reader. */
+[data-cui-bound]{container:collection / inline-size;min-width:0}
+.collection-toolbar{flex-wrap:wrap;gap:8px}
+.collection-toolbar>.collection-search{flex:1 1 210px;min-width:140px}
+.collection-toolbar>select,.collection-toolbar>.collection-sort{flex:0 0 auto}
+.collection-view-switch{display:inline-flex;align-items:center;flex:none;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+.collection-view-switch .collection-view-btn,.collection-view-switch .collection-view-btn:has(+.collection-view-btn),.collection-view-switch .collection-view-btn+.collection-view-btn{display:grid;place-items:center;border:0;border-radius:0;margin:0;width:31px;height:34px;flex:0 0 31px}
+.collection-view-switch .collection-view-btn+.collection-view-btn{border-left:1px solid var(--line)}
+.collection-view-switch svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+.collection-view-switch .collection-view-btn:focus-visible{outline-offset:-3px}
+[data-cui-scope=project] .collection-head,[data-cui-scope=project] .collection-row{grid-template-columns:24px minmax(120px,1fr) 88px 88px 30px;min-width:0}
+[data-cui-scope=project] .collection-head>span:nth-child(3),[data-cui-scope=project] .collection-row>.collection-project,[data-cui-scope=project] .collection-card>.collection-project{display:none}
+@container collection (max-width:640px){.collection-toolbar>.collection-search{flex:1 0 100%;min-width:0}.collection-toolbar>.collection-count{margin-left:auto}.collection-cards{grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr))}}
+@container collection (max-width:640px){[data-cui-scope=project] .collection-head,[data-cui-scope=project] .collection-row{grid-template-columns:22px minmax(90px,1fr) 80px 28px;gap:8px;padding-inline:10px}[data-cui-scope=project] .collection-head>span:nth-child(5),[data-cui-scope=project] .collection-row>time{display:none}.collection-toolbar>.native-select-trigger{max-width:132px}.collection-toolbar select{min-width:88px;font-size:11px}.collection-sort{font-size:11px;padding-inline:8px}}
+@container collection (max-width:360px){.collection-toolbar{gap:6px}.collection-toolbar>.collection-count{flex:1;text-align:right;font-size:10px}[data-cui-scope=project] .collection-head,[data-cui-scope=project] .collection-row{grid-template-columns:22px minmax(60px,1fr) 28px}[data-cui-scope=project] .collection-head>span:nth-child(4),[data-cui-scope=project] .collection-row>.collection-status{display:none}.collection-view-switch .collection-view-btn{width:29px;flex-basis:29px}}
+
+@container collection (min-width:641px){[data-cui-scope=project] .collection-head>span:nth-child(5),[data-cui-scope=project] .collection-row>time{display:block}}
+
+/* Retain the review/status label even when a docked reader narrows the list. */
+@container collection (max-width:360px){
+ [data-cui-scope=project] .collection-row>.collection-status{display:block;grid-column:2;grid-row:2;padding:0;background:none;white-space:normal}
+ [data-cui-scope=project] .collection-row>[data-cui-delete]{grid-column:3;grid-row:1}
+ [data-cui-scope=project] .collection-row{row-gap:3px}
+}

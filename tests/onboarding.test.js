@@ -137,3 +137,27 @@ test('existing reader has priority over available note result cards',async()=>{
  const h=fixture(),reader=h.document.createElement('aside'),note=h.document.createElement('button');reader.rect={left:930,top:80,right:1390,bottom:830,width:460,height:750};note.rect={left:400,top:300,right:800,bottom:340,width:400,height:40};h.nodes.set('#readingPane:not([hidden])',reader);h.nodes.set('#messageList [data-open-note]',[note]);
  await h.controller.open();for(let i=0;i<3;i++)await h.controller.next();assert.equal(h.nodes.get('#onboardingLayer').children[0].style.left,'925px');
 });
+
+
+test('automatic setup respects boolean readiness and does not interrupt another open guide',async()=>{
+ let ready=false,closed=0;const h=fixture({hooks:{ready:()=>ready}});
+ h.env.WorkspaceTour={isOpen:()=>true,close:()=>closed++};
+ assert.equal(await h.controller.maybeStart(),false);ready=true;
+ assert.equal(await h.controller.maybeStart(),false);assert.equal(closed,0);
+ assert.equal(await h.controller.open(),true);assert.equal(closed,1);assert.equal(h.controller.currentStep(),'connection');
+});
+test('destroy during startup readiness cannot create an invisible blocking guide later',async()=>{
+ const pending=deferred(),h=fixture({hooks:{ready:()=>pending.promise}});
+ const opening=h.controller.maybeStart();h.controller.destroy();pending.resolve(true);
+ assert.equal(await opening,false);assert.equal(h.controller.isOpen(),false);assert.equal(h.navigations.length,0);
+});
+test('unsaved editor decisions retain focus and remain untouched when replay is requested',async()=>{
+ const h=fixture(),before=JSON.stringify(h.state);h.nodes.set('.note-document-leave:not([hidden])',{});
+ assert.equal(await h.controller.open(),false);assert.match(h.toasts[0],/弹窗/);assert.equal(h.navigations.length,0);assert.equal(JSON.stringify(h.state),before);
+});
+
+
+test('blocked setup feedback follows the selected interface language',async()=>{
+ const h=fixture();h.env.WorkstationI18n={getLanguage:()=> 'en'};h.nodes.set('.note-document-leave:not([hidden])',{});
+ assert.equal(await h.controller.open(),false);assert.match(h.toasts[0],/Finish or close the current dialog/);
+});

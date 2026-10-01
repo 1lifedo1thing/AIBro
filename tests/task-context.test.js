@@ -12,7 +12,7 @@ const build = (state, conv, options = {}) => TaskContext.build(state, conv, { ..
 test('UMD exposes its pure API in the browser without requiring Node', () => {
   const context = vm.createContext({ Intl });
   vm.runInContext(fs.readFileSync(require.resolve('../app/task-context'), 'utf8'), context);
-  assert.equal(typeof context.TaskContext.build, 'function'); assert.equal(typeof context.TaskContext.assertUnchanged, 'function');
+  assert.equal(typeof context.TaskContext.build, 'function'); assert.equal(typeof context.TaskContext.assertUnchanged, 'function'); assert.equal(typeof context.TaskContext.refreshForReview, 'function');
 });
 
 test('an unbound follow-up receives only its own tasks and successful result references, recent result first', () => {
@@ -125,4 +125,92 @@ test('unknown task references require a valid context ID, while unrelated action
   assert.throws(() => TaskContext.assertUnchanged(state, [{ type: 'update_task', taskId: 't' }], {}), { code: 'TASK_CONTEXT' });
   assert.throws(() => TaskContext.assertUnchanged(state, [{ type: 'update_task', taskId: '__proto__' }], {}), { code: 'TASK_CONTEXT' });
   assert.equal(TaskContext.assertUnchanged(state, [{ type: 'create_task', title: '新任务' }, { type: 'update_note', noteId: 'n' }], {}), true);
+});
+
+function reviewFixture() {
+  const state = { projects: [{ id: 'p', name: 'Original project', workspace: '日常' }, { id: 'q', workspace: '日常' }],
+    tasks: [task('t', { projectId: 'p', checklist: [{ text: 'Original step', done: false }] }), task('other', { projectId: 'p' })] };
+  const context = build(state, conversation({ projectId: 'p' }));
+  return { state, context, actions: [{ type: 'update_task', taskId: 't', patch: { priority: 'high' } }] };
+}
+
+test('explicit review refreshes only targeted content and keeps original allowed IDs and snapshots intact', () => {
+  const { state, context, actions } = reviewFixture(), baseline = JSON.stringify(context);
+  state.tasks[0].description = 'New human content'; state.tasks[0].checklist[0].done = true; state.tasks[0].status = 'in_progress';
+  state.tasks[1].description = 'Unrelated human content'; state.projects[0].name = 'Renamed within the same space';
+  const beforeState = JSON.stringify(state);
+  assert.throws(() => TaskContext.assertUnchanged(state, actions, context.snapshots), { code: 'CANCELLED' });
+  const refreshed = TaskContext.refreshForReview(state, actions, context.snapshots);
+  assert.notEqual(refreshed, context.snapshots); assert.notEqual(refreshed.t, context.snapshots.t);
+  assert.deepEqual(Object.keys(refreshed), context.taskIds); assert.equal(refreshed.other, context.snapshots.other);
+  assert.equal(TaskContext.assertUnchanged(state, actions, refreshed), true);
+  assert.throws(() => TaskContext.assertUnchanged(state, [{ type: 'update_task', taskId: 'other' }], refreshed), { code: 'CANCELLED' });
+  assert.equal(JSON.stringify(context), baseline); assert.equal(JSON.stringify(state), beforeState);
+  state.tasks[0].description = 'Changed again after review';
+  assert.throws(() => TaskContext.assertUnchanged(state, actions, refreshed), { code: 'CANCELLED' });
+});
+
+test('explicit deletion review may acknowledge changed content but still uses strict CAS afterwards', () => {
+  const { state, context } = reviewFixture(), actions = [{ type: 'delete_task', taskId: 't' }];
+  state.tasks[0].dueAt = '2027-01-01'; state.tasks[0].sourceAttachmentIds = ['new-source'];
+  const refreshed = TaskContext.refreshForReview(state, actions, context.snapshots);
+  assert.equal(TaskContext.assertUnchanged(state, actions, refreshed), true);
+  state.tasks[0].dueAt = '2027-01-02'; assert.throws(() => TaskContext.assertUnchanged(state, actions, refreshed), { code: 'CANCELLED' });
+});
+
+test('review cannot acknowledge moved tasks, task spaces or parent spaces including standalone moves', () => {
+  for (const mutate of [
+    s => { s.tasks[0].projectId = 'q'; }, s => { s.tasks[0].projectId = null; },
+    s => { s.tasks[0].workspace = '课程'; }, s => { s.projects[0].workspace = '课程'; }
+  ]) {
+    const { state, context, actions } = reviewFixture(); mutate(state);
+    assert.throws(() => TaskContext.refreshForReview(state, actions, context.snapshots), { code: 'CANCELLED' });
+  }
+  const state = { projects: [{ id: 'p', workspace: '日常' }], tasks: [task('t', { sourceConversationId: 'c' })] };
+  const context = build(state, conversation()), actions = [{ type: 'update_task', taskId: 't' }];
+  state.tasks[0].description = 'Current standalone content';
+  assert.equal(TaskContext.assertUnchanged(state, actions, TaskContext.refreshForReview(state, actions, context.snapshots)), true);
+  state.tasks[0].projectId = 'p'; assert.throws(() => TaskContext.refreshForReview(state, actions, context.snapshots), { code: 'CANCELLED' });
+});
+
+test('review rejects all inactive, missing and duplicate task or project identities', () => {
+  for (const collection of ['tasks', 'projects']) for (const invalidate of [
+    items => { items.shift(); }, items => { items.push({ ...items[0] }); },
+    ...['archived', 'archivedAt', 'deleted', 'deletedAt'].map(field => items => { items[0][field] = 1; }),
+    items => { items[0].status = 'archived'; }, items => { items[0].status = 'deleted'; }
+  ]) {
+    const { state, context, actions } = reviewFixture(); invalidate(state[collection]);
+    assert.throws(() => TaskContext.refreshForReview(state, actions, context.snapshots), { code: 'CANCELLED' });
+  }
+});
+
+test('review cannot add a newly visible task, inherit an allowed ID, or accept a malformed baseline', () => {
+  const { state, context, actions } = reviewFixture(); state.tasks.push(task('new', { projectId: 'p' }));
+  assert.throws(() => TaskContext.refreshForReview(state, [{ type: 'update_task', taskId: 'new' }], context.snapshots), { code: 'TASK_CONTEXT' });
+  assert.throws(() => TaskContext.refreshForReview(state, actions, Object.create(context.snapshots)), { code: 'TASK_CONTEXT' });
+  for (const baseline of [null, { task: '{broken', project: null }, { task: 'null', project: null }, { task: '{}', project: null },
+    { ...context.snapshots.t, task: JSON.stringify({ ...state.tasks[0], id: 'other' }) },
+    { ...context.snapshots.t, project: null }, { ...context.snapshots.t, project: { id: 'q', workspace: '日常' } }
+  ]) assert.throws(() => TaskContext.refreshForReview(state, actions, { t: baseline }), { code: 'TASK_CONTEXT' });
+});
+
+test('invalid later target leaves earlier refresh candidates, original snapshots and state unchanged', () => {
+  const { state, context, actions } = reviewFixture(); state.tasks[0].description = 'May be reread'; state.tasks[1].projectId = 'q';
+  actions.push({ type: 'delete_task', taskId: 'other' });
+  const beforeState = JSON.stringify(state), beforeContext = JSON.stringify(context);
+  assert.throws(() => TaskContext.refreshForReview(state, actions, context.snapshots), { code: 'CANCELLED' });
+  assert.equal(JSON.stringify(state), beforeState); assert.equal(JSON.stringify(context), beforeContext);
+  assert.throws(() => TaskContext.assertUnchanged(state, [actions[0]], context.snapshots), { code: 'CANCELLED' });
+});
+
+test('unrelated actions never refresh snapshots and prototype-like own IDs remain data keys', () => {
+  const { state, context } = reviewFixture(); state.tasks[0].description = 'Not acknowledged';
+  const unchanged = TaskContext.refreshForReview(state, [{ type: 'create_task', title: 'New' }, { type: 'update_note', noteId: 't' }], context.snapshots);
+  assert.deepEqual(unchanged, context.snapshots); assert.equal(unchanged.t, context.snapshots.t);
+  const special = { tasks: [task('__proto__', { sourceConversationId: 'c' })] }, original = build(special, conversation());
+  special.tasks[0].description = 'Current text'; const actions = [{ type: 'update_task', taskId: '__proto__' }];
+  const refreshed = TaskContext.refreshForReview(special, actions, original.snapshots);
+  assert.equal(Object.getPrototypeOf(refreshed), Object.prototype); assert.equal(Object.hasOwn(refreshed, '__proto__'), true);
+  assert.equal(TaskContext.assertUnchanged(special, actions, refreshed), true);
+  assert.throws(() => TaskContext.refreshForReview(special, actions, {}), { code: 'TASK_CONTEXT' });
 });

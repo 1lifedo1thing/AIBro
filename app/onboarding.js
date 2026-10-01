@@ -8,8 +8,8 @@
   const VERSION = 1;
   const steps = [
     { id: 'connection', view: 'settings', title: '先连接你的模型', kicker: '让工作站准备就绪',
-      body: '在设置中选择自定义 API 或 OpenAI 账号。使用 API 时填写服务地址、模型和 Key，点击“保存设置”。测试连接只检查当前输入，不会替你保存。',
-      hint: '每个对话也可以单独选择模型、推理强度与操作权限。', selectors: ['#provider', '.settings-connection-card'], focus: '#provider', action: '前往连接设置', path: ['选择连接', '填写配置', '保存设置'] },
+      body: '在设置中选择自定义 API 或 OpenAI 账号。使用 API 时填写服务地址、模型和 Key，点击“保存模型与权限”。测试连接只读取模型列表，不会替你保存或验证生成能力。',
+      hint: '每个对话也可以单独选择模型、推理强度与操作权限。', selectors: ['#provider', '.settings-connection-card'], focus: '#provider', action: '前往连接设置', path: ['选择连接', '填写配置', '保存模型与权限'] },
     { id: 'conversation', view: 'agent', title: '把材料和指令一起交给 AI', kicker: '持续对话，而不是一次性问答',
       body: '把文件拖进对话，或点击附件按钮。文件会先进入待发送区；写清希望整理、分析或更新什么，再点击发送。网页链接也可以直接写在消息里。',
       hint: '后续直接追问即可。旧附件保留在消息和项目中，不会在每轮重复发送。', selectors: ['#composer', '#agentInput'], focus: '#agentInput', action: '前往对话', path: ['添加材料', '写下指令', '查看执行结果'] },
@@ -41,7 +41,7 @@
   function createController(hooks, env = root) {
     const document = env.document;
     if (!document) throw Error('新手引导需要工作站界面。');
-    let index = 0, opened = false, opener = null, activeAnchor = null, pendingFrame = null, generation = 0, starting = null, navigating = false;
+    let index = 0, opened = false, opener = null, activeAnchor = null, pendingFrame = null, generation = 0, starting = null, navigating = false, destroyed = false;
     const create = (tag, className, text) => { const node = document.createElement(tag); node.className = className || ''; if (text !== undefined) node.textContent = text; return node; };
     const makeButton = (className, text, click) => { const node = create('button', className, text); node.type = 'button'; node.onclick = click; return node; };
     const layer = create('div', 'onboarding-layer'); layer.id = 'onboardingLayer'; layer.hidden = true;
@@ -88,7 +88,7 @@
       const own = ++generation, step = steps[index]; navigating = true; back.disabled = next.disabled = action.disabled = true; notice.textContent = '';
       title.textContent = step.title; body.textContent = step.body; hint.textContent = step.hint; stepLabel.textContent = `${index + 1} / ${steps.length} · ${step.kicker}`;
       count.textContent = `${index + 1} / ${steps.length}`; next.textContent = index === steps.length - 1 ? '完成引导' : '下一步'; action.textContent = step.action; path.replaceChildren(...step.path.map(value => create('li', '', value)));
-      try { if (hooks.showView) await hooks.showView(step.view); }
+      try { if (hooks.showView) await hooks.showView(step.view); if (step.id === 'connection') env.SettingsWorkspace?.reveal('models'); }
       catch (_) { if (own === generation) notice.textContent = '当前界面暂不能切换，可以先阅读说明，或稍后从设置重开引导。'; }
       if (!opened || own !== generation) return;
       navigating = false; back.disabled = index === 0; next.disabled = false; action.disabled = !hooks.showView; layout(); card.focus({ preventScroll: true });
@@ -99,10 +99,12 @@
       try { if (await hooks.save?.() === false) hooks.toast?.('入门记录尚未保存，下次可能再次显示。'); }
       catch (_) { hooks.toast?.('入门记录尚未保存，下次可能再次显示。'); }
     }
-    async function open() {
-      if (opened) return; if (starting) return starting;
-      // Do not replace an active modal, login, or unsaved editor decision.
-      if (document.querySelector('dialog[open]:not([aria-modal="false"])')) return false;
+    function blocked() { return !!document.querySelector('dialog[open]:not([aria-modal="false"])') || !!document.querySelector('.note-document-leave:not([hidden])'); }
+    async function open(options = {}) {
+      if (destroyed) return false; if (opened) return true; if (starting) return starting;
+      // Explicit replay can switch guides, while automatic setup never interrupts another guide.
+      if (blocked()) { if (!options.automatic) hooks.toast?.(env.WorkstationI18n?.getLanguage?.() === 'en' ? 'Finish or close the current dialog before opening the introduction.' : '请先完成或关闭当前弹窗，再打开新手引导。'); return false; }
+      if (env.WorkspaceTour?.isOpen?.()) { if (options.automatic) return false; env.WorkspaceTour.close('skipped', { restoreFocus: false }); }
       opener = document.activeElement; opened = true; index = 0; layer.hidden = false; entry.setAttribute('aria-expanded', 'true'); listen(true); await paint(); return opened;
     }
     function close(status = 'skipped', options = {}) {
@@ -119,27 +121,28 @@
     async function useStep() {
       if (!opened || navigating || !hooks.showView) return;
       const step = steps[index]; close(index === steps.length - 1 ? 'completed' : 'skipped', { restoreFocus: false });
-      try { await hooks.showView(step.view); const target = document.querySelector(step.focus); if (visible(target)) target.focus({ preventScroll: true }); }
+      try { await hooks.showView(step.view); if (step.id === 'connection') env.SettingsWorkspace?.reveal('models'); const target = document.querySelector(step.focus); if (visible(target)) target.focus({ preventScroll: true }); }
       catch (_) { hooks.toast?.('暂时无法打开入口，请通过侧栏打开对应页面。'); }
     }
     function keydown(event) {
       if (!opened) return;
-      if (event.key === 'Escape' && !document.querySelector('dialog[open]:not([aria-modal="false"])')) { event.preventDefault(); event.stopPropagation(); close('skipped'); return; }
+      if (blocked()) return;
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close('skipped'); return; }
       // The surrounding app stays interactive. Never consume arrows used to
       // edit a message or select an option outside this tour card.
-      if (!card.contains(document.activeElement) || event.altKey || event.metaKey || event.ctrlKey) return;
+      if (!card.contains(document.activeElement) || event.altKey || event.metaKey || event.ctrlKey || event.isComposing) return;
       if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); void move(event.key === 'ArrowRight' ? 1 : -1); }
     }
     async function maybeStart() {
-      if (opened || starting || !shouldStart(hooks.getState?.())) return false;
-      starting = Promise.resolve(hooks.ready?.()).then(() => { starting = null; return shouldStart(hooks.getState?.()) ? open() : false; }).finally(() => { starting = null; });
+      if (destroyed || opened || starting || !shouldStart(hooks.getState?.())) return false;
+      starting = Promise.resolve(hooks.ready?.()).then(ready => { starting = null; return !destroyed && ready !== false && shouldStart(hooks.getState?.()) ? open({ automatic: true }) : false; }).finally(() => { starting = null; });
       return starting;
     }
-    function destroy() { if (opened) close('skipped'); layer.remove(); entry.remove(); }
+    function destroy() { destroyed = true; if (opened) close('skipped'); layer.remove(); entry.remove(); }
     const api = { open, close, maybeStart, next: () => move(1), previous: () => move(-1), layout, destroy, isOpen: () => opened, currentStep: () => steps[index].id };
     if (hooks.autoStart !== false) void maybeStart().catch(() => {});
     return api;
   }
   let controller = null;
-  return { VERSION, steps, shouldStart, placement, createController, init(hooks) { if (!controller) controller = createController(hooks); return controller; }, open: () => controller?.open(), maybeStart: () => controller?.maybeStart(), close: () => controller?.close() };
+  return { VERSION, steps, shouldStart, placement, createController, init(hooks) { if (!controller) controller = createController(hooks); return controller; }, open: options => controller?.open(options), isOpen: () => !!controller?.isOpen(), maybeStart: () => controller?.maybeStart(), close: (...args) => controller?.close(...args) };
 });

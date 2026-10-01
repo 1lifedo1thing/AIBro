@@ -1,32 +1,110 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AI Bro — 知识与行动，在同一处</title><meta name="description" content="从课件与论文，到可编辑笔记、任务与持续对话。探索 AI Bro 的个人知识库、科研工作流、灵活模型与自托管同步。"><meta name="theme-color" content="#0c0d0c"><link rel="icon" href="assets/mark.png"><link rel="stylesheet" href="style.css?v=ios-carousel-1"></head>
-<body><a class="skip" href="#main" data-t="skip">跳至内容</a><header class="nav"><a class="brand" href="#top"><img src="assets/mark.png" alt="">AI Bro</a><nav aria-label="主导航" data-label="navLabel"><a href="#workspace" data-t="navWorkspace">工作方式</a><a href="#ios">iOS</a><a href="#scenarios" data-t="navScenarios">使用场景</a><a href="#control" data-t="navControl">由你掌控</a><button id="language" type="button" aria-label="Switch to English">EN</button><a class="nav-download" href="#download" data-t="navDownload">获取 AI Bro</a></nav></header>
-<main id="main">
-<section class="hero" id="top"><div class="hero-surface"><img class="hero-backdrop" alt=""><div class="hero-shade"></div></div><div class="hero-copy"><span class="eyebrow">YOUR PERSONAL AI WORKSPACE</span><h1>AI <span>Bro</span></h1><p data-t="heroTitle">把一次对话，变成可以继续的工作。</p><div class="hero-links"><a class="button primary" href="#film" data-t="heroExplore">观看实录演示 ↓</a><a class="button" href="#download" data-t="heroDownload">下载 Mac App</a><a class="button" href="https://github.com/zihenghe04/AIBro/blob/main/docs/DISTRIBUTION.md" data-t="heroSource">从源码构建 ↗</a></div><small data-t="heroMeta">Mac + iOS · 文件可审阅 · 项目有记忆</small></div><a class="scroll" href="#discover" aria-label="探索产品" data-label="exploreLabel">⌄</a></section>
-<section class="intro section" id="discover"><span class="eyebrow">THINK. CONNECT. DO.</span><h2><span data-t="intro1">每一次对话，</span><br><em data-t="intro2">都能成为下一步的起点。</em></h2><p class="lead" data-t="introText">一份课件不止能总结，一篇论文不止能问答。把原始资料、自己的理解和待办连接起来，让 AI 在持续积累的知识里，陪你把事情推进。</p><div class="knowledge-flow" aria-label="资料、知识与行动的关联" data-label="flowLabel"><div class="flow-side"><span data-t="flowInput">你带来的内容</span><div class="flow-chips"><b>PDF / PPT</b><b data-t="flowWeb">网页与论文</b><b data-t="flowIdeas">想法与计划</b></div></div><div class="flow-center"><img src="assets/mark.png" alt="AI Bro"><span data-t="flowCenter">持续对话 · 判断归属 · 执行动作</span></div><div class="flow-side"><span data-t="flowOutput">能接着使用的成果</span><div class="flow-chips"><b data-t="flowNotes">可编辑笔记</b><b data-t="flowProjects">项目与资料树</b><b data-t="flowTasks">任务与进度</b></div></div></div><div class="flow-return"><span data-t="flowReturn">保存的知识，回到下一次对话中。</span></div></section>
-<section class="film section" id="film"><div class="section-heading"><div><span class="eyebrow">MEET AI BRO</span><h2 data-t="filmTitle">两分钟，<br>看工作怎样连起来。</h2></div><p data-t="filmText">从文件修改到并排阅读，从随记到日程，再回到项目进度与科研 Wiki。用一段真实操作，认识你的下一张工作台。</p></div><video id="product-film" muted loop playsinline preload="none" aria-label="AI Bro demonstration"><p data-t="videoFallback">你的浏览器无法播放此视频，可下载后观看。</p></video><div class="film-caption"><span data-t="filmCaption">示例工作区 · 实际应用操作</span><a id="film-download" href="assets/recordings/tour-zh.mp4" download data-t="filmDownload">下载完整实录 ↓</a></div></section><section class="workspace section" id="workspace"><div class="section-heading"><div><span class="eyebrow">LESS STARTING OVER. MORE MOVING FORWARD.</span><h2 data-t="workspaceTitle">不用想象，<br>点开看它怎样工作。</h2></div><p data-t="workspaceText">从资料到成果，滚动就能看到每一步怎样发生。每段演示都可以放大查看，也可以下载 GIF。</p></div><div class="motion-toolbar"><span data-t="motionNote">实录演示 · 滚动即可观看</span><button id="motion-toggle" type="button" aria-pressed="true">Ⅱ 暂停所有演示</button></div><nav id="demo-navigation" class="demo-navigation" aria-label="浏览功能演示" data-label="demoNav"></nav><div id="showcase"></div><noscript><p>请启用 JavaScript 查看功能演示。Enable JavaScript to explore the workflows.</p></noscript></section>
-<section class="section capabilities" id="capabilities"><div class="section-heading"><div><span class="eyebrow">CONTEXT. ACTION. CONTINUITY.</span><h2 data-t="extrasTitle">不止把话说完，<br>也把工作接住。</h2></div><p data-t="extrasText">找回相关知识，看清执行过程，让每段对话都有可以继续的地方。</p></div><div id="capability-grid" class="capability-grid"></div></section><section class="ios-section section" id="ios">
-<div class="section-heading"><div><span class="eyebrow">YOUR WORKSPACE, WITH YOU</span><h2 data-t="iosTitle">离开电脑，<br>思路也不用断。</h2></div><p data-t="iosText">去上课的路上记下一个想法，组会前翻一篇笔记，睡前看看明天的安排。AI Bro 现在也在 iPhone 上，把科研、课程和生活带在身边。</p></div>
-<div class="ios-gallery-toolbar"><span id="ios-gallery-hint">左右滑动，发现更多功能</span><div class="ios-gallery-navigation"><span id="ios-gallery-position" aria-live="polite" aria-atomic="true">1 / 4</span><button id="ios-gallery-prev" type="button" aria-label="上一张截图" aria-controls="ios-gallery" disabled>←</button><button id="ios-gallery-next" type="button" aria-label="下一张截图" aria-controls="ios-gallery">→</button></div></div>
-<div class="ios-gallery" id="ios-gallery" role="region" aria-label="iOS 功能截图" aria-describedby="ios-gallery-hint" tabindex="0">
-<figure><div class="phone-shot"><img src="assets/ios/today.png" width="1206" height="2622" loading="lazy" alt="iOS 今日页：虚构的科研、课程和生活任务"></div><figcaption><b>今天，从容一点。</b><span>任务、日程和课程，出门前看一眼。</span></figcaption></figure>
-<figure><div class="phone-shot"><img src="assets/ios/captures.png" width="1206" height="2622" loading="lazy" alt="iOS 随记页：虚构的研究想法与生活随记"></div><figcaption><b>想到了，就记下来。</b><span>文字、链接、图片和文件，留住灵感。</span></figcaption></figure>
-<figure><div class="phone-shot"><img src="assets/ios/knowledge.png" width="1206" height="2622" loading="lazy" alt="iOS 知识页：演示项目中的科研笔记"></div><figcaption><b>积累，随时接着用。</b><span>打开知识与项目，带着上下文继续。</span></figcaption></figure>
-<figure id="ios-courses"><div class="phone-shot"><img src="assets/ios/courses.png" width="1206" height="2622" loading="lazy" draggable="false" alt="课程助手：虚构课程、教师与模拟签到状态"></div><figcaption><b>上课前，少切一个 App。</b><span>查看课程、到课签到，再把安排加入日程。</span></figcaption></figure>
-</div>
-<p class="ios-demo-note" data-t="iosDemo">iOS 模拟器实际界面 · 课程、教师与签到状态均为虚构演示数据</p>
-<div class="ios-benefits">
-<article><span>01 / CAPTURE</span><h3 data-t="iosCaptureTitle">灵感先接住</h3><p data-t="iosCaptureText">随手记下碎片想法，附上链接和文件；再交给 AI 整理，让下一次讨论有据可循。</p></article>
-<article><span>02 / CONTEXT</span><h3 data-t="iosContextTitle">知识跟着你走</h3><p data-t="iosContextText">搜索笔记、浏览科研 Wiki，在 Markdown 源码和预览间切换。AI 改写先看 Diff，再决定采纳。</p></article>
-<article><span>03 / CAMPUS</span><h3 data-t="iosCampusTitle">课程，也顺手照顾</h3><p data-t="iosCampusText">国科大课程助手支持学校账号登录、课程查询、到课签到与课程二维码；课表还可以加入日程。</p></article>
-<article><span>04 / CONTINUE</span><h3 data-t="iosSyncTitle">手机记，电脑继续</h3><p data-t="iosSyncText">两端连接同一个自托管同步服务，把项目、笔记、任务与对话接起来；离线保存，连接后再同步。</p></article>
-</div>
-<div class="ios-actions"><a class="button primary" href="https://github.com/zihenghe04/AIBro/releases/download/v0.7.1/AI-Bro-0.1.3-unsigned.ipa" data-t="iosDownload">下载 iOS 0.1.3 ↗</a><a class="button" href="https://github.com/zihenghe04/AIBro/blob/main/mobile/docs/INSTALL.md" data-t="iosGuide">安装指南 ↗</a><small data-t="iosInstallNote">iPhone / iPad · iOS 16+ · IPA 需自行签名安装</small></div>
-</section>
-<section class="scenarios section" id="scenarios"><span class="eyebrow">BUILT AROUND YOUR WORK</span><h2 data-t="scenariosTitle">学习、科研、生活。<br>各有条理，彼此联通。</h2><p class="lead" data-t="scenariosText">同一套知识与行动结构，适应不同的工作方式。空间划分保持清晰，相关内容可以通过项目、来源和对话相互找到。</p><div class="scenario-grid"><article class="scenario"><div class="scenario-symbol">01 <span>LEARN</span></div><h3 data-t="courseTitle">让课程有一条主线。</h3><p data-t="courseText">课件按课程与章节归档，分析集中到可编辑的 Markdown。对照原件复习，让考核要求、知识脉络和学习任务保持关联。</p><div class="scenario-tree"><span data-t="courseTreeRoot">线性代数 · 学习笔记</span><span data-t="courseTree1">├ 第一讲</span><span data-t="courseTree2">│ ├ 课程讲义.pdf</span><span data-t="courseTree3">│ └ 学习笔记.md</span><span data-t="courseTree4">└ 待办 · 复习矩阵变换</span></div><button class="text-link" data-feature="files" data-t="courseLink">看看并排阅读与编辑 ↗</button></article><article class="scenario"><div class="scenario-symbol">02 <span>RESEARCH</span></div><h3 data-t="researchTitle">让文献参与研究。</h3><p data-t="researchText">从论文链接或文件开始，整理方法、实验、局限与自己的启发。文献库连接原件、研究笔记和引用关系，支持去重与增量更新。</p><div class="research-topics"><span data-t="topic1">核心贡献</span><span data-t="topic2">方法与实验</span><span data-t="topic3">局限性</span><span data-t="topic4">研究启发</span><span data-t="topic5">来源与引用</span></div><button class="text-link" data-feature="wiki" data-t="researchLink">看看科研记忆如何积累 ↗</button></article><article class="scenario"><div class="scenario-symbol">03 <span>EVERYDAY</span></div><h3 data-t="dailyTitle">让随口一提有下文。</h3><p data-t="dailyText">把出行、个人项目和琐事交给 AI。后续补充时间或改变安排时，更新原任务；也可以直接手动修改、移动和完成。</p><div class="daily-example"><div data-t="dailyBubble">「准备登山装备的截止时间<br>改成明天下午四点。」</div><span data-t="dailyResult">原任务已更新 · 清单与来源保留</span></div><button class="text-link" data-feature="projects" data-t="dailyLink">看看任务如何持续推进 ↗</button></article></div></section>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Bro — 从资料，到下一步</title>
+  <meta name="description" content="AI Bro 是面向学习、科研与日常工作的 Mac AI 工作台。连接资料、对话、可编辑文档与日程，让工作可以接着继续。">
+  <meta name="theme-color" content="#111713">
+  <link rel="icon" href="assets/mark.png">
+  <link rel="canonical" href="https://zihenghe04.github.io/AIBro/">
+  <meta property="og:title" content="AI Bro — 从资料，到下一步">
+  <meta property="og:description" content="资料、对话、文档与日程，在同一张 Mac 工作台上。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://zihenghe04.github.io/AIBro/">
+  <link rel="stylesheet" href="style.css?v=workspace-20261001">
+  <script src="script.js?v=workspace-20261001" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main" data-t="skip">跳至内容</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#top" aria-label="AI Bro"><img src="assets/mark.png" width="32" height="32" alt=""><span>AI Bro</span></a>
+      <nav class="main-nav" aria-label="主导航" data-label="navLabel">
+        <a href="#workspace" data-t="navWorkspace">工作方式</a>
+        <a href="#scenarios" data-t="navScenarios">为你所用</a>
+        <a href="#control" data-t="navControl">数据与模型</a>
+      </nav>
+      <div class="header-actions"><button class="language-button" id="language" type="button" aria-label="Switch to English" hidden>EN</button><a class="header-download" href="#download" data-t="navDownload">获取 AI Bro <span aria-hidden="true">↗</span></a></div>
+    </div>
+  </header>
+  <main id="main">
+    <section class="hero page-width" id="top">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="small-rule" aria-hidden="true"></span><span data-t="heroEyebrow">你的 Mac，下一张工作台</span></p>
+        <h1><span data-t="heroTitle1">从读懂一份资料，</span><br><em data-t="heroTitle2">到推进一件事情。</em></h1>
+        <p class="hero-description" data-t="heroDescription">把资料、对话、文档和日程放在一起。AI 帮你梳理，你保留判断；留下可以编辑、查证和继续使用的成果。</p>
+        <div class="hero-actions"><a class="button primary" href="https://github.com/zihenghe04/AIBro/releases" data-t="downloadAction">下载 Mac 预览版 <span aria-hidden="true">↗</span></a><a class="quiet-link" href="https://github.com/zihenghe04/AIBro" data-t="sourceAction">查看源码 <span aria-hidden="true">↗</span></a></div>
+        <p class="hero-meta" data-t="heroMeta">本地优先 · 自选模型 · 开源</p>
+      </div>
+      <figure class="workspace-map" aria-labelledby="map-caption">
+        <div class="map-heading"><span data-t="mapHeading">一项工作的上下文</span><span aria-hidden="true">↙</span></div>
+        <div class="map-source"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M6 3h8l4 4v14H6V3Zm8 0v5h4M9 12h6M9 16h6"/></svg><div><span data-t="mapSource">你带来的资料</span><small>PDF / Markdown / <span data-t="mapLinks">链接与想法</span></small></div></div>
+        <div class="map-path" aria-hidden="true"></div>
+        <div class="map-work"><span class="map-index">01—03</span><h2 data-t="mapWork">阅读 · 讨论 · 修改</h2><p data-t="mapWorkText">保留来源，也保留自己的思考。</p></div>
+        <div class="map-branches"><div><span class="branch-label" data-t="mapDocument">一份能继续编辑的文档</span><span class="branch-detail" data-t="mapDocumentDetail">笔记 / 研究记录 / 项目计划</span></div><div><span class="branch-label" data-t="mapAction">一个明确的下一步</span><span class="branch-detail" data-t="mapActionDetail">任务 / 日程 / 后续问题</span></div></div>
+        <figcaption id="map-caption" data-t="mapCaption">工作方式示意，非应用界面</figcaption>
+      </figure>
+    </section>
 
+    <div class="purpose-line page-width" id="discover"><p data-t="purpose">为需要长久积累的工作而做。</p><div><span data-t="purposeLearn">课程学习</span><span data-t="purposeResearch">个人科研</span><span data-t="purposeDaily">日常项目</span></div></div>
 
-<section class="control section" id="control"><span class="eyebrow">YOUR MODELS. YOUR DATA. YOUR PACE.</span><h2 data-t="controlTitle">让工具适应你。</h2><p class="lead" data-t="controlText">不必把所有事情交给同一个模型，也不必把所有资料交给同一个云服务。</p><div class="control-grid" id="control-grid"></div><div class="privacy-note"><span class="privacy-mark" aria-hidden="true">↳</span><p data-t="privacyText">本地保存，按需连接。使用模型时，相关内容会发送到你选择的提供商；开启同步时，支持的资料会发送到自己的服务器。模型密钥和本机目录授权不随工作区同步。</p></div></section>
-<section class="details section" id="details"><div class="section-heading"><div><span class="eyebrow">THE DETAILS MATTER</span><h2 data-t="detailsTitle">日常使用，<br>也值得认真对待。</h2></div><p data-t="detailsText">可以调节的工作区、能找回的内容，以及清楚可见的状态。让复杂工作流保持顺手。</p></div><div class="detail-list" id="detail-list"></div></section>
-<section class="download section" id="download"><span class="eyebrow">START YOUR OWN WORKSPACE</span><h2 data-t="downloadTitle">把 AI Bro 带进<br>你的下一项工作。</h2><p class="lead" data-t="downloadIntro">AI Bro 0.7.1：原生工作台、可审阅文件、科研 Wiki 与持续项目。Mac 0.7.0 与 iOS 0.1.3，一起开始你的下一项工作。</p><div class="download-grid"><article><span class="download-number">01</span><h3 data-t="downloadApp">下载 Mac App</h3><p data-t="downloadAppText">适用于 Apple Silicon Mac，macOS 14 及以上。内置 Python 与 PDF 运行时，下载后无需单独安装。</p><a class="button primary" href="https://github.com/zihenghe04/AIBro/releases/tag/v0.7.1" data-t="downloadAppLink">前往 GitHub Releases ↗</a><small data-t="downloadAppNote">预览版尚未经过 Apple 公证。原生 Liquid Glass 需要 macOS 26。</small></article><article><span class="download-number">02</span><h3 data-t="iosDownloadTitle">下载 iOS App</h3><p data-t="iosDownloadText">随手记录、阅读知识、查看日程与使用国科大课程助手，让 iPhone 成为你的随身工作伙伴。</p><a class="button primary" href="https://github.com/zihenghe04/AIBro/releases/download/v0.7.1/AI-Bro-0.1.3-unsigned.ipa" data-t="iosDownload">下载 iOS 0.1.3 ↗</a><small data-t="iosInstallNote">iPhone / iPad · iOS 16+ · IPA 需自行签名安装</small></article><article><span class="download-number">03</span><h3 data-t="downloadSource">从源代码构建</h3><p data-t="downloadSourceText">查看源码、运行本地服务，或自行构建桌面 App。安装指南包含环境要求、构建与版本校验步骤。</p><a class="button" href="https://github.com/zihenghe04/AIBro/blob/main/docs/DISTRIBUTION.md" data-t="downloadSourceLink">打开构建指南 ↗</a><small data-t="downloadSourceNote">源码构建需要 Xcode 26 / macOS 26 SDK、Node.js 与 Python。</small></article></div><div class="release-notes"><a href="https://github.com/zihenghe04/AIBro/blob/main/LICENSE">AGPL-3.0 ↗</a><a href="https://github.com/zihenghe04/AIBro/blob/main/CHANGELOG.md" data-t="releaseNotes">版本说明 ↗</a><a href="https://github.com/zihenghe04/AIBro/blob/main/docs/CLOUD_SYNC.md" data-t="syncGuide">自托管同步说明 ↗</a><a href="https://github.com/zihenghe04/AIBro" data-t="repository">GitHub 仓库 ↗</a></div></section>
-</main><footer><a class="brand" href="#top"><img src="assets/mark.png" alt="">AI Bro</a><p data-t="footerText">知识会积累，工作继续向前。</p><small data-t="footerNote">页面界面来自隔离的示例工作区，不含个人资料。</small></footer><script src="script.js?v=ios-carousel-1"></script><script src="ios-gallery.js?v=1"></script></body></html>
+    <section class="section page-width workflow-section" id="workspace">
+      <div class="section-intro"><p class="eyebrow" data-t="workflowEyebrow">01 / 工作连起来</p><h2 data-t="workflowTitle">一段对话结束，<br>工作还可以继续。</h2><p data-t="workflowIntro">从原始资料到自己的理解，再到下一步行动。项目把它们留在一起，回来时有处可寻。</p><a class="inline-link" href="#film" data-t="viewArchive">查看早期操作实录 <span aria-hidden="true">↗</span></a></div>
+      <ol class="workflow-list">
+        <li id="feature-overview"><span class="step-number">01</span><div><h3 data-t="step1Title">先给工作一个归属</h3><p data-t="step1Text">为课程、研究课题或个人计划建立项目，把对话、原始资料、成果与任务放回对应的位置。</p></div></li>
+        <li id="feature-reader"><span class="step-number">02</span><div><h3 data-t="step2Title">带着资料，接着问</h3><p data-t="step2Text">添加 PDF、文档和链接，在阅读与对话间切换。沿引用返回来源，补充问题，继续讨论。</p></div></li>
+        <li id="feature-files"><span class="step-number">03</span><div><h3 data-t="step3Title">把回答变成自己的文档</h3><p data-t="step3Text">打开笔记继续编辑，在预览与源码间切换。查看 AI 提议的修改，核对差异，再决定采用哪些内容。</p></div></li>
+        <li id="feature-projects"><span class="step-number">04</span><div><h3 data-t="step4Title">留下成果，也安排下一步</h3><p data-t="step4Text">保存到项目，拆成任务，加入排期。下一次继续时，仍能找到之前的材料、计划和讨论。</p></div></li>
+      </ol>
+    </section>
+
+    <section class="scenario-band" id="scenarios"><div class="page-width section">
+      <div class="section-heading"><div><p class="eyebrow" data-t="scenariosEyebrow">02 / 放进真实工作</p><h2 data-t="scenariosTitle">不同的事情，<br>同样清楚的脉络。</h2></div><p data-t="scenariosIntro">不用为了每种场景换一个工具。从你手边的一份资料、一条想法或一个待办开始。</p></div>
+      <div class="scenario-grid">
+        <article class="scenario"><div class="scenario-top"><span>01</span><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 8C10 4 4 6 4 6v21s6-2 12 2c6-4 12-2 12-2V6s-6-2-12 2Zm0 0v21"/></svg></div><h3 data-t="learnTitle">学过的，串成体系。</h3><p data-t="learnText">课件、章节笔记与复习任务围绕课程组织。阅读原件，整理自己的理解，再沿薄弱的地方继续提问。</p><div class="scenario-trail" data-t="learnTrail">课程资料 <span>→</span> 学习笔记 <span>→</span> 复习安排</div></article>
+        <article class="scenario" id="feature-wiki"><div class="scenario-top"><span>02</span><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="9" cy="9" r="4"/><circle cx="24" cy="13" r="4"/><circle cx="13" cy="25" r="4"/><path d="m13 10 7 2M10 13l2 8m4 1 5-6"/></svg></div><h3 data-t="researchTitle">读过的，参与研究。</h3><p data-t="researchText">在论文之外积累方法、实验和开放问题。用科研 Wiki 连接笔记与来源，保留证据和自己提出的判断。</p><div class="scenario-trail" data-t="researchTrail">文献与证据 <span>→</span> 研究笔记 <span>→</span> 新的问题</div></article>
+        <article class="scenario" id="feature-captures"><div class="scenario-top"><span>03</span><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="6" width="22" height="23" rx="3"/><path d="M5 13h22M11 3v6M21 3v6m-11 11 4 4 8-9"/></svg></div><h3 data-t="dailyTitle">想到的，有个下文。</h3><p data-t="dailyText">随手记录灵感，保留链接与附件。把值得推进的事情交给项目和日程，让零散想法成为可以完成的一步。</p><div class="scenario-trail" data-t="dailyTrail">随手记录 <span>→</span> 项目任务 <span>→</span> 日程安排</div></article>
+      </div>
+    </div></section>
+
+    <section class="section page-width essentials" id="capabilities">
+      <div class="section-heading"><div><p class="eyebrow" data-t="essentialsEyebrow">03 / 日常需要的基础</p><h2 data-t="essentialsTitle">能阅读，能修改，<br>也能找回来。</h2></div><p data-t="essentialsIntro">对话只是入口。资料、文档、执行过程与日程，都是可以打开和继续操作的工作对象。</p></div>
+      <div class="essentials-grid" id="details">
+        <article><span class="feature-mark" aria-hidden="true">↗</span><h3 data-t="readTitle">给阅读留出空间</h3><p data-t="readText">PDF 与文档有自己的阅读区。查看原件和来源，调节分区宽度，带着上下文返回项目。</p></article>
+        <article><span class="feature-mark" aria-hidden="true">±</span><h3 data-t="editTitle">修改有据可查</h3><p data-t="editText">Markdown 预览与源码、文件差异与审阅，把建议和已保存的内容分清楚。</p></article>
+        <article id="feature-history"><span class="feature-mark" aria-hidden="true">↶</span><h3 data-t="historyTitle">保留工作留下的线索</h3><p data-t="historyText">从执行历史回看目标、活动和结果。通过来源链接与受支持内容的回收站，找回需要继续的地方。</p></article>
+        <article id="feature-agenda"><span class="feature-mark" aria-hidden="true">⌑</span><h3 data-t="agendaTitle">让计划落到时间上</h3><p data-t="agendaText">查看任务与日程，导入 ICS 课表，编辑时间、循环和提醒。AI 提议的安排先审阅，再保存。</p></article>
+      </div>
+    </section>
+
+    <section class="section page-width control-section" id="control">
+      <div class="section-intro"><p class="eyebrow" data-t="controlEyebrow">04 / 保留选择</p><h2 data-t="controlTitle">你的工作，<br>由你安排。</h2><p data-t="controlIntro">选择适合的模型，决定哪些内容参与对话，以及是否连接自己的同步服务器。</p></div>
+      <div class="control-list">
+        <article id="feature-models"><h3 data-t="modelsTitle">模型可以换，项目接着做</h3><p data-t="modelsText">连接兼容的自定义 API，或配置本机 Codex 通道；按会话选择模型。可用能力取决于服务商、模型与本机配置。</p></article>
+        <article><h3 data-t="localTitle">资料先保存在本机</h3><p data-t="localText">使用远端模型时，请求所需内容会发送到你选择的提供商。本地优先不等于所有 AI 推理都在本机进行。</p></article>
+        <article><h3 data-t="syncTitle">需要同步，再连接服务器</h3><p data-t="syncText">自托管服务用于推送和拉取受支持的工作区内容，SSH 可用于建立连接。同步不等于远端文件管理；密钥与本机目录授权不随工作区同步。</p><a class="inline-link" href="https://github.com/zihenghe04/AIBro/blob/main/docs/CLOUD_SYNC.md" data-t="syncLink">阅读同步说明 <span aria-hidden="true">↗</span></a></article>
+      </div>
+    </section>
+
+    <section class="page-width archive-section" id="film">
+      <details id="recording-details"><summary><span class="archive-summary"><span class="eyebrow" data-t="archiveEyebrow">来自早期版本</span><span class="archive-title" data-t="archiveTitle">看一次实际操作。</span><span class="archive-description" data-t="archiveDescription">2026-09-15 录制 · 示例工作区 · 界面与当前版本存在差异</span></span><span class="disclosure-icon" aria-hidden="true">+</span></summary>
+        <div class="recording-body"><p data-t="archiveNote">中文为两分钟操作实录，英文为独立的任务编辑实录。内容经过剪辑，不代表模型速度或当前版本的验收结果。</p><video id="product-film" controls playsinline preload="none" poster="assets/recordings/tour-zh.jpg" width="1532" height="1080" aria-label="AI Bro 早期中文操作实录" data-label="filmLabel"><p data-t="videoFallback">你的浏览器无法播放视频，请使用下方下载链接。</p></video><div class="recording-footer"><span data-t="archiveCaption">历史界面 · 实际录屏</span><a id="film-download" href="assets/recordings/tour-zh.mp4" download data-t="filmDownload">下载录屏 <span aria-hidden="true">↓</span></a></div></div>
+      </details>
+    </section>
+
+    <section class="section page-width help-section" id="help">
+      <div class="section-intro"><p class="eyebrow" data-t="helpEyebrow">开始之前</p><h2 data-t="helpTitle">几件你可能<br>想知道的事。</h2></div>
+      <div class="faq-list">
+        <details><summary data-t="faq1Question">适合什么设备？</summary><p data-t="faq1Answer">当前主要围绕 Mac App 迭代。请在 GitHub Releases 确认对应安装包、系统要求和安装说明；预览版可能包含尚未 Apple 公证的构建。</p></details>
+        <details><summary data-t="faq2Question">需要单独配置模型吗？</summary><p data-t="faq2Answer">需要。AI Bro 是工作台，不附带模型订阅或 API 额度。使用兼容 API 需要自己的服务配置；Codex 账号通道还需按指南安装和配置官方 CLI。</p></details>
+        <details id="ios"><summary data-t="faq3Question">之前的 iOS 伴侣版还在吗？</summary><div id="ios-courses"><p data-t="faq3Answer">已有 iOS 伴侣版的安装说明保留在仓库中；当前开发重点是 Mac。各平台的功能与版本并不完全相同，请以发布说明为准。</p><a class="inline-link" href="https://github.com/zihenghe04/AIBro/blob/main/mobile/docs/INSTALL.md" data-t="iosLink">查看 iOS 安装说明 <span aria-hidden="true">↗</span></a></div></details>
+        <details><summary data-t="faq4Question">能用于团队协作吗？</summary><p data-t="faq4Answer">目前定位是个人工作台。自托管同步用于个人设备间推送和拉取，不提供实时多人协作，也不应被理解为端到端加密服务。</p></details>
+      </div>
+    </section>
+
+    <section class="download-section" id="download"><div class="page-width download-inner"><div><p class="eyebrow" data-t="downloadEyebrow">从一项小工作开始</p><h2 data-t="downloadTitle">带上你的资料。<br>开始下一步。</h2><p data-t="downloadText">下载 Mac 预览版，或从源码构建。具体版本、系统要求与已知问题都在发布说明中。</p></div><div class="download-actions"><a class="button primary" href="https://github.com/zihenghe04/AIBro/releases" data-t="downloadAction">下载 Mac 预览版 <span aria-hidden="true">↗</span></a><a class="button secondary" href="https://github.com/zihenghe04/AIBro/blob/main/docs/DISTRIBUTION.md" data-t="buildAction">从源码构建 <span aria-hidden="true">↗</span></a><a class="release-link" href="https://github.com/zihenghe04/AIBro/blob/main/CHANGELOG.md" data-t="changelogAction">查看更新日志 <span aria-hidden="true">↗</span></a></div></div></section>
+  </main>
+  <footer class="page-width"><div class="footer-brand"><a class="brand" href="#top"><img src="assets/mark.png" width="32" height="32" alt=""><span>AI Bro</span></a><p data-t="footerDescription">从资料，到下一步。</p></div><nav aria-label="项目与支持" data-label="footerNav"><a href="https://github.com/zihenghe04/AIBro">GitHub <span aria-hidden="true">↗</span></a><a href="https://github.com/zihenghe04/AIBro/issues" data-t="feedbackAction">反馈问题 <span aria-hidden="true">↗</span></a><a href="https://github.com/zihenghe04/AIBro/blob/main/LICENSE">AGPL-3.0 <span aria-hidden="true">↗</span></a></nav><p class="footer-note" data-t="footerNote">持续迭代中的个人 AI 工作台。可用功能以所下载版本为准。</p></footer>
+</body>
+</html>

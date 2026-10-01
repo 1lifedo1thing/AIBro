@@ -2,6 +2,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
+const installRunCheckpointHost = require('./helpers/run-checkpoint-host.cjs');
 const Core=require('../app/workstation-core');
 const AttachmentAnalysis = require('../app/attachment-analysis');
 const AttachmentContext=require('../app/attachment-context');
@@ -21,7 +22,8 @@ function harness(request) {
     AgentTransport:{requestPlan:async options=>{requests.push(options);return request(options,requests.length)}},activeRunController:null,liveRenderTimer:null,
   });
   el('#agentInput').value='整理材料并创建任务';el('#apiBase').value='https://example.invalid/v1';el('#apiKey').value='fixture-key';
-  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function commitAttachmentAnalysis(', '\nfunction executeActions(')+cut('function executeActions(', '\nfunction fallbackWorkflow(')+cut('function actionsNeedApproval(', '\nfunction actionSummary(')+cut('function assertRunActive(', '\nlet activeRunController')+cut('function apiOrigin(', '\nfunction renderSettings(')+cut('async function sendMessage(', '\n\nfunction formatBytes('),c);
+  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function commitAttachmentAnalysis(', '\nfunction executeActions(')+cut('function executeActions(', '\nfunction fallbackWorkflow(')+cut('function actionsNeedApproval(', '\nfunction actionSummary(')+cut('function assertRunActive(', '\nlet activeRunController')+cut('function apiOrigin(', '\nfunction renderSettings(')+cut('async function requestAgentPlan(', '\nasync function sendMessage(')+cut('async function sendMessage(', '\n\nfunction formatBytes('),c);
+  installRunCheckpointHost(c);
   const actual=c.executeActions;c.executeActions=(...args)=>{commits++;return actual(...args)};
   return {c,state,requests,send:()=>c.sendMessage(),stop:()=>c.stopCurrentRun(),get commits(){return commits}};
 }

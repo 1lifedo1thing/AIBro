@@ -1,0 +1,76 @@
+/* 页内查找栏（⌘F）：贴在对话区右上角，默认隐藏；不改变消息区布局。 */
+.conversation-pane { position: relative; }
+
+.find-bar {
+  position: absolute;
+  top: 10px;
+  right: 16px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--canvas);
+  box-shadow: var(--shadow-card);
+}
+
+.find-bar[hidden] { display: none; }
+
+.find-bar > .icon-slot {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  color: var(--text);
+  opacity: .6;
+}
+
+.find-bar input {
+  width: 190px;
+  padding: 4px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+
+.find-count {
+  min-width: 96px;
+  color: var(--text);
+  font-size: 12px;
+  opacity: .72;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* 无匹配时如实变红提示，而不是继续显示 0/0 这种空计数。 */
+.find-bar[data-empty="true"] .find-count { color: #c0392b; opacity: 1; }
+
+.find-bar button.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.find-bar button.icon:hover:not(:disabled) { background: var(--surface-wash); }
+.find-bar button.icon:disabled { opacity: .35; cursor: default; }
+.find-bar button.icon .icon-slot { width: 15px; height: 15px; }
+
+/* 命中高亮走 CSS Custom Highlight API：不改 DOM 结构，因此不与流式重绘冲突。 */
+::highlight(find-all) { background: #ffe08a; color: #1f2937; }
+::highlight(find-current) { background: #f59e0b; color: #ffffff; }
+
+@media (prefers-color-scheme: dark) {
+  ::highlight(find-all) { background: #8a6d1f; color: #fdf6e3; }
+  ::highlight(find-current) { background: #d97706; color: #ffffff; }
+}

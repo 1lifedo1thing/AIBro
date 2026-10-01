@@ -1,7 +1,31 @@
 import SwiftUI
 import WebKit
 
-struct ConversationEntry:Identifiable,Decodable {let id:String;let title:String;let folderId:String;let archived:Bool;let projectId:String?;let updatedAt:Double?}
+struct ConversationEntry:Identifiable,Decodable {
+    let id:String;let title:String;let folderId:String;let archived:Bool;let projectId:String?;let updatedAt:Double?
+    var pinned:Bool? = nil;var summary:String? = nil;var summaryGoal:String? = nil;var summaryOutcome:String? = nil;var messageCount:Int? = nil
+    var isPinned:Bool {pinned == true}
+    static func ordered(_ a:Self,_ b:Self)->Bool {if a.isPinned != b.isPinned{return a.isPinned};if a.updatedAt != b.updatedAt{return (a.updatedAt ?? 0)>(b.updatedAt ?? 0)};return a.id<b.id}
+}
+
+struct ConversationQuickLook:View {
+    @ObservedObject private var nativeLanguage = NativeL10n.shared
+    let conversation:ConversationEntry
+    let open:()->Void
+    @Environment(\.dismiss) private var dismiss
+    var body:some View {
+        VStack(alignment:.leading,spacing:18) {
+            HStack {Label(nativeUI("对话速览","Chat preview"),systemImage:"text.alignleft").font(.headline);Spacer();Button(nativeUI("关闭","Close")){dismiss()}}
+            Text(conversation.title).font(.title3.bold()).lineLimit(3)
+            ScrollView {VStack(alignment:.leading,spacing:14) {
+                if let goal=conversation.summaryGoal,!goal.isEmpty {Text(nativeUI("最近目标","Latest goal")).font(.caption).foregroundStyle(.secondary);Text(goal).textSelection(.enabled)}
+                if let outcome=conversation.summaryOutcome,!outcome.isEmpty {Text(nativeUI("最近答复摘录","Latest reply excerpt")).font(.caption).foregroundStyle(.secondary);Text(outcome).textSelection(.enabled)}
+                else {Text(nativeUI("尚无对应答复","No matching reply yet")).foregroundStyle(.secondary)}
+            }.frame(maxWidth:.infinity,alignment:.leading)}
+            HStack {Text(nativeUI("\(conversation.messageCount ?? 0) 条消息 · 原文保留","\(conversation.messageCount ?? 0) messages · Originals retained")).font(.caption).foregroundStyle(.secondary);Spacer();Button(nativeUI("打开对话","Open chat")){dismiss();open()}.buttonStyle(LiftStyle())}
+        }.padding(24).frame(width:480,height:380).background(StudioPalette.canvas)
+    }
+}
 struct ConversationFolder:Identifiable,Decodable {let id:String;let title:String;let archived:Bool}
 struct ConversationTarget:Identifiable {
     let kind:String;let id:String;let title:String;var folderId="";var archived=false

@@ -143,6 +143,91 @@ ipcMain.handle('workstation:open-auth', async (event, value) => {
   await shell.openExternal(url.href);
 });
 
+// Keep the lifetime decision independent of Electron so timeout, cancellation
+// and stale renderer replies can be tested without launching another app.
+function createDraftExitGate({ getWindow, flushWorkspace, flushDrafts, confirmFailure, approve, returned,
+  schedule = setTimeout, unschedule = clearTimeout }) {
+  let attempt = null, approvedWindow = null;
+  const alive = token => attempt === token && getWindow() === token.window && !token.window.isDestroyed();
+  const cancel = window => {
+    if (attempt && (!window || attempt.window === window)) {
+      unschedule(attempt.timer);
+      attempt = null;
+    }
+    if (!window || approvedWindow === window) approvedWindow = null;
+  };
+  function commit(token) {
+    if (!alive(token)) return;
+    unschedule(token.timer);
+    approvedWindow = token.window;
+    attempt = null;
+    approve(token.kind, token.window);
+  }
+  async function complete(token, success) {
+    if (!alive(token) || token.phase !== 'flushing') return;
+    unschedule(token.timer);
+    if (success) { commit(token); return; }
+    token.phase = 'decision';
+    let exit = false;
+    try { exit = (await confirmFailure(token.kind, token.window)) === true; }
+    catch (_) { /* A missing dialog cannot authorize data loss. */ }
+    if (!alive(token) || token.phase !== 'decision') return;
+    if (exit) commit(token);
+    else { cancel(token.window); returned(token.window); }
+  }
+  async function prepare(token) {
+    // Preserve the previous workspace flush, with its existing bounded wait.
+    // Do this first: edits made while it runs are included in the final draft
+    // flush rather than trusting an acknowledgement from before that wait.
+    await new Promise(resolve => {
+      const timer = schedule(resolve, 2800);
+      Promise.resolve().then(() => flushWorkspace(token.window)).catch(() => {}).finally(() => { unschedule(timer); resolve(); });
+    });
+    if (!alive(token) || token.phase !== 'flushing') return;
+    token.timer = schedule(() => { void complete(token, false); }, 8000);
+    try { await complete(token, (await flushDrafts(token.window)) === true); }
+    catch (_) { await complete(token, false); }
+  }
+  return {
+    begin(kind, window) {
+      if (attempt && alive(attempt)) {
+        // Cmd-Q while a close is waiting upgrades the same decision; it must
+        // not start another flush or display another confirmation.
+        if (kind === 'quit') attempt.kind = 'quit';
+        return false;
+      }
+      cancel();
+      const token = { kind, window, phase: 'flushing', timer: undefined };
+      attempt = token;
+      void prepare(token);
+      return true;
+    },
+    allowsUnload: window => approvedWindow === window,
+    cancel
+  };
+}
+
+const desktopExitGate = createDraftExitGate({
+  getWindow: () => mainWindow,
+  flushWorkspace: window => window.webContents.executeJavaScript('window.flushWorkspace?.()'),
+  flushDrafts: window => window.webContents.executeJavaScript('(async () => typeof window.flushLocalDrafts !== "function" ? true : (await window.flushLocalDrafts()) === true)()'),
+  confirmFailure: async (kind, window) => {
+    const result = await dialog.showMessageBox(window, {
+      type: 'warning', title: nativeUI.text('有草稿尚未确认保存', 'Some drafts are not confirmed saved'),
+      message: nativeUI.text('返回编辑并检查草稿，还是仍然离开？', 'Return to check your drafts, or leave anyway?'),
+      detail: nativeUI.text('最新修改尚未确认写入本机，继续可能丢失这些修改。已保存的本机草稿、笔记与历史版本会保留；私密或无痕草稿仅在当前窗口保留。', 'The latest edits are not confirmed saved on this device and may be lost if you continue. Saved local drafts, notes and revisions are kept. Private or incognito drafts remain only in this window.'),
+      buttons: [nativeUI.text('返回编辑', 'Return to editing'), kind === 'quit' ? nativeUI.text('仍然退出', 'Quit anyway') : nativeUI.text('仍然关闭', 'Close anyway')],
+      defaultId: 0, cancelId: 0, noLink: true
+    });
+    return result.response === 1;
+  },
+  approve: (kind, window) => {
+    if (kind === 'quit') { quitting = true; app.quit(); }
+    else window.close();
+  },
+  returned: window => { quitting = false; if (!window.isDestroyed()) { window.show(); window.focus(); } }
+});
+
 async function createWindow() {
   await startLocalServer();
   mainWindow = new BrowserWindow({
@@ -169,21 +254,36 @@ async function createWindow() {
     if (/^https?:\/\//.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
+  const window = mainWindow;
+  window.on('close', event => {
+    if (desktopExitGate.allowsUnload(window)) return;
+    event.preventDefault();
+    desktopExitGate.begin('close', window);
+  });
+  window.webContents.on('did-start-navigation', (_event, _url, inPlace, mainFrame) => {
+    if (mainFrame && !inPlace) {
+      // A reply belonging to the previous document cannot close its successor.
+      desktopExitGate.cancel(window);
+      quitting = false;
+    }
+  });
   mainWindow.webContents.on('will-prevent-unload', event => {
+    if (typeof desktopExitGate !== 'undefined' && desktopExitGate.allowsUnload(mainWindow)) { event.preventDefault(); return; }
     const choice = dialog.showMessageBoxSync(mainWindow, {
-      type: 'question', title: nativeUI.text('笔记还有未保存的修改', 'Unsaved note changes'),
-      message: nativeUI.text('返回编辑并保存，还是放弃未保存的修改？', 'Return to your note, or discard unsaved changes?'),
-      detail: nativeUI.text('已保存的笔记与历史版本会保留。放弃后，当前窗口里的未保存草稿将无法恢复。', 'Saved notes and revisions are kept. Unsaved changes in this window cannot be recovered after discarding.'),
-      buttons: [nativeUI.text('返回编辑', 'Return to note'), nativeUI.text('放弃修改并继续', 'Discard and continue')], defaultId: 0, cancelId: 0, noLink: true
+      type: 'question', title: nativeUI.text('有草稿尚未确认保存', 'Some drafts are not confirmed saved'),
+      message: nativeUI.text('返回编辑，还是继续刷新或离开此页面？', 'Return to editing, or reload or leave this page?'),
+      detail: nativeUI.text('未确认写入本机的最新修改可能丢失；已经保存的本机草稿、笔记与历史版本会保留。私密或无痕草稿仅在当前窗口保留。', 'The latest edits not confirmed saved on this device may be lost. Saved local drafts, notes and revisions are kept. Private or incognito drafts remain only in this window.'),
+      buttons: [nativeUI.text('返回编辑', 'Return to editing'), nativeUI.text('仍然继续', 'Continue anyway')], defaultId: 0, cancelId: 0, noLink: true
     });
     // Electron's preventDefault explicitly allows an unload blocked by the
-    // renderer. Do this only after the user chose to abandon unsaved drafts.
+    // renderer. A normal refresh/navigation still requires explicit consent.
+    if (typeof desktopExitGate !== 'undefined') desktopExitGate.cancel(mainWindow);
+    quitting = false;
     if (choice === 1) event.preventDefault();
-    else quitting = false;
   });
   // Preserve the existing desktop origin and profile across upgrades.
   await mainWindow.loadURL(localOrigin);
-  mainWindow.on('closed', () => { nativeGlass.dispose(); mainWindow = null; });
+  mainWindow.on('closed', () => { desktopExitGate.cancel(window); nativeGlass.dispose(); if (mainWindow === window) mainWindow = null; });
 }
 
 if (ownsInstance) app.whenReady().then(() => {
@@ -201,13 +301,9 @@ app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(
 app.on('activate', () => { if (!mainWindow) createWindow(); });
 app.on('before-quit', event => {
   if (quitting) return;
-  event.preventDefault(); quitting = true;
-  const flush = mainWindow && !mainWindow.isDestroyed()
-    ? mainWindow.webContents.executeJavaScript('window.flushWorkspace?.()').catch(() => {})
-    : Promise.resolve();
-  Promise.race([flush, new Promise(resolve => setTimeout(resolve, 2800))]).finally(() => {
-    app.quit();
-  });
+  if (!mainWindow || mainWindow.isDestroyed()) { quitting = true; return; }
+  event.preventDefault();
+  desktopExitGate.begin('quit', mainWindow);
 });
 // A beforeunload prompt may cancel quitting. Keep the backend alive until all
 // windows have actually accepted shutdown, otherwise Cancel leaves a dead app.

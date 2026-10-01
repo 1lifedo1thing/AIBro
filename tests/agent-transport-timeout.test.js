@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
-const source = fs.readFileSync(require.resolve('../app/agent-transport'), 'utf8');
+const source = fs.readFileSync(require.resolve('../app/sse-frame-scanner'), 'utf8') + '\n' + fs.readFileSync(require.resolve('../app/agent-transport'), 'utf8');
 const flush = async () => { for (let i = 0; i < 16; i++) await Promise.resolve(); };
 function clock() {
   let now = 0, id = 0; const timers = new Map();
@@ -159,4 +159,36 @@ test('non-stream failed, incomplete, pending, explicit errors and malformed JSON
     const stream=channel('application/json'),h=setup(async()=>stream.response),request=start(h);await flush();stream.bytes(payload);stream.close();await request.settled;
     assert.ok(['STREAM_ERROR','INVALID_RESPONSE'].includes(request.result.error.code));assert.equal(stream.released,1);
   }
+});
+
+test('incremental framing retains split UTF-8, CRLF, multi-line JSON and an authoritative EOF final', async () => {
+  const stream = channel(), h = setup(async () => stream.response), values = [];
+  const request = start(h, { onDelta: value => values.push(value) }); await flush();
+  const raw = 'event: response.output_text.delta\r\ndata: {"delta":\r\ndata: "草稿🧪"}\r\n\r\n'
+    + 'event: response.completed\r\ndata: {"response":{"status":"completed","output_text":"完整修订✅"}}';
+  for (const byte of new TextEncoder().encode(raw)) stream.bytes(Uint8Array.of(byte));
+  stream.close(); await request.settled;
+  assert.equal(request.result.value, '完整修订✅'); assert.deepEqual(values, ['草稿🧪', '完整修订✅']);
+  assert.equal(stream.released, 1); assert.equal(h.requests.length, 1);
+});
+
+test('a large valid tool frame is not truncated and its following final correction is preserved', async () => {
+  const stream = channel(), h = setup(async () => stream.response), values = [];
+  const request = start(h, { onDelta: value => values.push(value) }); await flush();
+  stream.event({ type: 'response.output_text.delta', delta: 'initial text' });
+  const raw = `data: ${JSON.stringify({ type: 'response.output_item.done', item: { type: 'mcp_call', id: 'large-fixture', output: 'x'.repeat(2 * 1024 * 1024), status: 'completed' } })}\n\n`;
+  for (let offset = 0; offset < raw.length; offset += 4096) stream.bytes(raw.slice(offset, offset + 4096));
+  stream.event({ type: 'response.completed', response: { status: 'completed', output_text: 'correct final text' } });
+  await request.settled;
+  assert.equal(request.result.value, 'correct final text'); assert.deepEqual(values, ['initial text', 'correct final text']);
+  assert.equal(h.requests.length, 1); assert.equal(stream.cancels, 1); assert.equal(stream.released, 1);
+});
+
+test('stopping while a giant frame is still unclosed cancels immediately without extra calls or false completion', async () => {
+  const stream = channel(), h = setup(async () => stream.response), controller = new AbortController();
+  const request = start(h, { signal: controller.signal }); await flush();
+  stream.bytes('data: {"type":"response.output_item.done","item":{"type":"mcp_call","output":"');
+  for (let index = 0; index < 128; index++) stream.bytes('x'.repeat(8192));
+  await flush(); controller.abort(); await request.settled;
+  assert.equal(request.result.error.code, 'CANCELLED'); assert.equal(stream.cancels, 1); assert.equal(stream.released, 1); assert.equal(h.requests.length, 1);
 });

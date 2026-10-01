@@ -160,7 +160,7 @@
     hooks=options;if($('polishDialog'))return;
     const controls=root.document.createElement('span');controls.id='polishControls';controls.className='polish-controls';
     controls.innerHTML='<button type="button" id="polishPrompt" class="polish-trigger" aria-label="润色并替换提示词" aria-describedby="polishHelp"><span aria-hidden="true" class="polish-mark">✎</span><span id="polishPromptLabel">润色</span></button><button type="button" id="polishSettings" class="polish-settings-trigger" aria-label="润色设置" aria-haspopup="dialog" aria-controls="polishDialog" aria-expanded="false" title="润色设置">⌄</button><span id="polishHelp" class="sr-only">点击即润色并替换；悬停或点击旁边箭头设置模型。运行时再点击可停止。</span>';
-    $('composerModel').before(controls);
+    (window.ComposerUI?.rootFor($('composerModel'))||$('composerModel')).before(controls);
     const feedback=root.document.createElement('div');feedback.id='polishFeedback';feedback.className='polish-feedback';feedback.hidden=true;
     feedback.innerHTML='<span id="polishStatus" role="status" aria-live="polite"></span><button type="button" id="polishUndo" hidden>撤销</button><button type="button" id="polishReview" hidden>查看润色结果</button>';
     $('composer').append(feedback);

@@ -24,6 +24,30 @@ test('task-only output stays pending while listing explicit related tasks', () =
   assert.match(derived.detail, /1 个任务/);
   assert.deepEqual(Analysis.markCompleted(state, [{ type: 'task', id: 'task', operation: 'created' }], run).markedIds, []);
 });
+test('embedded document images are usable resources and do not create pending analysis work', () => {
+  const { state, source } = fixture();
+  Object.assign(source, { mimeType: 'image/png', fileStored: true, importOrigin: { kind: 'document-image', noteId: 'document' }, analysis: { status: 'pending' } });
+  state.tasks.push({ id: 'task', sourceAttachmentIds: [source.id] });
+  const before = structuredClone(state), derived = Analysis.derive(state, source);
+  assert.equal(derived.status, 'resource'); assert.equal(derived.label, '文档图片');
+  assert.match(derived.detail, /图片已保存/); assert.match(derived.detail, /按需主动/);
+  assert.deepEqual(derived.taskIds, ['task']); assert.deepEqual(derived.noteIds, []); assert.deepEqual(state, before);
+  assert.equal(state.imports.filter(item => Analysis.derive(state, item).status === 'pending').length, 0);
+  delete source.importOrigin;
+  assert.equal(Analysis.derive(state, source).status, 'pending', 'ordinary research images retain pending analysis semantics');
+});
+test('explicit successful analysis of a document image retains its real analyzed result', () => {
+  const { state, source, run } = fixture();
+  source.importOrigin = { kind: 'document-image', noteId: 'document' };
+  assert.equal(Analysis.derive(state, source).status, 'resource');
+  state.notes.push(note());
+  const completed = Analysis.markCompleted(state, [result()], run, 123);
+  assert.deepEqual(completed.markedIds, [source.id]);
+  const derived = Analysis.derive(completed.state, completed.state.imports[0]);
+  assert.equal(derived.status, 'analyzed'); assert.deepEqual(derived.noteIds, ['note']);
+  completed.state.notes = [];
+  assert.equal(Analysis.derive(completed.state, completed.state.imports[0]).status, 'resource', 'stale analysis does not invent results or schedule an editor resource');
+});
 test('meaningful source-linked note with a completed real run is analyzed, without mutating state', () => {
   const { state, source } = fixture(); state.notes.push(note()); const before = structuredClone(state);
   const derived = Analysis.derive(state, source);

@@ -108,10 +108,20 @@
     ui.hidden.forEach(metric => container.querySelectorAll(`[data-activity-metric="${metric}"]`).forEach(node => { node.style.display = 'none'; }));
     root.WorkstationI18n?.translate?.(chart);
   }
+  function stopResize(ui) {
+    ui?.resizeObserver?.disconnect();
+    if (!ui) return;
+    ui.resizeObserver = null;
+    if (ui.resizeFrame != null) {
+      if (typeof root.cancelAnimationFrame === 'function') root.cancelAnimationFrame(ui.resizeFrame);
+      else root.clearTimeout(ui.resizeFrame);
+      ui.resizeFrame = null;
+    }
+  }
   function render(container, state, options = {}) {
     if (!container) throw new Error('ActivityUI.render 需要容器');
     const scope = `${options.workspace || ''}:${options.projectId || ''}`;
-    let ui = preferences.get(container); ui?.resizeObserver?.disconnect();
+    let ui = preferences.get(container); stopResize(ui);
     if (!ui || ui.scope !== scope) {
       if (ui?.localeListener) root.document?.removeEventListener?.('workstation-language-change', ui.localeListener);
       ui = { scope, id: `activity-chart-${++chartSequence}`, days: Number(options.days) === 30 ? 30 : 7, hidden: new Set(), selectedKey: null };
@@ -133,10 +143,25 @@
     container.querySelectorAll('[data-activity-toggle]').forEach(toggle => toggle.addEventListener('click', () => { const metric = toggle.dataset.activityToggle; ui.hidden.has(metric) ? ui.hidden.delete(metric) : ui.hidden.add(metric); render(container, ui.options.getState?.() || ui.state, ui.options); container.querySelector(`[data-activity-toggle="${metric}"]`)?.focus?.({ preventScroll: true }); }));
     container.querySelectorAll('[data-activity-days]').forEach(toggle => toggle.addEventListener('click', () => { ui.days = Number(toggle.dataset.activityDays); render(container, ui.options.getState?.() || ui.state, ui.options); container.querySelector(`[data-activity-days="${ui.days}"]`)?.focus?.({ preventScroll: true }); }));
     container.querySelectorAll('[data-activity-workspace]').forEach(node => node.addEventListener('click', () => emit(container, 'activity-view-jump', { workspace: node.dataset.activityWorkspace })));
-    if (typeof root.ResizeObserver === 'function') { ui.resizeObserver = new root.ResizeObserver(() => { const chart = container.querySelector('.activity-ui-chart'); if (chart?.clientWidth && Math.abs(chart.clientWidth - ui.width) > 1) drawChart(container, ui, currentData(ui)); }); ui.resizeObserver.observe(container); }
+    if (typeof root.ResizeObserver === 'function') {
+      const observer = new root.ResizeObserver(() => {
+        if (ui.resizeObserver !== observer || ui.resizeFrame != null) return;
+        // Rebuilding the SVG can change the observed container's height. Do it
+        // next frame, outside ResizeObserver delivery, and remeasure once.
+        const redraw = () => {
+          ui.resizeFrame = null;
+          if (preferences.get(container) !== ui || ui.resizeObserver !== observer) return;
+          if (container.isConnected === false) { stopResize(ui); return; }
+          const chart = container.querySelector('.activity-ui-chart');
+          if (chart?.clientWidth && Math.abs(chart.clientWidth - ui.width) > 1) drawChart(container, ui, currentData(ui));
+        };
+        ui.resizeFrame = typeof root.requestAnimationFrame === 'function' ? root.requestAnimationFrame(redraw) : root.setTimeout(redraw, 0);
+      });
+      ui.resizeObserver = observer; observer.observe(container);
+    }
     root.WorkstationI18n?.translate?.(container);
     return data;
   }
-  function destroy(container) { const ui = preferences.get(container); ui?.resizeObserver?.disconnect(); if (ui?.localeListener) root.document?.removeEventListener?.('workstation-language-change', ui.localeListener); preferences.delete(container); }
+  function destroy(container) { const ui = preferences.get(container); stopResize(ui); if (ui?.localeListener) root.document?.removeEventListener?.('workstation-language-change', ui.localeListener); preferences.delete(container); }
   return { render, chartGeometry, destroy };
 });

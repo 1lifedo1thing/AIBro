@@ -1,55 +1,70 @@
 # AI Bro product page
 
-A bilingual static website. Chinese is the default; `?lang=en` selects English. The existing dark and soft-green visual direction is retained.
+A bilingual static product website for the Mac app. The current page explains the path from source material to conversation, editable output and a next step. It is a marketing/documentation surface, separate from the app's WKWebView implementation and release package.
 
-## Preview
+Chinese is the default; `?lang=en` selects English. The official target is [zihenghe04.github.io/AIBro](https://zihenghe04.github.io/AIBro/). Current download buttons point to the [Releases list](https://github.com/zihenghe04/AIBro/releases), including previews, without pinning an outdated package version.
 
-Serve `dist/` with an HTTP server. No build step or package installation is required. `features.json` contains the nine workflow descriptions and recording metadata; `script.js` loads it at startup. The page uses no external fonts, analytics or media CDN.
+## Files and local preview
 
-## Real recordings and languages
+| File | Purpose |
+| --- | --- |
+| `dist/index.html` | Chinese content, semantic structure, links, FAQ and recording disclosure |
+| `dist/style.css` | Dark olive palette, system typography, responsive layout and focus/reduced-motion styles |
+| `dist/script.js` | English text, language/history handling, anchor disclosure and recording lifecycle |
+| `dist/assets/mark.png` | Existing brand mark; changing the website does not select or install a new app logo |
+| `dist/assets/recordings/tour-{zh,en}.{jpg,mp4}` | Language-specific historical recording posters and videos |
 
-- Chinese: the user's 128-second ScreenCam export, plus nine independently downloadable GIFs. The original ScreenCam background, cursor and shadows are preserved.
-- Feature playback: 30 fps MP4 derivatives of the same nine recording intervals, about 4.7 MB combined. GIF downloads remain available at 1200 px / 15 fps. Video sources are assigned when needed; posters load first.
-- Visible clips may play simultaneously. Offscreen clips pause. A discreet page-motion toggle, enlarged playback, hidden-tab pause and reduced-motion preferences are supported. No controls, duration labels or recording-tool badges are overlaid on the clips. The main tour also loops while visible. Containers follow intrinsic video proportions without independent height caps. Small opacity/translation reveals run once as content enters view; no scroll-driven layout or video blur is used.
-- English: a separate 41-second recording of the English project/task UI, edited to remove waiting time. The nine feature explanations use clearly labeled English workflow illustrations. Complete English feature recordings are still outstanding; Chinese clips are never substituted.
-- Chinese and English hero backgrounds also use language-specific images. Previous montage assets remain on disk for rollback but are not referenced by the current page.
+Serve the static directory; no npm installation or build is needed:
 
-## Evidence and scope
+```sh
+python3 -m http.server 8080 --bind 127.0.0.1 --directory launch/dist
+```
 
-The recordings show example workspaces. Existing example conversations and results are not model-speed or quality benchmarks. Clip captions describe the operations actually visible, rather than implying that unrecorded AI processing or notification delivery occurred.
+Run this from the repository root, then open `http://127.0.0.1:8080/` and `http://127.0.0.1:8080/?lang=en`. Use another available port if necessary. This serves product-page assets, not the app or a user workspace.
 
-The full Chinese source is the user-exported `屏幕录制-20260915-162058.mp4`, SHA-256 `5cd0fa2ffec80e91a5854ffa9bd7ebe8bcb9b7a6fb6337e6b23c50f412c8c051`. The original is unchanged. Intervals in source seconds:
+The page has no external font service, analytics script or media CDN. Text is present in the Chinese HTML without JavaScript; the language switch is revealed after initialization. English translations live in the `EN` object in `script.js`, keyed by HTML `data-t` and `data-label` attributes. Add the Chinese text and matching English key together, including accessible labels. Language changes preserve the URL's existing query/hash; browser back/forward updates the selected language.
 
-| Feature | Start | End |
-|---|---:|---:|
-| Overview | 0.4 | 7.2 |
-| File review | 9.1 | 24.3 |
-| Calendar | 25.4 | 31.3 |
-| Captures | 39.1 | 55.2 |
-| Project charts | 57.5 | 69.8 |
-| Project reader | 78.8 | 86.9 |
-| Research Wiki | 95.5 | 103.1 |
-| History and trash | 104.0 | 112.7 |
-| Model settings | 114.1 | 117.7 |
+`features.json`, per-feature clips and the former iOS gallery remain as historical assets. The current page does **not** fetch `features.json` or render the earlier auto-playing feature grid. Editing that file alone will not update the current website.
 
-The English footage uses `screen-cam-1789458513.mp4`, concatenating 104–123, 190–205 and 213–220 seconds without changing playback speed.
+## Layout and interaction
 
-## Validation and release
+- The hero contains a labeled **workflow illustration, not an app screenshot**. It must not be presented as evidence of implemented UI.
+- Sequential workflow, learning/research/daily scenarios, core capabilities, data/model choices, FAQ and download sections share a single scrolling page.
+- Historical recordings are inside a native `details` disclosure. Video uses ordinary playback controls, `preload="none"` and no autoplay; the source is assigned when the disclosure opens.
+- Switching language selects that language's real recording, pauses and clears the previous source, and updates the poster. Closing the recording section or hiding the document pauses playback. A failed video reports a status message and retains the download link.
+- Direct anchors such as `#film`, `#ios` and `#ios-courses` reveal the relevant disclosure. Earlier feature anchors are retained where their content now lives.
+- CSS provides visible keyboard focus, a skip link, responsive grids and reduced-motion overrides. These code paths require browser testing; their presence alone does not establish accessibility or performance acceptance.
 
-2026-09-15: JavaScript syntax, a DOM simulation of concurrent playback/viewport pause/global motion control and unobstructed frames/language isolation/reduced motion/enlarged-view close, local asset existence and section anchors passed. All 11 current MP4s were decoded with FFmpeg. HTTP checks cover pages, scripts, feature data, posters, GIFs and videos. These checks are not browser visual acceptance.
+The page does not show a fabricated current App screenshot, simulated generation, model-speed claim or an assurance that every source feature is already included in a downloadable build. The iOS companion is a historical FAQ link, while Mac remains the product focus.
 
-This is a local website update, not a published app release. Download links lead to the latest public GitHub Releases; release-specific availability is governed by the linked release notes. Do not claim an upcoming version is already available. Keep the private development repository and its history separate from the sanitized public release checkout.
+## Recording provenance
 
-## iOS companion (2026-09-16)
+The visible archive is explicitly labeled **recorded 2026-09-15**, using example workspaces and an earlier interface.
 
-`#ios` introduces captures, knowledge, UCAS course tools and self-hosted sync, with an iOS 0.1.2 download and signing guide. `assets/ios/` contains four actual iOS Simulator screenshots at 1206 × 2622. They were captured in a newly created simulator seeded exclusively with fictional data; no existing user workspace or credentials were loaded. The English page provides translated capability descriptions without substituting Chinese screenshots.
+- Chinese: the user's approximately two-minute ScreenCam export, `屏幕录制-20260915-162058.mp4`; source SHA-256 `5cd0fa2ffec80e91a5854ffa9bd7ebe8bcb9b7a6fb6337e6b23c50f412c8c051`. The existing background, cursor and shadows came from that recording.
+- English: a separate task-editing recording, `screen-cam-1789458513.mp4`, edited from source intervals 104–123, 190–205 and 213–220 seconds without increasing playback speed.
+- These are edited recordings of actual interface operations. They are not live model benchmarks or acceptance evidence for the current app version. The English page does not substitute Chinese footage.
 
-### Course assistant showcase
+The earlier nine Chinese feature intervals are retained for provenance and possible reuse:
 
-`assets/ios/courses.png` is captured from the same isolated Simulator with fictional courses and teachers. An offline preview opens the unmodified course-assistant layout directly and labels its seeded attendance state as simulated. No school login or attendance request was made. The production app and IPA are unchanged. The Chinese page shows this image at `#ios-courses`; the English page describes the workflow without displaying Chinese UI.
+| Feature | Original source interval, seconds |
+| --- | --- |
+| Overview | 0.4–7.2 |
+| File review | 9.1–24.3 |
+| Calendar | 25.4–31.3 |
+| Captures | 39.1–55.2 |
+| Project charts | 57.5–69.8 |
+| Project reader | 78.8–86.9 |
+| Research Wiki | 95.5–103.1 |
+| History and trash | 104.0–112.7 |
+| Model settings | 114.1–117.7 |
 
-### Swipeable iOS gallery
+Legacy iOS images in `assets/ios/` came from an isolated simulator with fictional data; course attendance states were simulated. They are not displayed by the current page. Keep these distinctions if reusing the assets.
 
-Today, captures, knowledge and the course assistant share one App Store-style horizontal strip. Native touch/trackpad scrolling, mouse dragging, previous/next buttons and Arrow/Home/End keys browse the same cards; scrolling snaps into place and respects reduced-motion preferences. Mobile keeps one card with a preview of the next. Add future screenshots as gallery figures rather than separate full-height sections. The existing `#ios-courses` link opens the fourth card.
+## Maintenance and publication
 
-Validated in the browser at desktop and 390 px mobile widths: button navigation, native horizontal scrolling, mouse drag, keyboard navigation, mock image loading and English screenshot isolation. No page-wide horizontal overflow at mobile width.
+Before publication, check both languages and narrow/desktop widths, keyboard navigation, FAQ/recording disclosure, direct anchors, back/forward language changes, missing-video feedback, visible focus and reduced motion. Confirm that all local assets are included in the public source export. JavaScript syntax and reference checks are useful, but do not substitute for rendered browser acceptance.
+
+The deployment workflow is [`.github/workflows/pages.yml`](../.github/workflows/pages.yml). It uploads `launch/dist` on matching `main` changes or manual dispatch, and only deploys for the public `zihenghe04/AIBro` repository. Source mirrors and forks do not deploy the canonical website. A local file edit does not prove successful Pages publication.
+
+Use the sanitized public checkout for publication; do not push private development history, workspace data, unreviewed screenshots or recording caches. Keep app release notes and website claims aligned with the actual downloadable version. Publishing this page does not update the installed app, create a GitHub app release or validate new product functionality.

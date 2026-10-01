@@ -103,7 +103,7 @@ class Workspace:
         with self.lock():
             self.applied.append((changes, cursor, {digest: path.read_bytes() for digest, path in (blobs or {}).items()}))
             self.store.cursor = cursor
-    def resolve_cloud_conflict(self, conflict_id, choice, blobs=None):
+    def resolve_cloud_conflict(self, conflict_id, choice, revision=None, blobs=None):
         with self.lock(): self.resolved.append((conflict_id, choice)); self.store.conflict_rows = []
 
 
@@ -270,8 +270,8 @@ class SQLiteWorkspace(Workspace):
                 destination.write_bytes(blobs[digest].read_bytes())
     def apply_cloud_changes(self, changes, cursor, blobs=None):
         with self.lock(): return self.store.apply_changes(changes, cursor, before_commit=lambda snapshot: self._publish(snapshot, blobs))
-    def resolve_cloud_conflict(self, conflict_id, choice, blobs=None):
-        with self.lock(): return self.store.resolve_conflict(conflict_id, choice, before_commit=lambda snapshot: self._publish(snapshot, blobs))
+    def resolve_cloud_conflict(self, conflict_id, choice, revision=None, blobs=None):
+        with self.lock(): return self.store.resolve_conflict(conflict_id, choice, revision=revision, before_commit=lambda snapshot: self._publish(snapshot, blobs))
 
 
 @unittest.skipUnless(hasattr(hashlib, 'scrypt'), 'Real server authentication requires the bundled OpenSSL Python runtime')
@@ -303,7 +303,7 @@ class ProtocolIntegrationTests(unittest.TestCase):
         a.sync_once(); b.sync_once()
         self.assertEqual(second.snapshot()['notes'][0]['content'], 'Device B revision')
         self.assertEqual(b.status()['state'], 'conflict')
-        conflict = b.conflicts()['conflicts'][0]; b.resolve(conflict['id'], 'remote')
+        conflict = b.conflicts()['conflicts'][0]; b.resolve(conflict['id'], 'remote', conflict['revision'])
         self.assertEqual(second.snapshot()['notes'][0]['content'], 'Device A revision')
         self.assertEqual(second.status()['conflicts'], 0)
     def test_binary_attachment_transfers_with_original_name_and_real_hash_verification(self):

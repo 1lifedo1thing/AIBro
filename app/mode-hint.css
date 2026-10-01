@@ -1,0 +1,22 @@
+/* 模式关键词提示（§4.2）：只在输入命中关键词时出现，点它或 Shift+Tab 转成对应模式。 */
+.mode-hint {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 6px;
+  padding: 6px 10px;
+  border: 1px dashed var(--line);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+  opacity: .82;
+  transition: opacity .15s ease, background .15s ease;
+}
+
+.mode-hint[hidden] { display: none; }
+.mode-hint:hover { background: var(--surface-wash); opacity: 1; }
+.mode-hint[data-mode="goal"] { border-color: var(--accent); }

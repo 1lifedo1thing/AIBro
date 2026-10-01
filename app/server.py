@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Loopback service for the workstation's durable store, files and AI requests."""
-import base64, fcntl, hashlib, html, http.client, ipaddress, json, math, mimetypes, os, re, secrets, select, shutil, socket, stat, subprocess, tempfile, threading, time, urllib.parse, urllib.request
+import base64, errno, fcntl, hashlib, html, http.client, ipaddress, json, math, mimetypes, os, re, secrets, select, shutil, socket, ssl, stat, subprocess, tempfile, threading, time, unicodedata, urllib.parse, urllib.request
 from contextlib import contextmanager
+from collections import OrderedDict
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from socketserver import TCPServer
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from pathlib import Path
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
@@ -20,6 +21,11 @@ from project_jobs import ProjectJobs
 from sync_store import SyncStore, all_imports, DIGEST
 from sync_merge import merge_local_snapshot, MergeConflict
 from cloud_sync import CloudSync, CloudSyncError
+from comparison_drafts import ComparisonDraftStore, DraftError, MAX_BYTES as MAX_COMPARISON_DRAFT_BYTES
+from note_drafts import NoteDraftStore, MAX_BYTES as MAX_NOTE_DRAFT_BYTES, decode_json as decode_note_draft_json
+from local_document_drafts import LocalDocumentDraftStore
+from document_media import DocumentMedia, MediaError, MAX_UPLOAD_BODY as MAX_IMAGE_UPLOAD_BODY
+from local_document_media import LocalDocumentMedia
 from public_url_fetch import PublicFetchError, fetch_public_url, extract_feishu_mindnote
 
 ASSET_DIR = Path(os.environ.get('AI_WORKSTATION_ASSET_DIR', Path(__file__).resolve().parent)).resolve()
@@ -46,11 +52,176 @@ DATA_DIR = Path(os.environ.get('AI_WORKSTATION_DATA_DIR', Path.home() / 'Library
 PORT = int(os.environ.get('AI_WORKSTATION_PORT', '8766'))
 MAX_FILE = 64 * 1024 * 1024
 MAX_PREVIEW_PIXELS = 8_000_000
+MAX_PDF_TEXT_WORDS = 5000
+MAX_PDF_TEXT_BYTES = 256 * 1024
+MAX_PDF_TEXT_RESPONSE_BYTES = 1024 * 1024
+MAX_PDF_SEARCH_MATCHES = 200
+MAX_PDF_SEARCH_RECTS = 256
+MAX_PDF_SEARCH_RESPONSE_BYTES = 1024 * 1024
+MAX_PDF_READ_TEXT_CHARS = 12000
 PDF_PREVIEW_LOCK = threading.Lock()
+
+class PDFResponseCache:
+    """Bounded, short-lived response bytes; never retains MuPDF objects or sources."""
+    def __init__(self, max_bytes=16 * 1024 * 1024, max_entries=128,
+                 max_item_bytes=2 * 1024 * 1024, idle_seconds=45, clock=time.monotonic):
+        self.max_bytes, self.max_entries = max_bytes, max_entries
+        self.max_item_bytes, self.idle_seconds, self.clock = max_item_bytes, idle_seconds, clock
+        self.entries = OrderedDict()
+        self.bytes = 0
+        self.lock = threading.Lock()
+
+    def _remove(self, key):
+        _, body, _ = self.entries.pop(key)
+        self.bytes -= len(body)
+
+    def _expire(self, now):
+        # Accesses move entries to the end, so oldest access is always first.
+        while self.entries:
+            key = next(iter(self.entries))
+            if now - self.entries[key][2] < self.idle_seconds:
+                break
+            self._remove(key)
+
+    def get(self, key):
+        with self.lock:
+            now = self.clock()
+            self._expire(now)
+            value = self.entries.get(key)
+            if value is None:
+                return None
+            content_type, body, _ = value
+            self.entries[key] = (content_type, body, now)
+            self.entries.move_to_end(key)
+            return content_type, body
+
+    def put(self, key, content_type, body):
+        if not isinstance(body, bytes) or not isinstance(content_type, str):
+            raise TypeError('PDF cache accepts immutable response bytes only')
+        with self.lock:
+            now = self.clock()
+            self._expire(now)
+            if key in self.entries:
+                self._remove(key)
+            if len(body) > min(self.max_item_bytes, self.max_bytes) or self.max_entries < 1:
+                return
+            while self.entries and (len(self.entries) >= self.max_entries or self.bytes + len(body) > self.max_bytes):
+                self._remove(next(iter(self.entries)))
+            self.entries[key] = (content_type, body, now)
+            self.bytes += len(body)
+
+PDF_RESPONSE_CACHE = PDFResponseCache()
 MAX_RECOVERY_SNAPSHOT_BYTES = 25_000_000
 MAX_RECOVERY_SNAPSHOTS = 50
 MAX_RECOVERY_TOTAL_BYTES = 250_000_000
 PROXY_CONNECT_TIMEOUT = 30
+
+def pdf_preview_text(page, fitz, for_search=False):
+    """Current visible page only; points match get_pixmap with CSS top-left rotation."""
+    # One TextPage keeps block/line identities identical in both representations.
+    # WORDS flags exclude image payloads: this is extraction, never OCR.
+    textpage = page.get_textpage(flags=fitz.TEXTFLAGS_WORDS & ~fitz.TEXT_PRESERVE_IMAGES)
+    supported = set()
+    for block in textpage.extractDICT().get('blocks', []):
+        if block.get('type') != 0: continue
+        for index, line in enumerate(block.get('lines', [])):
+            direction = line.get('dir', ())
+            if (line.get('wmode') == 0 and len(direction) == 2
+                    and abs(direction[0] - 1) < 0.00001 and abs(direction[1]) < 0.00001):
+                supported.add((block['number'], index))
+    words, text_bytes, response_bytes, partial, truncated = [], 0, 0, False, False
+    bounds = fitz.Rect(0, 0, page.cropbox.width, page.cropbox.height)
+    rotation = page.rotation_matrix
+    for sequence, (x0, y0, x1, y1, text, block, line, _) in enumerate(textpage.extractWORDS()):
+        if (block, line) not in supported:
+            partial = True; continue
+        values = (x0, y0, x1, y1)
+        if not all(math.isfinite(value) for value in values) or x1 <= x0 or y1 <= y0:
+            partial = True; continue
+        rect = fitz.Rect(values)
+        # A clipped word cannot offer truthful whole-word selection geometry.
+        if not bounds.contains(rect): partial = True; continue
+        if not text: continue
+        size = len(text.encode('utf-8'))
+        point = rect.tl * rotation
+        item = {'text': text, 'x': round(point.x, 4), 'y': round(point.y, 4),
+                'width': round(rect.width, 4), 'height': round(rect.height, 4),
+                'angle': page.rotation, 'line': f'{block}:{line}'}
+        encoded_size = len(json.dumps(item, ensure_ascii=False).encode('utf-8')) + 2
+        if (len(words) >= MAX_PDF_TEXT_WORDS or text_bytes + size > MAX_PDF_TEXT_BYTES
+                or response_bytes + encoded_size > MAX_PDF_TEXT_RESPONSE_BYTES - 2048):
+            truncated = True; break
+        if for_search: item['_sequence'] = sequence
+        words.append(item); text_bytes += size; response_bytes += encoded_size
+    result = {'page': page.number + 1, 'pageCount': page.parent.page_count,
+              'width': page.rect.width, 'height': page.rect.height, 'rotation': page.rotation,
+              'words': words, 'truncated': truncated, 'partial': partial}
+    if partial:
+        result.update(code='PDF_TEXT_PARTIAL', warning='部分旋转、竖排或裁切文字无法准确对齐，已保留原图并省略其文字层。')
+    if truncated:
+        result.update(code='PDF_TEXT_TRUNCATED', warning='本页文字较多，选择文字层已达到上限；原图仍完整显示。')
+    return result
+
+def pdf_search_query(value):
+    if (not isinstance(value, str) or len(value) > 256 or len(value.encode('utf-8')) > 2048
+            or any(unicodedata.category(char) in ('Cc', 'Cs') and not char.isspace() for char in value)):
+        raise ValueError('查找内容必须为 1 到 256 个字符，且不能含控制字符')
+    normalized = ' '.join(unicodedata.normalize('NFKC', value).casefold().split())
+    if not normalized or len(normalized) > 256:
+        raise ValueError('查找内容必须为 1 到 256 个字符，且不能含控制字符')
+    return normalized
+
+def pdf_search_cjk(char):
+    # Avoid inventing spaces between adjacent CJK characters / wrapped lines.
+    return any(low <= ord(char) <= high for low, high in ((0x3400, 0x4dbf), (0x4e00, 0x9fff),
+               (0xf900, 0xfaff), (0x20000, 0x323af), (0x3040, 0x30ff), (0xac00, 0xd7af)))
+
+def pdf_preview_search(page, fitz, query, normalized):
+    extracted = pdf_preview_text(page, fitz, for_search=True)
+    words, chunks, segments, length, previous = extracted['words'], [], [], 0, None
+    for index, word in enumerate(words):
+        value = ' '.join(unicodedata.normalize('NFKC', word['text']).casefold().split())
+        if not value: continue
+        if previous is not None:
+            # Never invent a phrase across omitted text or separate text blocks.
+            separator = ' '
+            if word['_sequence'] != previous['_sequence'] + 1 or word['line'].split(':')[0] != previous['line'].split(':')[0]:
+                separator = '\0'
+            elif pdf_search_cjk(previous['_normalized'][-1]) and pdf_search_cjk(value[0]):
+                same_line = word['line'] == previous['line']
+                same_block = word['line'].split(':')[0] == previous['line'].split(':')[0]
+                angle = math.radians(word['angle'])
+                gap = (word['x'] - previous['x']) * math.cos(angle) + (word['y'] - previous['y']) * math.sin(angle) - previous['width']
+                if (same_line and gap <= min(word['height'], previous['height']) * 0.2) or (not same_line and same_block):
+                    separator = ''
+            chunks.append(separator); length += len(separator)
+        chunks.append(value); segments.append((length, length + len(value), index)); length += len(value)
+        previous = {**word, '_normalized': value}
+    haystack, matches, cursor, response_bytes = ''.join(chunks), [], 0, 0
+    truncated = extracted['truncated']
+    while True:
+        start = haystack.find(normalized, cursor)
+        if start < 0: break
+        end = start + len(normalized); cursor = end
+        touched = [words[index] for left, right, index in segments if left < end and right > start]
+        if not touched: continue
+        if len(matches) >= MAX_PDF_SEARCH_MATCHES or len(touched) > MAX_PDF_SEARCH_RECTS:
+            truncated = True; break
+        hit = {'index': len(matches), 'precision': 'word',
+               'rects': [{key: word[key] for key in ('x', 'y', 'width', 'height', 'angle', 'line')} for word in touched],
+               'snippet': ' '.join(word['text'] for word in touched)[:160]}
+        size = len(json.dumps(hit, ensure_ascii=False).encode('utf-8')) + 2
+        if response_bytes + size > MAX_PDF_SEARCH_RESPONSE_BYTES - 8192:
+            truncated = True; break
+        matches.append(hit); response_bytes += size
+    result = {key: extracted[key] for key in ('page', 'pageCount', 'width', 'height', 'rotation', 'partial')}
+    result.update(query=query, normalizedQuery=normalized, matches=matches, truncated=truncated,
+                  unsearchable=not bool(segments), geometry='word')
+    if extracted['partial']:
+        result.update(code='PDF_SEARCH_PARTIAL', warning='部分旋转、竖排或裁切文字无法准确定位，查找结果可能不完整。')
+    if truncated:
+        result.update(code='PDF_SEARCH_TRUNCATED', warning='本页查找已达到文字量、命中数或响应上限，结果可能不完整。')
+    return result
 
 class LoopbackHTTPServer(ThreadingHTTPServer):
     def server_bind(self):
@@ -59,15 +230,59 @@ class LoopbackHTTPServer(ThreadingHTTPServer):
         TCPServer.server_bind(self)
         self.server_name, self.server_port = self.server_address[:2]
 
-def proxy_opener(on_connected):
+class ProxyRedirectRejected(ValueError):
+    """A redirect that cannot safely receive this request's authorization."""
+
+
+def proxy_failure(exc, phase='connection'):
+    """Return only fixed, public diagnostics; exception text may contain secrets."""
+    phase = phase if phase in ('connection', 'response', 'stream') else 'connection'
+    if phase == 'stream':
+        return {'code': 'UPSTREAM_STREAM_INTERRUPTED', 'phase': phase,
+                'message': '上游 API 连接中断，未能确认完整响应。请检查连接后重试。'}
+    # urllib wraps socket/SSL failures in URLError.reason. Follow explicit
+    # causes only: an unrelated exception context is not a proven root cause.
+    causes, pending, seen = [], [exc], set()
+    while pending and len(causes) < 16:
+        current = pending.pop(0)
+        if not isinstance(current, BaseException) or id(current) in seen: continue
+        seen.add(id(current)); causes.append(current)
+        if isinstance(current, URLError): pending.append(current.reason)
+        if current.__cause__ is not None: pending.append(current.__cause__)
+    if any(isinstance(item, ProxyRedirectRejected) for item in causes):
+        code = 'UPSTREAM_REDIRECT_REJECTED'
+        message = 'API 服务重定向到了其他来源，已停止转发。请在设置中填写最终服务地址。'
+    elif any(isinstance(item, socket.gaierror) for item in causes):
+        code = 'UPSTREAM_DNS_ERROR'
+        message = '无法解析 API 服务地址。请检查服务地址、DNS 和网络连接。'
+    elif any(isinstance(item, ssl.SSLError) for item in causes):
+        code = 'UPSTREAM_TLS_ERROR'
+        message = '无法建立安全的 API 连接。请检查服务证书、HTTPS 地址和本机时间。'
+    elif phase == 'connection' and any(isinstance(item, (TimeoutError, socket.timeout)) or
+                                     isinstance(item, OSError) and item.errno == errno.ETIMEDOUT for item in causes):
+        code = 'UPSTREAM_CONNECT_TIMEOUT'
+        message = '连接 API 服务超时。请检查服务地址和网络连接；模型生成没有自动截止时间。'
+    elif any(isinstance(item, ConnectionRefusedError) or
+             isinstance(item, OSError) and item.errno == errno.ECONNREFUSED for item in causes):
+        code = 'UPSTREAM_CONNECTION_REFUSED'
+        message = 'API 服务拒绝连接。请检查服务是否启动及地址、端口是否正确。'
+    else:
+        code = 'UPSTREAM_CONNECTION_ERROR'
+        message = '连接 API 服务失败。请检查服务地址、网络连接和服务状态。'
+    return {'code': code, 'phase': phase, 'message': message}
+
+
+def proxy_opener(on_connected, on_connecting=None):
     """Bound connection/TLS setup only; generation reads have no deadline."""
     class HTTPConnection(http.client.HTTPConnection):
         def connect(self):
+            if on_connecting: on_connecting()
             super().connect()
             self.sock.settimeout(None)
             on_connected(self.sock)
     class HTTPSConnection(http.client.HTTPSConnection):
         def connect(self):
+            if on_connecting: on_connecting()
             super().connect()
             self.sock.settimeout(None)
             on_connected(self.sock)
@@ -83,7 +298,7 @@ def proxy_opener(on_connected):
             target = urllib.parse.urlsplit(new_url)
             if target.username or target.password or origin(request.full_url) != origin(new_url):
                 response.close()
-                raise ValueError('API 服务重定向到了其他来源，已停止转发。请在设置中填写最终服务地址。')
+                raise ProxyRedirectRejected()
             return super().redirect_request(request, response, code, message, headers, new_url)
     return urllib.request.build_opener(HTTPHandler(), HTTPSHandler(), SameOriginRedirect())
 
@@ -189,7 +404,7 @@ class WorkspaceStore:
         self.atomic_write(self.path, json.dumps(snapshot, ensure_ascii=False, separators=(',', ':')).encode())
     def _backup_legacy(self):
         destination = self.directory / 'workspace.pre-sqlite.json'
-        if self.sync.snapshot() is None and self.path.exists() and not destination.exists():
+        if self.path.exists() and not destination.exists() and not self.sync.has_snapshot():
             self.atomic_write(destination, self.path.read_bytes())
     def ensure_sync(self):
         with self.lock():
@@ -314,9 +529,9 @@ class WorkspaceStore:
     def apply_cloud_changes(self, changes, cursor, blobs=None):
         with self.lock():
             return self._cloud_transaction(lambda publish:self.sync.apply_changes(changes,cursor,before_commit=publish),blobs)
-    def resolve_cloud_conflict(self, identifier, choice, blobs=None):
+    def resolve_cloud_conflict(self, identifier, choice, revision=None, blobs=None):
         with self.lock():
-            return self._cloud_transaction(lambda publish:self.sync.resolve_conflict(identifier,choice,before_commit=publish),blobs)
+            return self._cloud_transaction(lambda publish:self.sync.resolve_conflict(identifier,choice,revision=revision,before_commit=publish),blobs)
     def file_path(self, file_id):
         if not re.fullmatch(r'[A-Za-z0-9_-]{1,160}', file_id): raise ValueError('无效的资料 ID')
         return self.directory / 'files' / file_id
@@ -439,6 +654,7 @@ class WorkspaceStore:
         papers = payload.get('papers', [])
         if not isinstance(papers, list): return
         active = [paper for paper in papers if isinstance(paper, dict) and not paper.get('archived')]
+        if not active: return
         for paper in active: self._paper_id(paper)
         directories = self._paper_directory_index()
         for paper in active:
@@ -517,8 +733,11 @@ class WorkspaceStore:
                 body = [manual_note['content']]
             # Keep full structured data, citations and user edits recoverable,
             # rather than exporting just the bibliographic metadata.
-            self.atomic_write(self._safe_paper_path(folder / 'note.md'), '\n'.join(frontmatter + body).encode())
-            self.atomic_write(self._safe_paper_path(folder / 'paper.json'), json.dumps({**paper, **metadata}, ensure_ascii=False, indent=2).encode())
+            for filename, data in [('note.md', '\n'.join(frontmatter + body).encode()), ('paper.json', json.dumps({**paper, **metadata}, ensure_ascii=False, indent=2, sort_keys=True).encode())]:
+                target = self._safe_paper_path(folder / filename)
+                # Portable exports remain repairable after external changes or
+                # deletion, but an unrelated autosave need not fsync every paper.
+                if not target.is_file() or target.read_bytes() != data: self.atomic_write(target, data)
             for source_id in sources:
                 try:
                     source = self.file_path(str(source_id)); meta_path = source.with_suffix('.meta.json')
@@ -630,13 +849,17 @@ class WorkspaceStore:
                 self.wiki.publish(current, snapshot)
                 self._mirror(snapshot)
             try:
-                self.sync.capture(payload, before_commit=publish)
+                committed = self.sync.capture(payload, before_commit=publish)
             except Exception:
-                self.wiki.recover(self._load_cached())
-                try: self._mirror(self._load_cached())
+                canonical = self._load_cached()
+                self.wiki.recover(canonical)
+                try: self._mirror(canonical)
                 except OSError: pass
                 raise
-            self.wiki.recover(self._load_cached())
+            # capture only returns after its FULL SQLite commit. The returned
+            # snapshot includes publication mappings and is the exact recovery
+            # basis; rereading and decoding the entire DB snapshot adds no check.
+            self.wiki.recover(committed)
             return {'ok': True, 'revision': payload['_revision'], 'savedAt': payload['_savedAt'], **({'mergedSnapshot': self.load()} if merged else {})}
     @staticmethod
     def _purge_references(payload, candidates):
@@ -792,9 +1015,14 @@ class WorkspaceStore:
 
 SERVICE_INSTANCE = secrets.token_hex(16)
 STORE = WorkspaceStore(DATA_DIR)
+COMPARISON_DRAFTS = ComparisonDraftStore(DATA_DIR, STORE.load)
+NOTE_DRAFTS = NoteDraftStore(DATA_DIR, STORE.load)
 PROJECT_JOBS = ProjectJobs(STORE, SERVICE_INSTANCE)
 CODEX_BRIDGE = CodexBridge(DATA_DIR)
 LOCAL_PROJECTS = LocalProjects(DATA_DIR)
+LOCAL_DOCUMENT_DRAFTS = LocalDocumentDraftStore(DATA_DIR, STORE.load, LOCAL_PROJECTS)
+DOCUMENT_MEDIA = DocumentMedia(STORE)
+LOCAL_DOCUMENT_MEDIA = LocalDocumentMedia(LOCAL_PROJECTS, STORE.load)
 LOCAL_FILE_EDITS = LocalFileEdits(LOCAL_PROJECTS)
 LOCAL_COMMANDS = LocalCommands(LOCAL_PROJECTS)
 _CLOUD = None
@@ -867,11 +1095,15 @@ class Handler(SimpleHTTPRequestHandler):
                 elif path == '/__cloud/sync': result=service.sync_now()
                 elif path == '/__cloud/settings': result=service.settings(payload)
                 elif path == '/__cloud/ssh/inspect': result=service.ssh.inspect(payload)
+                elif path == '/__cloud/ssh/probe': result=service.ssh.probe(payload)
+                elif path == '/__cloud/ssh/connect':
+                    STORE.ensure_sync(); result=service.ssh.connect(payload)
                 elif path == '/__cloud/ssh/save': result=service.ssh.save(payload)
                 elif path == '/__cloud/ssh/move': result=service.ssh.move(payload)
+                elif path == '/__cloud/ssh/reconcile': result=service.ssh.reconcile(payload)
                 elif path == '/__cloud/disconnect': result=service.disconnect()
                 elif path == '/__cloud/revoke': result=service.revoke(payload.get('deviceId'))
-                elif path == '/__cloud/resolve': result=service.resolve(payload.get('id'),payload.get('choice'))
+                elif path == '/__cloud/resolve': result=service.resolve(payload.get('id'),payload.get('choice'),payload.get('revision'))
                 else: self.send_error(404); return
             self.send_json(result)
         except CloudSyncError as error: self.send_json({'error':str(error),'code':error.code},error.status)
@@ -892,6 +1124,44 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json({'error': {'message': str(error), 'code': error.code}}, error.status)
         except Exception:
             self.send_json({'error': {'message': '账号连接暂时不可用，请重试。'}}, 503)
+    def do_document_media(self, path):
+        if not self.valid_auth_origin(mutation=self.command != 'GET'):
+            self.send_json({'error': '仅允许当前工作站访问文档图片。', 'code': 'document_image_origin_denied'}, 403); return
+        try:
+            if self.command == 'GET' and path == '/__local/document-images/read':
+                query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query, keep_blank_values=True, strict_parsing=True)
+                if set(query) - {'candidateId','path','image','projectId','sourceConversationId'} or any(len(values) != 1 for values in query.values()) or not {'candidateId','path','image'} <= set(query):
+                    raise MediaError('本机文档图片地址无效。')
+                with STORE.lock():
+                    result = LOCAL_DOCUMENT_MEDIA.read(query['candidateId'][0], query['path'][0], query['image'][0], query.get('projectId',[None])[0], query.get('sourceConversationId',[None])[0])
+            elif self.command == 'POST' and path in ('/__document-images/upload','/__document-images/export','/__local/document-images/upload','/__local/document-images/export'):
+                if self.headers.get('Content-Type','').split(';',1)[0].strip().lower() != 'application/json':
+                    raise MediaError('文档图片请求必须使用 JSON。',415)
+                lengths = self.headers.get_all('Content-Length', [])
+                if self.headers.get('Transfer-Encoding') or len(lengths) != 1 or not re.fullmatch(r'[0-9]+',lengths[0]):
+                    raise MediaError('文档图片请求长度无效。')
+                payload = decode_note_draft_json(self.read_body(MAX_IMAGE_UPLOAD_BODY) or b'{}')
+                service = LOCAL_DOCUMENT_MEDIA if path.startswith('/__local/') else DOCUMENT_MEDIA
+                if path.startswith('/__local/'):
+                    with STORE.lock():
+                        result = service.upload(payload) if path.endswith('/upload') else service.export(payload)
+                else:
+                    result = service.upload(payload) if path.endswith('/upload') else service.export(payload)
+            else:
+                self.send_json({'error':'找不到文档图片接口。'},404); return
+            if isinstance(result,dict) and isinstance(result.get('data'),bytes):
+                raw = result['data']
+                self.send_response(200); self.send_header('Content-Type',result['mimeType']); self.send_header('Cache-Control','no-store'); self.send_header('Content-Length',str(len(raw))); self.send_header('X-Content-Type-Options','nosniff'); self.send_header('Content-Disposition',('attachment' if path.endswith('/export') else 'inline') + "; filename*=UTF-8''" + urllib.parse.quote(result['name'])); self.end_headers(); self.wfile.write(raw)
+            else:
+                self.send_json(result)
+        except (MediaError,LocalProjectError) as error:
+            self.send_json({'error':str(error),'code':getattr(error,'code','document_image_invalid')},error.status)
+        except (ValueError,TypeError,UnicodeError,RecursionError) as error:
+            large = str(error) == '上传内容过大'
+            self.send_json({'error':'图片请求超过 24 MiB 上限，未保存。' if large else '文档图片请求格式无效。','code':'document_image_too_large' if large else 'document_image_invalid'},413 if large else 400)
+        except OSError:
+            self.send_json({'error':'图片原件无法读取或保存，请保留当前文档后重试。','code':'document_image_storage_unavailable'},503)
+
     def do_local(self, path):
         if not self.valid_auth_origin(mutation=self.command != 'GET'):
             self.send_json({'error': '仅允许当前工作站访问本机目录。'}, 403); return
@@ -900,7 +1170,7 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_json(LOCAL_PROJECTS.roots()); return
             if self.command == 'DELETE' and path.startswith('/__local/roots/'):
                 self.send_json(LOCAL_PROJECTS.disconnect(path.removeprefix('/__local/roots/'))); return
-            if self.command != 'POST' or path not in ('/__local/roots', '/__local/search', '/__local/snapshot', '/__local/files', '/__local/read', '/__local/reveal', *('/__local/commands/'+action for action in ('propose','get','start','deny','cancel','forget')), *('/__local/edits/'+action for action in ('propose','get','apply','undo','dismiss'))):
+            if self.command != 'POST' or path not in ('/__local/roots', '/__local/search', '/__local/snapshot', '/__local/files', '/__local/read', '/__local/reveal', *('/__local/commands/'+action for action in ('propose','get','start','deny','cancel','forget')), *('/__local/edits/'+action for action in ('propose','get','apply','undo','dismiss','accept-hunk','reject-hunk','undo-hunk'))):
                 self.send_json({'error': '找不到本机目录接口。'}, 404); return
             payload = json.loads(self.read_body(25_000_000 if path == '/__local/edits/propose' else 16384) or b'{}')
             if not isinstance(payload, dict): raise LocalProjectError('本机目录请求格式无效。')
@@ -910,7 +1180,7 @@ class Handler(SimpleHTTPRequestHandler):
             elif path.startswith('/__local/commands/'): result = LOCAL_COMMANDS.access(payload.get('id'),path.rsplit('/',1)[-1],remember=payload.get('remember') is True,automatic=payload.get('automatic') is True)
             elif path == '/__local/reveal': result = reveal_file(LOCAL_PROJECTS, STORE, payload)
             elif path == '/__local/edits/propose': result = LOCAL_FILE_EDITS.propose(payload)
-            elif path.startswith('/__local/edits/'): result = LOCAL_FILE_EDITS.access(payload.get('id'),path.rsplit('/',1)[-1])
+            elif path.startswith('/__local/edits/'): result = LOCAL_FILE_EDITS.access(payload.get('id'),path.rsplit('/',1)[-1],payload)
             elif path == '/__local/search': result = LOCAL_PROJECTS.search(payload.get('query', ''), payload.get('limit', 20))
             elif path == '/__local/files': result = LOCAL_PROJECTS.browse_files(payload.get('candidateId'), payload.get('path', ''), payload.get('offset', 0))
             elif path == '/__local/read': result = LOCAL_PROJECTS.read_file(payload.get('candidateId'), payload.get('path'), payload.get('offset', 0), payload.get('version'))
@@ -999,12 +1269,15 @@ class Handler(SimpleHTTPRequestHandler):
             with path.open('rb') as handle: shutil.copyfileobj(handle, self.wfile)
         except (BrokenPipeError, ConnectionResetError): pass
         except Exception as exc: self.send_json({'error': str(exc)}, 400)
-    def do_pdf_preview(self, file_id, info=False):
-        """Render preserved PDF bytes for hosts without a native PDF plugin."""
+    def do_pdf_preview(self, file_id, info=False, text=False, search=False, read_text=False):
+        """Render or extract one page from preserved PDF bytes without a PDF plugin."""
+        if read_text and not self.valid_auth_origin():
+            self.send_json({'error': '仅允许当前工作站读取 PDF 文字。', 'code': 'INVALID_ORIGIN'}, 403); return
         try:
             source = STORE.file_path(file_id)
+            if source.is_symlink() or source.parent.is_symlink(): raise ValueError('附件路径不可用')
             if not source.is_file(): self.send_json({'error': '找不到附件原件'}, 404); return
-            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query, keep_blank_values=True)
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query, keep_blank_values=True, errors='strict')
             def parameter(name, default):
                 values = query.get(name, [default])
                 if len(values) != 1: raise ValueError(f'{name} 参数只能指定一次')
@@ -1012,6 +1285,14 @@ class Handler(SimpleHTTPRequestHandler):
             page_value = parameter('page', '1')
             if not re.fullmatch(r'[0-9]{1,8}', page_value): raise ValueError('页码必须是从 1 开始的整数')
             page_number = int(page_value)
+            text_offset = 0
+            if read_text:
+                offset_value = parameter('offset', '0')
+                if not re.fullmatch(r'[0-9]{1,16}', offset_value) or int(offset_value) > 9007199254740991:
+                    raise ValueError('文字游标必须是从 0 开始的安全整数')
+                text_offset = int(offset_value)
+            search_query = parameter('q', '') if search else None
+            normalized_query = pdf_search_query(search_query) if search else None
             scale = float(parameter('scale', '1.5'))
             if not math.isfinite(scale) or not 0.5 <= scale <= 2:
                 raise ValueError('预览缩放比例必须在 0.5 到 2 之间')
@@ -1023,37 +1304,94 @@ class Handler(SimpleHTTPRequestHandler):
             try: import fitz
             except ImportError:
                 self.send_json({'error': 'PDF 预览组件不可用，请安装 PyMuPDF'}, 503); return
-            # Serialize page rendering to avoid concurrent large pixmaps and
-            # sharing the native PDF renderer between HTTP worker threads.
-            with PDF_PREVIEW_LOCK:
-                with fitz.open(source) as document:
+            def json_response(payload, status=200):
+                return status, 'application/json; charset=utf-8', json.dumps(payload, ensure_ascii=False).encode('utf-8')
+            def render_response(source_bytes):
+                with fitz.open(stream=source_bytes, filetype='pdf') as document:
                     if not document.is_pdf: raise ValueError('该附件不是 PDF 文件')
                     if document.needs_pass: raise ValueError('该 PDF 已加密，请先上传解密后的文件')
                     if document.page_count < 1: raise ValueError('PDF 没有可预览的页面')
                     if not 1 <= page_number <= document.page_count:
-                        self.send_json({'error': '请求的 PDF 页码不存在'}, 404); return
+                        return json_response({'error': '请求的 PDF 页码不存在'}, 404)
+                    if (text or search or read_text) and not document.permissions & fitz.PDF_PERM_COPY:
+                        return json_response({'error': '此 PDF 的权限禁止复制文字，可继续查看原图。', 'code': 'PDF_COPY_RESTRICTED'}, 403)
                     page = document.load_page(0 if info else page_number - 1)
                     width, height = page.rect.width, page.rect.height
                     if not all(math.isfinite(value) and value > 0 for value in (width, height)):
                         raise ValueError('PDF 页面尺寸无效')
                     if info:
-                        self.send_json({'pageCount': document.page_count, 'width': width, 'height': height}); return
+                        return json_response({'pageCount': document.page_count, 'width': width, 'height': height})
+                    if read_text:
+                        # Text-only evidence has no selection-geometry restriction:
+                        # rotated/vertical text must not disappear with its overlay.
+                        # No images or OCR; offsets count Python Unicode codepoints.
+                        content = page.get_text('text', sort=True, flags=fitz.TEXTFLAGS_TEXT & ~fitz.TEXT_PRESERVE_IMAGES)
+                        total_chars = len(content)
+                        if text_offset > total_chars: raise ValueError('文字游标超过本页文字长度')
+                        chunk = content[text_offset:text_offset + MAX_PDF_READ_TEXT_CHARS]
+                        end = text_offset + len(chunk)
+                        available = bool(content.strip())
+                        result = {'page': page_number, 'pageCount': document.page_count, 'offset': text_offset,
+                                  'text': chunk, 'totalChars': total_chars, 'nextOffset': end if end < total_chars else None,
+                                  'originalRead': True, 'readMode': 'extracted_text', 'imagesIncluded': False,
+                                  'textAvailable': available, 'cursorUnit': 'unicode_codepoints'}
+                        if not available:
+                            result.update(code='PDF_TEXT_UNAVAILABLE', warning='本页没有可提取的文字，可能是扫描页或空白页；尚未读取图像，也未执行 OCR。')
+                        return json_response(result)
+                    if search:
+                        return json_response(pdf_preview_search(page, fitz, search_query, normalized_query))
+                    if text:
+                        return json_response(pdf_preview_text(page, fitz))
                     # Fit the complete page into the rendering budget; never crop or
                     # discard oversized pages from scanner/export applications.
+                    render_scale = scale
                     if fit == '1':
-                        scale = min(scale, math.sqrt((MAX_PREVIEW_PIXELS - 20000) / (width * height)), 16382 / width, 16382 / height)
-                    pixel_width, pixel_height = math.ceil(width * scale), math.ceil(height * scale)
+                        render_scale = min(scale, math.sqrt((MAX_PREVIEW_PIXELS - 20000) / (width * height)), 16382 / width, 16382 / height)
+                    pixel_width, pixel_height = math.ceil(width * render_scale), math.ceil(height * render_scale)
                     if pixel_width * pixel_height > MAX_PREVIEW_PIXELS or max(pixel_width, pixel_height) > 16384:
                         raise ValueError('PDF 页面尺寸过大，请降低缩放比例后重试')
-                    pixmap = page.get_pixmap(matrix=fitz.Matrix(scale, scale), colorspace=fitz.csRGB, alpha=False)
+                    pixmap = page.get_pixmap(matrix=fitz.Matrix(render_scale, render_scale), colorspace=fitz.csRGB, alpha=False)
                     image = pixmap.tobytes('jpeg', jpg_quality=85) if image_format == 'jpeg' else pixmap.tobytes('png')
                     del pixmap
-            self.send_response(200)
-            self.send_header('Content-Type', f'image/{image_format}')
-            self.send_header('Content-Length', str(len(image)))
+                    return 200, f'image/{image_format}', image
+            # Serialize page rendering to avoid concurrent large pixmaps and
+            # sharing the native PDF renderer between HTTP worker threads.
+            with PDF_PREVIEW_LOCK:
+                if search or read_text:
+                    # A cancelled client waiting behind another page should not
+                    # start extraction when it eventually acquires the lock.
+                    try:
+                        if select.select([self.connection], [], [], 0)[0] and not self.connection.recv(1, socket.MSG_PEEK): return
+                    except OSError: return
+                # Open the exact regular file without following a swapped symlink.
+                directory_fd = os.open(source.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                try: descriptor = os.open(source.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory_fd)
+                finally: os.close(directory_fd)
+                with os.fdopen(descriptor, 'rb') as original:
+                    metadata = os.fstat(original.fileno())
+                    if not stat.S_ISREG(metadata.st_mode): raise ValueError('附件路径不可用')
+                    if metadata.st_size > MAX_FILE: raise ValueError('单个附件不能超过 64 MB')
+                    source_bytes = original.read(MAX_FILE + 1)
+                    if len(source_bytes) > MAX_FILE: raise ValueError('单个附件不能超过 64 MB')
+                # Hash actual securely opened bytes on every request. Stat-only
+                # keys miss same-inode/same-size changes with restored mtime.
+                action = 'info' if info else 'read-text' if read_text else 'search' if search else 'text' if text else 'image'
+                key = (hashlib.sha256(source_bytes).digest(), action, page_number, scale, fit, image_format, search_query, text_offset)
+                cached = PDF_RESPONSE_CACHE.get(key)
+                if cached is None:
+                    response_status, content_type, body = render_response(source_bytes)
+                    if response_status == 200:
+                        PDF_RESPONSE_CACHE.put(key, content_type, body)
+                else:
+                    response_status, (content_type, body) = 200, cached
+                del source_bytes
+            # Slow or disconnected clients never hold the PDF renderer lock.
+            self.send_response(response_status)
+            self.send_header('Content-Type', content_type)
+            self.send_header('Content-Length', str(len(body)))
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
-            self.end_headers(); self.wfile.write(image)
+            self.end_headers(); self.wfile.write(body)
         except (BrokenPipeError, ConnectionResetError): pass
         except Exception as exc:
             # Native renderer exceptions can contain the private storage path.
@@ -1061,10 +1399,14 @@ class Handler(SimpleHTTPRequestHandler):
             detail = str(exc)
             safe = {'页码必须是从 1 开始的整数', '预览缩放比例必须在 0.5 到 2 之间', 'fit 参数只能为 0 或 1',
                     '预览格式只支持 png 或 jpeg', '该附件不是 PDF 文件', '该 PDF 已加密，请先上传解密后的文件',
-                    'PDF 没有可预览的页面', 'PDF 页面尺寸无效', 'PDF 页面尺寸过大，请降低缩放比例后重试'}
-            if detail not in safe and not re.fullmatch(r'(page|scale|fit|format) 参数只能指定一次', detail):
+                    'PDF 没有可预览的页面', 'PDF 页面尺寸无效', 'PDF 页面尺寸过大，请降低缩放比例后重试',
+                    '附件路径不可用', '单个附件不能超过 64 MB',
+                    '文字游标必须是从 0 开始的安全整数', '文字游标超过本页文字长度',
+                    '查找内容必须为 1 到 256 个字符，且不能含控制字符'}
+            if detail not in safe and not re.fullmatch(r'(page|scale|fit|format|q|offset) 参数只能指定一次', detail):
                 detail = '文件可能损坏或尚未完整下载，请重新添加完整的 PDF 原件'
-            self.send_json({'error': f'无法预览 PDF：{detail}'}, 400)
+            action = '无法读取 PDF 文字' if read_text else '无法查找 PDF' if search else '无法预览 PDF'
+            self.send_json({'error': f'{action}：{detail}'}, 400)
     def do_fetch(self):
         if not self.valid_auth_origin(mutation=True):
             self.send_json({'error': '仅允许当前工作站下载链接资料。', 'code': 'INVALID_ORIGIN'}, 403); return
@@ -1237,14 +1579,21 @@ class Handler(SimpleHTTPRequestHandler):
             if target.scheme not in ('http', 'https') or not target.hostname or target.username or target.password or not target.port and target.netloc.endswith(':'): raise ValueError()
         except ValueError:
             self.send_json({'error': {'message': 'API 地址无效，请使用不含账号密码的 HTTP(S) 服务地址。'}}, 400); return
-        headers_sent = False; event_stream = False
+        headers_sent = False; event_stream = False; phase = 'connection'
         finished = threading.Event(); disconnected = threading.Event(); sockets = []; sockets_lock = threading.Lock(); watcher = None
         def shutdown(upstream):
             try: upstream.shutdown(socket.SHUT_RDWR)
             except OSError: pass
         def connected(upstream):
+            nonlocal phase
+            phase = 'response'
             with sockets_lock: sockets.append(upstream)
             if disconnected.is_set(): shutdown(upstream); raise ConnectionAbortedError('client disconnected')
+        def connecting():
+            nonlocal phase
+            # Same-origin redirects can begin another connection after the
+            # previous one succeeded. Keep timeout classification accurate.
+            phase = 'connection'
         def watch_client():
             # Waiting for a token or response headers may last indefinitely.
             # Observe the local socket, not a generation deadline, to interrupt
@@ -1262,7 +1611,7 @@ class Handler(SimpleHTTPRequestHandler):
         def stream_failure():
             self.close_connection = True
             if event_stream and not disconnected.is_set():
-                event = {'type': 'error', 'error': {'code': 'UPSTREAM_STREAM_INTERRUPTED', 'message': '上游 API 连接中断，未能确认完整响应。本次未执行操作，请重试。'}}
+                event = {'type': 'error', 'error': proxy_failure(None, 'stream')}
                 try: self.wfile.write(('data: ' + json.dumps(event, ensure_ascii=False) + '\n\n').encode()); self.wfile.flush()
                 except (BrokenPipeError, ConnectionResetError, OSError): pass
         try:
@@ -1270,7 +1619,7 @@ class Handler(SimpleHTTPRequestHandler):
             for name in ('Authorization', 'Content-Type', 'Accept'):
                 if self.headers.get(name): request.add_header(name, self.headers[name])
             watcher = threading.Thread(target=watch_client, daemon=True); watcher.start()
-            with proxy_opener(connected).open(request, timeout=PROXY_CONNECT_TIMEOUT) as response:
+            with proxy_opener(connected, connecting).open(request, timeout=PROXY_CONNECT_TIMEOUT) as response:
                 content_type = response.headers.get('Content-Type', 'application/json'); event_stream = 'text/event-stream' in content_type.lower()
                 self.send_response(response.status); self.send_header('Content-Type', content_type); self.send_header('Cache-Control', 'no-store'); self.send_header('Connection', 'close'); self.close_connection = True; self.end_headers(); headers_sent = True
                 while True:
@@ -1286,21 +1635,105 @@ class Handler(SimpleHTTPRequestHandler):
                     self.send_response(exc.code); self.send_header('Content-Type', exc.headers.get('Content-Type', 'application/json')); self.send_header('Content-Length', str(len(data))); self.end_headers(); self.wfile.write(data)
                 except (BrokenPipeError, ConnectionResetError, OSError): self.close_connection = True
                 finally: exc.close()
-        except (BrokenPipeError, ConnectionResetError): pass
         except Exception as exc:
             if headers_sent: stream_failure()
             elif not disconnected.is_set():
-                message = str(exc) if isinstance(exc, ValueError) else '连接 API 服务失败。请检查服务地址、网络和 TLS 配置；连接握手有等待限制，模型生成没有自动截止时间。'
-                try: self.send_json({'error': {'message': message}}, 502)
+                try: self.send_json({'error': proxy_failure(exc, phase)}, 502)
                 except (BrokenPipeError, ConnectionResetError, OSError): pass
         finally:
             finished.set()
             with sockets_lock: upstreams = list(sockets)
             for upstream in upstreams: shutdown(upstream)
             if watcher: watcher.join(0.3)
+    def do_comparison_draft(self):
+        # This is a local editor-recovery slot outside workspace content. The
+        # exact dynamic loopback check follows this server's ephemeral port on
+        # every launch. GET is guarded too because it returns source excerpts.
+        mutation = self.command == 'POST'
+        if not self.valid_auth_origin(mutation=mutation):
+            self.send_json({'error': '仅允许当前工作站访问比较草稿。', 'code': 'draft_origin_denied'}, 403); return
+        try:
+            with STORE.lock():
+                if mutation:
+                    payload = json.loads(self.read_body(MAX_COMPARISON_DRAFT_BYTES + 1024) or b'{}')
+                    result = COMPARISON_DRAFTS.put(payload)
+                elif self.command == 'GET':
+                    result = COMPARISON_DRAFTS.get()
+                else:
+                    self.send_json({'error': '仅支持读取或保存比较草稿。'}, 405); return
+            self.send_json(result)
+        except DraftError as error:
+            self.send_json({'error': str(error), 'code': error.code}, error.status)
+        except (ValueError, TypeError, UnicodeError) as error:
+            too_large = str(error) == '上传内容过大'
+            self.send_json({'error': str(error) or '比较草稿请求格式无效。', 'code': 'draft_too_large' if too_large else 'draft_invalid'}, 413 if too_large else 400)
+        except OSError:
+            self.send_json({'error': '比较草稿存储失败；上一次已保存版本仍保留。', 'code': 'draft_write_failed'}, 503)
+
+    def do_note_draft(self):
+        mutation = self.command == 'POST'
+        if not self.valid_auth_origin(mutation=mutation):
+            self.send_json({'error': '仅允许当前工作站访问笔记草稿。', 'code': 'draft_origin_denied'}, 403); return
+        try:
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query, keep_blank_values=True, strict_parsing=True)
+            if set(query) != {'id'} or len(query['id']) != 1:
+                raise DraftError('请提供唯一的笔记草稿标识。')
+            identifier = query['id'][0]
+            with STORE.lock():
+                if mutation:
+                    if self.headers.get('Content-Type', '').split(';', 1)[0].strip().lower() != 'application/json':
+                        raise DraftError('笔记草稿请求必须使用 JSON。', 415)
+                    payload = decode_note_draft_json(self.read_body(MAX_NOTE_DRAFT_BYTES + 1024) or b'{}')
+                    result = NOTE_DRAFTS.put(identifier, payload)
+                else:
+                    result = NOTE_DRAFTS.get(identifier)
+            self.send_json(result)
+        except DraftError as error:
+            self.send_json({'error': str(error), 'code': error.code}, error.status)
+        except (ValueError, TypeError, UnicodeError, RecursionError) as error:
+            too_large = str(error) == '上传内容过大'
+            self.send_json({'error': '笔记草稿超过 24 MiB 本机恢复上限，未截断或保存。' if too_large else '笔记草稿请求格式无效。', 'code': 'draft_too_large' if too_large else 'draft_invalid'}, 413 if too_large else 400)
+        except OSError:
+            self.send_json({'error': '笔记草稿存储不可用；请保留当前编辑内容。', 'code': 'draft_write_failed'}, 503)
+
+    def do_local_document_draft(self):
+        mutation = self.command == 'POST'
+        if not self.valid_auth_origin(mutation=mutation):
+            self.send_json({'error': '仅允许当前工作站访问本机文档草稿。', 'code': 'draft_origin_denied'}, 403); return
+        try:
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query, keep_blank_values=True, strict_parsing=True)
+            if set(query) != {'id'} or len(query['id']) != 1:
+                raise DraftError('请提供唯一的本机文档草稿标识。')
+            identifier = query['id'][0]
+            if mutation:
+                if self.headers.get('Content-Type', '').split(';', 1)[0].strip().lower() != 'application/json':
+                    raise DraftError('本机文档草稿请求必须使用 JSON。', 415)
+                lengths = self.headers.get_all('Content-Length', [])
+                if self.headers.get('Transfer-Encoding') or len(lengths) != 1 or not re.fullmatch(r'[0-9]+', lengths[0]):
+                    raise DraftError('本机文档草稿请求长度无效。')
+                # Full local drafts are not subject to the existing 1M-note or
+                # 4MB-file-application limit. Never acknowledge a partial body.
+                length = int(lengths[0]); raw = self.rfile.read(length)
+                if len(raw) != length:
+                    raise DraftError('本机文档草稿请求未完整接收，未保存。')
+                payload = decode_note_draft_json(raw or b'{}')
+            with STORE.lock():
+                result = LOCAL_DOCUMENT_DRAFTS.put(identifier, payload) if mutation else LOCAL_DOCUMENT_DRAFTS.get(identifier)
+            self.send_json(result)
+        except DraftError as error:
+            self.send_json({'error': str(error), 'code': error.code}, error.status)
+        except (ValueError, TypeError, UnicodeError, RecursionError, OverflowError):
+            self.send_json({'error': '本机文档草稿请求格式无效，未保存。', 'code': 'draft_invalid'}, 400)
+        except (OSError, MemoryError):
+            self.send_json({'error': '本机文档草稿存储不可用；请保留当前编辑内容。', 'code': 'draft_write_failed'}, 503)
+
     def do_GET(self):
         path = urllib.parse.urlsplit(self.path).path
         if path == '/__health': self.send_json({'app': 'ai-workstation', 'version': VERSION, 'assetFingerprint': ASSET_FINGERPRINT, 'port': self.server.server_port, 'instanceId': SERVICE_INSTANCE})
+        elif path == '/__comparison-draft': self.do_comparison_draft()
+        elif path == '/__note-draft': self.do_note_draft()
+        elif path.startswith('/__document-images/') or path.startswith('/__local/document-images/'): self.do_document_media(path)
+        elif path == '/__local-document-draft': self.do_local_document_draft()
         elif path.startswith('/__cloud/'): self.do_cloud(path)
         elif path.startswith('/__local/'): self.do_local(path)
         elif path in ('/__auth/status', '/__auth/models'): self.do_auth(path.rsplit('/', 1)[1])
@@ -1318,8 +1751,8 @@ class Handler(SimpleHTTPRequestHandler):
         elif path == '/__proxy': self.proxy('GET')
         elif path.startswith('/__files/'):
             file_parts = path.removeprefix('/__files/').split('/')
-            if len(file_parts) == 2 and file_parts[1] in ('preview', 'preview-info'):
-                self.do_pdf_preview(urllib.parse.unquote(file_parts[0]), info=file_parts[1] == 'preview-info')
+            if len(file_parts) == 2 and file_parts[1] in ('preview', 'preview-info', 'preview-text', 'preview-search', 'read-text'):
+                self.do_pdf_preview(urllib.parse.unquote(file_parts[0]), info=file_parts[1] == 'preview-info', text=file_parts[1] == 'preview-text', search=file_parts[1] == 'preview-search', read_text=file_parts[1] == 'read-text')
             else: self.do_file_get(path.removeprefix('/__files/'))
         elif path.startswith('/__papers/'):
             parts = path.split('/'); paper_id = urllib.parse.unquote(parts[2]) if len(parts) > 2 else ''; action = parts[3] if len(parts) > 3 else ''
@@ -1331,6 +1764,10 @@ class Handler(SimpleHTTPRequestHandler):
         else: self.send_error(404)
     def do_POST(self):
         auth_path = urllib.parse.urlsplit(self.path).path
+        if auth_path == '/__comparison-draft': self.do_comparison_draft(); return
+        if auth_path == '/__note-draft': self.do_note_draft(); return
+        if auth_path.startswith('/__document-images/') or auth_path.startswith('/__local/document-images/'): self.do_document_media(auth_path); return
+        if auth_path == '/__local-document-draft': self.do_local_document_draft(); return
         if auth_path.startswith('/__cloud/'):
             self.do_cloud(auth_path); return
         if auth_path == '/__trash/purge':

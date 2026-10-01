@@ -1,0 +1,142 @@
+.document-visual-editor {
+  min-width: 0;
+  width: 100%;
+  color: var(--text, #242424);
+  font-family: var(--font-sans, 'Geist', -apple-system, BlinkMacSystemFont, sans-serif);
+}
+.document-visual-editor [hidden] { display: none !important; }
+.document-visual-editor .milkdown {
+  --crepe-color-background: var(--panel, #fff);
+  --crepe-color-on-background: var(--text, #242424);
+  --crepe-color-surface: var(--panel, #fff);
+  --crepe-color-surface-low: var(--bg, #f6f7f8);
+  --crepe-color-on-surface: var(--text, #242424);
+  --crepe-color-on-surface-variant: var(--muted, #69727b);
+  --crepe-color-outline: var(--muted, #69727b);
+  --crepe-color-primary: var(--accent, #28796a);
+  --crepe-color-secondary: var(--panel-hover, #e9efed);
+  --crepe-color-on-secondary: var(--text, #242424);
+  --crepe-color-inverse: var(--text, #242424);
+  --crepe-color-on-inverse: var(--panel, #fff);
+  --crepe-color-inline-code: var(--accent, #28796a);
+  --crepe-color-error: var(--danger, #ae3d3d);
+  --crepe-color-hover: color-mix(in srgb, var(--text, #242424) 6%, transparent);
+  --crepe-color-selected: color-mix(in srgb, var(--accent, #28796a) 19%, transparent);
+  --crepe-color-inline-area: color-mix(in srgb, var(--text, #242424) 10%, transparent);
+  --crepe-base-font-size: 16px;
+  --crepe-font-default: var(--font-sans, 'Geist', -apple-system, BlinkMacSystemFont, sans-serif);
+  --crepe-font-title: var(--crepe-font-default);
+  --crepe-font-code: var(--font-mono, 'Geist Mono', 'SFMono-Regular', Menlo, monospace);
+  --crepe-shadow-1: 0 5px 18px #00000012, 0 0 0 1px var(--border, #dfe3e5);
+  --crepe-shadow-2: 0 10px 30px #00000020, 0 0 0 1px var(--border, #dfe3e5);
+  min-width: 0;
+  background: transparent;
+}
+.document-visual-editor .milkdown .ProseMirror {
+  padding: 28px clamp(22px, 4vw, 56px) 100px;
+  min-height: 360px;
+  color: var(--text, #242424);
+  font-family: var(--crepe-font-default);
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+  outline: none;
+}
+.document-visual-editor .milkdown .ProseMirror h1,
+.document-visual-editor .milkdown .ProseMirror h2,
+.document-visual-editor .milkdown .ProseMirror h3,
+.document-visual-editor .milkdown .ProseMirror h4,
+.document-visual-editor .milkdown .ProseMirror h5,
+.document-visual-editor .milkdown .ProseMirror h6 {
+  font-family: var(--crepe-font-title);
+  font-weight: 620;
+  line-height: 1.4;
+  letter-spacing: -.018em;
+}
+.document-visual-editor .milkdown .ProseMirror h1 { font-size: 1.8em; margin: 1.6em 0 .6em; }
+.document-visual-editor .milkdown .ProseMirror h2 { font-size: 1.45em; margin: 1.4em 0 .55em; }
+.document-visual-editor .milkdown .ProseMirror h3 { font-size: 1.2em; margin: 1.2em 0 .5em; }
+.document-visual-editor .milkdown .ProseMirror > :first-child { margin-top: 0; }
+.document-visual-editor .milkdown .ProseMirror p { margin: .7em 0; }
+.document-visual-editor .milkdown .ProseMirror a { color: var(--accent, #28796a); text-underline-offset: 3px; }
+.document-visual-editor .milkdown .ProseMirror blockquote { border-left: 3px solid var(--border, #ccd4d2); margin-left: 0; color: var(--muted, #69727b); }
+.document-visual-editor .milkdown .milkdown-top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--panel, #fff);
+  border-bottom: 1px solid var(--border, #e1e5e4);
+  padding: 7px 12px;
+}
+.document-visual-editor .milkdown .top-bar-inner { display: flex; flex-wrap: wrap; gap: 2px; }
+.document-visual-editor .milkdown .top-bar-item,
+.document-visual-editor .milkdown .top-bar-heading-button {
+  min-width: 30px;
+  min-height: 30px;
+  border-radius: 6px;
+  color: var(--muted, #69727b);
+}
+.document-visual-editor .milkdown .top-bar-item.active { color: var(--accent, #28796a); }
+.document-visual-editor .milkdown .top-bar-item svg { width: 18px; height: 18px; }
+.document-visual-editor .document-visual-symbol { display: inline-flex; align-items: center; justify-content: center; font-size: 21px; line-height: 20px; width: 20px; height: 20px; }
+.document-visual-editor .milkdown .top-bar-divider { margin: 3px 5px; }
+.document-visual-editor button:focus-visible,
+.document-visual-editor input:focus-visible,
+.document-visual-editor [role="button"]:focus-visible {
+  outline: 2px solid var(--accent, #28796a);
+  outline-offset: 2px;
+}
+.document-visual-editor .milkdown .milkdown-code-block {
+  border: 1px solid var(--border, #e1e5e4);
+  border-radius: 9px;
+  background: var(--bg, #f6f7f8);
+  margin: 1.1em 0;
+  min-width: 0;
+}
+.document-visual-editor .milkdown .milkdown-code-block .cm-editor { font-size: 13px; min-width: 0; }
+.document-visual-editor .milkdown .milkdown-code-block .cm-scroller { max-width: 100%; }
+.document-visual-editor .milkdown .milkdown-table-block { max-width: 100%; margin: 1.1em 0; }
+.document-visual-editor .milkdown .milkdown-table-block table { min-width: 100%; }
+.document-visual-editor .milkdown .milkdown-table-block th,
+.document-visual-editor .milkdown .milkdown-table-block td { border-color: var(--border, #dfe5e3); }
+.document-visual-editor .milkdown .milkdown-table-block th { background: var(--bg, #f6f7f8); }
+.document-visual-editor .milkdown .katex-display { max-width: 100%; overflow-x: auto; overflow-y: hidden; padding: 5px 0; }
+.document-visual-editor .milkdown .uploader[aria-disabled="true"] { opacity: .5; cursor: default; }
+.document-visual-editor .milkdown input[type="file"] { display: none; }
+.document-visual-editor .milkdown .image-wrapper img { max-width: 100%; }
+.document-visual-notice {
+  margin: 20px;
+  padding: 18px 20px;
+  background: var(--bg, #f6f7f8);
+  border: 1px solid var(--border, #dfe5e3);
+  border-radius: 10px;
+  line-height: 1.65;
+}
+.document-visual-notice p { margin: 0 0 12px; color: var(--muted, #69727b); }
+.document-visual-source-action {
+  border: 1px solid var(--border, #dfe5e3);
+  border-radius: 7px;
+  padding: 7px 12px;
+  background: var(--panel, #fff);
+  color: var(--text, #242424);
+  cursor: pointer;
+}
+@media (max-width: 680px) {
+  .document-visual-editor .milkdown .ProseMirror { padding: 22px 20px 76px; }
+  .document-visual-editor .milkdown .milkdown-top-bar { padding: 6px; }
+  .document-visual-editor .milkdown .top-bar-divider { margin-inline: 2px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .document-visual-editor *, .document-visual-editor *::before, .document-visual-editor *::after {
+    animation-duration: 0s !important;
+    transition-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}
+body.reduced-motion .document-visual-editor * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+
+.document-visual-editor .document-image-upload {
+  display: inline-block; padding: 5px 10px; margin: 5px 3px;
+  color: var(--muted, #69727b); background: var(--bg, #f6f7f8);
+  border: 1px dashed var(--border, #dfe5e3); border-radius: 6px;
+  font: 12px/1.5 var(--font-sans, sans-serif); white-space: normal;
+}

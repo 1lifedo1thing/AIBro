@@ -172,3 +172,94 @@ test('config original fallback rejects binary or invalid UTF-8 and respects canc
  for(const bytes of [[255],[65,0,66]])await assert.rejects(Delivery.prepare([item],{getBlob:async()=>new Blob([new Uint8Array(bytes)])}),{code:'INVALID_TEXT'});
  const controller=new AbortController();controller.abort();await assert.rejects(Delivery.prepare([item],{signal:controller.signal}),{code:'CANCELLED'});
 });
+
+test('explicit PDF text mode works for both providers without reading or rendering the original',async()=>{
+ const Context=require('../app/attachment-context');
+ for(const provider of ['api','openai-auth']) {
+  const source=pdf('reading',{pageCount:3,pages:[{page:1,text:'第一页内容'},{page:2,text:''},{page:3,text:'第三页内容'}]}),before=JSON.stringify(source);
+  const forbidden=()=>{assert.fail('PDF text mode must not read or render the original');};
+  const result=await Delivery.prepare([source],{provider,pdfReadMode:'text',getBlob:forbidden,getPdfInfo:forbidden,getPdfPage:forbidden});
+  assert.deepEqual(result.blocks,[]);assert.equal(result.metadata[0].readMode,'text');assert.equal(result.metadata[0].pdfReadMode,'text');assert.equal(result.metadata[0].reason,'user_selected_pdf_text');
+  assert.equal(result.coverage.pdfReadMode,'text');assert.equal(result.coverage.pdfTextAttachments,1);assert.equal(result.coverage.transmittedOriginalBytes,0);assert.equal(result.coverage.pdfPageImages,0);
+  const boundary=result.metadata[0].textCoverage;
+  assert.equal(boundary.scope,'available_extracted_text');assert.deepEqual(boundary.availableTextPages,[1,3]);assert.deepEqual(boundary.pagesWithoutText,[2]);assert.deepEqual(boundary.missingTextPages,[2]);
+  assert.equal(boundary.pageImagesIncluded,false);assert.equal(boundary.visualContentIncluded,false);assert.equal(boundary.originalIncluded,false);assert.equal(boundary.extractionCompleteness,'unknown');assert.equal(Object.hasOwn(boundary,'complete'),false);
+  const context=Context.build(result.textAttachments);
+  assert.match(context.text,/第一页内容/);assert.match(context.text,/第三页内容/);assert.equal(context.coverage.complete,false);assert.deepEqual(context.attachments[0].coverage.omittedPages,[2]);
+  assert.match(result.stageLabel,/提取文字.*不含页面图像/);assert.equal(JSON.stringify(source),before);
+ }
+});
+
+test('PDF text mode keeps mixed images and Office originals in their original provider representation',async()=>{
+ for(const provider of ['api','openai-auth']) {
+  const reads=[],sources=[pdf(),image(),{id:'word',name:'note.docx',content:'office text'}];
+  const result=await Delivery.prepare(sources,{provider,pdfReadMode:'text',getBlob:item=>{reads.push(item.id);return new Blob([item.id],{type:item.id==='image'?'image/png':'application/octet-stream'});},getPdfInfo(){assert.fail('must not inspect PDF');},getPdfPage(){assert.fail('must not render PDF');}});
+  assert.deepEqual(reads,provider==='api'?['image','word']:['image']);assert.equal(result.metadata[1].readMode,'original_image');assert.equal(result.blocks.filter(block=>block.type==='input_image').length,1);
+  assert.equal(result.metadata[2].readMode,provider==='api'?'original_file':'text');assert.equal(result.coverage.pdfTextAttachments,1);assert.equal(result.coverage.originalImages,1);
+ }
+});
+
+test('scanned or not-yet-indexed PDFs reject text mode with an actionable error and no original fallback',async()=>{
+ for(const extra of [
+  {content:'',pages:[]},
+  {content:' \n',pages:[{page:1,text:'\t'},{page:2,content:''}]},
+  {content:undefined,text:undefined,extractedText:undefined,pages:[null,{},42]},
+  {content:'',pages:[],indexStatus:'indexing',fileStored:true}
+ ]) {
+  let calls=0;
+  await assert.rejects(Delivery.prepare([pdf('scan',extra)],{pdfReadMode:'text',getBlob(){calls++;},getPdfInfo(){calls++;},getPdfPage(){calls++;}}),error=>error.code==='PDF_TEXT_UNAVAILABLE'&&error.attachmentId==='scan'&&/发送原件/.test(error.message)&&/没有发送.*页面图像/.test(error.message));
+  assert.equal(calls,0);
+ }
+});
+
+test('aggregate-only and legacy alias PDF text is actually available to AttachmentContext',async()=>{
+ const Context=require('../app/attachment-context');
+ const sources=[
+  pdf('aggregate',{content:'保存的正文',pages:[{page:1,text:''}],pageCount:2}),
+  pdf('alias',{content:'',extractedText:'兼容字段正文',pages:[]}),
+  pdf('page-alias',{content:'',pages:[{page:1,text:'',content:'兼容页正文'}]})
+ ];
+ const before=JSON.stringify(sources),result=await Delivery.prepare(sources,{pdfReadMode:'text'}),context=Context.build(result.textAttachments);
+ for(const text of ['保存的正文','兼容字段正文','兼容页正文'])assert.match(context.text,new RegExp(text));
+ assert.equal(result.metadata[0].textCoverage.textSource,'stored_aggregate');assert.deepEqual(result.metadata[0].textCoverage.availableTextPages,[]);assert.deepEqual(result.metadata[0].textCoverage.missingTextPages,[1,2]);
+ assert.equal(result.metadata[1].textCoverage.pageCount,null);assert.equal(result.metadata[1].textCoverage.missingTextPages,null);assert.equal(JSON.stringify(sources),before);
+});
+
+test('PDF text metadata distinguishes extraction truncation from the later context budget',async()=>{
+ const Context=require('../app/attachment-context');
+ const source=pdf('long',{pageCount:8,content:'a'.repeat(60000),contentTruncated:true,pages:Array.from({length:8},(_,index)=>({page:index+1,text:`Page ${index+1} `+'x'.repeat(12000)}))});
+ const result=await Delivery.prepare([source],{pdfReadMode:'text'}),boundary=result.metadata[0].textCoverage,context=Context.build(result.textAttachments,{maxChars:2000});
+ assert.equal(boundary.extractionTruncated,true);assert.equal(boundary.extractionMayBeTruncated,true);assert.equal(boundary.extractionCompleteness,'unknown');assert.deepEqual(boundary.availableTextPages,[1,2,3,4,5,6,7,8]);
+ assert.ok(boundary.availableTextChars>context.coverage.chars);assert.equal(context.coverage.complete,false);assert.equal(context.coverage.truncated,true);assert.ok(context.attachments[0].coverage.truncatedPages.length>0);
+ assert.deepEqual(result.coverage.pdfTextBoundaries[0],{attachmentId:'long',name:'long.pdf',...boundary});
+});
+
+test('stale lower PDF page counts cannot hide later stored text or claim full extraction coverage',async()=>{
+ const source=pdf('pages',{pageCount:2,pages:[{page:1,text:'start'},{page:4,text:'end'}]});
+ const result=await Delivery.prepare([source],{pdfReadMode:'text'}),boundary=result.metadata[0].textCoverage;
+ assert.equal(boundary.pageCount,4);assert.deepEqual(boundary.availableTextPages,[1,4]);assert.deepEqual(boundary.missingTextPages,[2,3]);assert.equal(boundary.extractionCompleteness,'unknown');
+});
+
+test('PDF original mode remains default and never automatically falls back after an original failure',async()=>{
+ for(const mode of [undefined,'original']) {
+  let calls=0;
+  await assert.rejects(Delivery.prepare([pdf()],{pdfReadMode:mode,getBlob(){calls++;throw Error('disk failed');}}),{code:'ORIGINAL_READ_FAILED'});assert.equal(calls,1);
+  const result=await Delivery.prepare([pdf()],{pdfReadMode:mode,getBlob:()=>new Blob(['original'],{type:'application/pdf'})});
+  assert.equal(result.metadata[0].pdfReadMode,'original');assert.equal(result.metadata[0].readMode,'original_file');assert.equal(result.coverage.pdfTextAttachments,0);assert.deepEqual(result.textAttachments,[]);
+ }
+});
+
+test('invalid PDF read modes fail before any adapter work while historical forceText keeps its behavior',async()=>{
+ for(const pdfReadMode of [null,'','TEXT','auto',false,{},['text']]) {
+  let calls=0;await assert.rejects(Delivery.prepare([pdf()],{pdfReadMode,getBlob(){calls++;}}),{code:'INVALID_PDF_READ_MODE'});assert.equal(calls,0);
+ }
+ const blank=pdf('legacy',{content:'',pages:[]}),result=await Delivery.prepare([blank,image()],{pdfReadMode:'original',forceText:true});
+ assert.deepEqual(result.textAttachments,[blank,image()]);assert.equal(result.metadata[0].reason,'user_selected_text');assert.equal(result.metadata[1].readMode,'text');assert.equal(result.metadata[0].textAvailable,false);assert.equal(result.coverage.pdfReadMode,'text');
+});
+
+test('PDF text mode respects pre-cancellation and cancellation between attachments',async()=>{
+ const early=new AbortController();early.abort();await assert.rejects(Delivery.prepare([pdf()],{pdfReadMode:'text',signal:early.signal}),{code:'CANCELLED'});
+ const controller=new AbortController(),progress=[];let imageReads=0;
+ await assert.rejects(Delivery.prepare([pdf(),image()],{pdfReadMode:'text',signal:controller.signal,getBlob(){imageReads++;},onProgress:message=>{progress.push(message);if(message.startsWith('已准备'))controller.abort();}}),{code:'CANCELLED'});
+ assert.equal(imageReads,0);assert.equal(progress.length,2);
+});

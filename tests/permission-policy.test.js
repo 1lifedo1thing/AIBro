@@ -75,3 +75,58 @@ test('the browser UMD exports the same pure contract without filesystem or DOM a
   assert.equal(browser.needsApproval({mode:'smart',actions:[{type:'delete_task'}]}),true);
   assert.equal(browser.requiresLocalAccessConfirmation('full',false),true);
 });
+
+test('reviewer delegation never widens the boundary: approval-required, non-destructive workstation actions only', () => {
+  // 默认关闭。没有显式开启时代批一律不成立。
+  assert.equal(Policy.canDelegateReview({ actions: [{ type: 'create_note' }] }), false);
+  assert.equal(Policy.canDelegateReview({ actions: [{ type: 'create_note' }], enabled: false }), false);
+  assert.equal(Policy.canDelegateReview({ actions: [{ type: 'create_note' }], enabled: 'true' }), false);
+  // 开启后，白名单内的非破坏性动作才可代批。
+  for (const type of ['set_workspace','create_project','rename_attachment','assign_attachment','create_knowledge_item','create_note','update_note','append_note','upsert_paper','upsert_wiki','create_task','update_task','add_tag','create_link','link_items','link_local_project']) {
+    assert.equal(Policy.canDelegateReview({ actions: [{ type }], enabled: true }), true, type);
+  }
+  // 不可逆动作即使在白名单内也永远由人点头。
+  for (const type of ['delete_task','delete_note','delete_attachment']) {
+    assert.equal(Policy.canDelegateReview({ actions: [{ type }], enabled: true }), false, type);
+  }
+  // 白名单外的能力不由代批覆盖（代批不是授权）。
+  for (const type of ['run_command','write_file','merge_notes','archive_project','',null,undefined,'__proto__']) {
+    assert.equal(Policy.canDelegateReview({ actions: [{ type }], enabled: true }), false, String(type));
+  }
+  // 归属确认需要人的语义判断。
+  assert.equal(Policy.canDelegateReview({ actions: [{ type: 'create_task' }], routingReview: true, enabled: true }), false);
+  // 空批不代批；一批中只要有一项不可代批，整批交回人。
+  assert.equal(Policy.canDelegateReview({ actions: [], enabled: true }), false);
+  assert.equal(Policy.canDelegateReview({ actions: [{ type: 'create_task' }, { type: 'delete_note' }], enabled: true }), false);
+  assert.equal(Policy.canDelegateReview({ enabled: true }), false);
+});
+
+test('session-level allowance only covers non-destructive workstation actions, by type', () => {
+  // 可登记的类型 = 白名单内 + 非破坏性。
+  assert.deepEqual(Policy.allowableTypes([{ type: 'create_task' }, { type: 'create_project' }]).sort(), ['create_project', 'create_task']);
+  assert.deepEqual(Policy.allowableTypes([{ type: 'create_task' }, { type: 'delete_task' }]), ['create_task'], '不可逆动作不进入可登记清单');
+  assert.deepEqual(Policy.allowableTypes([{ type: 'run_command' }, { type: 'delete_note' }]), [], '白名单外与破坏性动作都不登记');
+  assert.deepEqual(Policy.allowableTypes([]), []);
+  assert.deepEqual(Policy.allowableTypes(null), []);
+});
+
+test('session allowance never widens what is approvable: every action must be non-destructive and already granted', () => {
+  const allows = { create_task: 1 };
+  assert.equal(Policy.canSessionAllow({ actions: [{ type: 'create_task' }], allows }), true);
+  // 未登记过的同类之外的类型仍然需要确认——按类型逐类放行。
+  assert.equal(Policy.canSessionAllow({ actions: [{ type: 'create_project' }], allows }), false);
+  // 一批里只要有一项未登记，整批仍需确认。
+  assert.equal(Policy.canSessionAllow({ actions: [{ type: 'create_task' }, { type: 'create_note' }], allows }), false);
+  // 破坏性动作即便出现在 allows 里也不放行（防止被手工写入或历史数据绕过）。
+  assert.equal(Policy.canSessionAllow({ actions: [{ type: 'delete_task' }], allows: { delete_task: 1 } }), false);
+  // 白名单外动作同样不放行。
+  assert.equal(Policy.canSessionAllow({ actions: [{ type: 'run_command' }], allows: { run_command: 1 } }), false);
+});
+
+test('session allowance refuses empty batches and malformed allow maps', () => {
+  assert.equal(Policy.canSessionAllow({ actions: [], allows: { create_task: 1 } }), false);
+  assert.equal(Policy.canSessionAllow({ actions: [{ type: 'create_task' }], allows: null }), false);
+  assert.equal(Policy.canSessionAllow({ actions: [{ type: 'create_task' }], allows: 'yes' }), false);
+  assert.equal(Policy.canSessionAllow({ actions: [{ type: 'create_task' }] }), false, '没有登记就没有会话级放行');
+  assert.equal(Policy.canSessionAllow({}), false);
+});

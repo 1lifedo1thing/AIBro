@@ -105,11 +105,16 @@ class LocalCommands:
 
     @staticmethod
     def _kill(p):
-        try:os.killpg(p.pid,signal.SIGKILL)
-        except ProcessLookupError:pass
+        try:os.killpg(p.pid,signal.SIGKILL);return True
+        except ProcessLookupError:return True
+        except PermissionError:
+            # macOS can deny a redundant group signal after the supervised
+            # process has exited. Never mask a denial for a still-live handle.
+            if p.poll() is not None:return False
+            raise
 
     def _watch(self,e,control,home):
-        p=control['process'];started=time.monotonic();raw=bytearray();status=None;last=0
+        p=control['process'];started=time.monotonic();raw=bytearray();status=None;last=0;saved_output=(e.get('output',''),e.get('truncated',False))
         selector=selectors.DefaultSelector();selector.register(p.stdout,selectors.EVENT_READ);os.set_blocking(p.stdout.fileno(),False)
         try:
             while True:
@@ -128,11 +133,17 @@ class LocalCommands:
                         left=self.OUTPUT_LIMIT-len(raw);raw.extend(chunk[:left]);e['truncated'] |= len(chunk)>left
                     else:selector.unregister(key.fileobj)
                 if time.monotonic()-last>.25:
-                    e['output']=bytes(raw).decode('utf-8','replace')
-                    with self.lock:self._save(e)
+                    output=bytes(raw).decode('utf-8','replace');snapshot=(output,e['truncated'])
+                    # A silent live process is not a state change. Keep checking
+                    # its real handle/grant, without fsyncing the same JSON 4x/s.
+                    if snapshot!=saved_output:
+                        e['output']=output
+                        with self.lock:self._save(e)
+                        saved_output=snapshot
                     last=time.monotonic()
                 if p.poll() is not None:
-                    self._kill(p) # Close descendants that still hold inherited stdout.
+                    if not self._kill(p): # Close descendants that still hold inherited stdout.
+                        e['cleanupWarning']='主进程已退出，但系统拒绝了后续进程组清理；无法确认其余子进程状态。'
                     while True:
                         try:chunk=os.read(p.stdout.fileno(),16384)
                         except BlockingIOError:break

@@ -1,5 +1,8 @@
 """Durable, explicitly accepted Markdown/text proposals. Never execute file contents."""
 import base64
+import bisect
+from collections import Counter
+import difflib
 import office_documents
 import hashlib
 import json
@@ -93,6 +96,128 @@ class LocalFileEdits:
         if full:
             view=lambda raw:office_documents.inspect(raw,Path(entry['path']).suffix.lower()) if entry.get('office') else self._text(raw)
             result.update(before=view(self._raw(entry,'before')), after=view(self._raw(entry,'after')), creating=entry['before'] is None, office=entry.get('office',False))
+            if not entry.get('office'):
+                self._ensure_hunks(entry)
+                result.update(hunks=entry['hunks'], reviewRevision=entry.get('reviewRevision', 0), currentVersion=self.digest(self._hunk_content(entry)))
+        return result
+
+    def _ensure_hunks(self, entry):
+        if 'hunks' in entry or entry.get('office') or entry.get('directory'): return
+        before=self._text(self._raw(entry,'before')); after=self._text(self._raw(entry,'after'))
+        a=before.splitlines(keepends=True); b=after.splitlines(keepends=True)
+        # Trim matching edges first. Cap pathological diff work; a large dense
+        # replacement remains one complete block, never a truncated proposal.
+        start=0; end=0
+        while start<min(len(a),len(b)) and a[start]==b[start]: start+=1
+        while end<min(len(a),len(b))-start and a[len(a)-1-end]==b[len(b)-1-end]: end+=1
+        x=a[start:len(a)-end if end else len(a)]; y=b[start:len(b)-end if end else len(b)]
+        opcodes=self._hunk_opcodes(x,y)
+        status={'applied':'accepted','undone':'undone','dismissed':'rejected'}.get(entry['status'],'pending')
+        entry['hunks']=[]
+        for kind,i,j,k,l in opcodes:
+            if kind=='equal': continue
+            old=''.join(x[i:j]); new=''.join(y[k:l]); identity=f'{start+i}:{start+j}:{start+k}:{start+l}:{old}:{new}'
+            entry['hunks'].append(dict(id='hunk_'+hashlib.sha256(identity.encode()).hexdigest()[:20], oldStart=start+i+1, oldCount=j-i, newStart=start+k+1, newCount=l-k, before=old, after=new, status=status))
+        # Creating an empty file is a real filesystem change with no text rows.
+        if not entry['hunks'] and entry['before'] is None:
+            entry['hunks']=[dict(id='hunk_empty',oldStart=1,oldCount=0,newStart=1,newCount=0,before='',after='',status=status)]
+        entry.setdefault('reviewRevision',0)
+
+    @staticmethod
+    def _hunk_opcodes(a,b):
+        if len(a)*len(b)<=1_000_000: return difflib.SequenceMatcher(None,a,b,autojunk=False).get_opcodes()
+        # Patience anchors keep far-apart edits independently reviewable without
+        # an unbounded quadratic search on repeated or adversarial large files.
+        ac=Counter(a); bc=Counter(b); positions={text:i for i,text in enumerate(b) if bc[text]==1}
+        candidates=[(i,positions[text]) for i,text in enumerate(a) if ac[text]==1 and text in positions]
+        tails=[]; tail_indices=[]; previous=[]
+        for index,(_,position) in enumerate(candidates):
+            slot=bisect.bisect_left(tails,position); previous.append(tail_indices[slot-1] if slot else -1)
+            if slot==len(tails): tails.append(position); tail_indices.append(index)
+            else: tails[slot]=position; tail_indices[slot]=index
+        anchors=[]; index=tail_indices[-1] if tail_indices else -1
+        while index>=0: anchors.append(candidates[index]); index=previous[index]
+        anchors.reverse(); result=[]; old=0; new=0; budget=1_000_000
+        def emit(kind,i,j,k,l):
+            if i==j and k==l:return
+            if result and result[-1][0]==kind and result[-1][2]==i and result[-1][4]==k:
+                prior=result.pop(); result.append((kind,prior[1],j,prior[3],l))
+            else: result.append((kind,i,j,k,l))
+        for i,k in [*anchors,(len(a),len(b))]:
+            work=(i-old)*(k-new)
+            if work<=budget:
+                budget-=work
+                for kind,start,end,left,right in difflib.SequenceMatcher(None,a[old:i],b[new:k],autojunk=False).get_opcodes(): emit(kind,old+start,old+end,new+left,new+right)
+            else: emit('replace',old,i,new,k)
+            if i<len(a) and k<len(b):emit('equal',i,i+1,k,k+1)
+            old=i+1; new=k+1
+        return result
+
+    def _hunk_content(self, entry):
+        self._ensure_hunks(entry)
+        accepted=[h for h in entry['hunks'] if h['status']=='accepted']
+        if not accepted: return self._raw(entry,'before')
+        source=self._text(self._raw(entry,'before')).splitlines(keepends=True); result=[]; cursor=0
+        for hunk in accepted:
+            offset=hunk['oldStart']-1
+            result.extend(source[cursor:offset]); result.append(hunk['after']); cursor=offset+hunk['oldCount']
+        result.extend(source[cursor:]); original=self._raw(entry,'before')
+        return (b'\xef\xbb\xbf' if original and original.startswith(b'\xef\xbb\xbf') else b'')+''.join(result).encode('utf-8')
+
+    @staticmethod
+    def _hunk_status(hunks):
+        statuses={h['status'] for h in hunks}
+        if 'pending' in statuses: return 'pending' if statuses=={'pending'} else 'partial'
+        return 'applied' if 'accepted' in statuses else 'dismissed'
+
+    def _recover_hunks(self, entry, current):
+        transaction=entry.get('hunkTransaction')
+        if not transaction: return
+        digest=self.digest(current)
+        if digest==transaction['afterVersion']:
+            entry.update(hunks=transaction['hunks'],status=transaction['status'],reviewRevision=transaction['revision'])
+        elif digest==transaction['beforeVersion']:
+            entry['status']=transaction['previousStatus']
+        else:
+            entry['status']='interrupted'; self._save(entry); return
+        del entry['hunkTransaction']; self._save(entry)
+
+    def _review_hunks(self, entry, action, payload, parent, name, current):
+        self._ensure_hunks(entry)
+        if entry['status'] not in ('pending','partial','applied'):
+            raise LocalProjectError('此提案目前不能逐块审阅，请查看当前文件。',409)
+        revision=entry.get('reviewRevision',0)
+        if action in ('accept-hunk','reject-hunk','undo-hunk') and (not isinstance(payload.get('reviewRevision'),int) or isinstance(payload.get('reviewRevision'),bool) or payload['reviewRevision']!=revision):
+            raise LocalProjectError('审阅状态已变化，请重新打开文件后重试。',409)
+        expected=self.digest(self._hunk_content(entry))
+        if self.digest(current)!=expected:
+            raise LocalProjectError('文件已有其他修改，未覆盖。请更新引用后重新生成提案；本轮 Diff 仍保留。',409)
+        hunks=[dict(h) for h in entry['hunks']]
+        if action in ('accept-hunk','reject-hunk','undo-hunk'):
+            hunk=next((h for h in hunks if h['id']==payload.get('hunkId')),None)
+            if not hunk: raise LocalProjectError('找不到这块修改。',404)
+            required='accepted' if action=='undo-hunk' else 'pending'
+            if hunk['status']!=required: raise LocalProjectError('这块修改已经处理，请刷新审阅。',409)
+            hunk['status']={'accept-hunk':'accepted','reject-hunk':'rejected','undo-hunk':'pending'}[action]
+        elif action=='apply':
+            for hunk in hunks:
+                if hunk['status']=='pending': hunk['status']='accepted'
+        elif action=='undo':
+            if not any(h['status']=='accepted' for h in hunks): raise LocalProjectError('没有已接受的修改可撤销。',409)
+            for hunk in hunks:
+                if hunk['status']=='accepted': hunk['status']='undone'
+        else: raise LocalProjectError('无效的审阅操作。')
+        target={**entry,'hunks':hunks}; raw=self._hunk_content(target); after_version=self.digest(raw)
+        status=self._hunk_status(hunks)
+        if action=='undo' and not any(h['status']=='pending' for h in hunks): status='undone'
+        if hunks==entry['hunks']: return self._public(entry,True)
+        if after_version!=expected:
+            entry['hunkTransaction']=dict(beforeVersion=expected,afterVersion=after_version,hunks=hunks,status=status,revision=revision+1,previousStatus=entry['status'])
+            entry['status']='applying' if action!='undo' and action!='undo-hunk' else 'undoing'; self._save(entry)
+            self._replace(parent,name,raw,expected,entry['mode'])
+            del entry['hunkTransaction']
+        entry.update(hunks=hunks,status=status,reviewRevision=revision+1); self._save(entry)
+        result=self._public(entry,True); result['transition']=dict(beforeVersion=expected,afterVersion=after_version)
         return result
 
     def propose(self, payload):
@@ -129,6 +254,8 @@ class LocalFileEdits:
 
     def _recover(self, entry, current):
         # Journal reconciliation is read-only with respect to the user's file.
+        if entry.get('hunkTransaction'):
+            self._recover_hunks(entry,current); return
         if entry['status'] not in ('applying','undoing'): return
         digest = self.digest(current); undo = entry['status']=='undoing'
         if digest==entry['afterVersion']: entry['status']='applied'
@@ -136,7 +263,7 @@ class LocalFileEdits:
         else: entry['status']='interrupted'
         self._save(entry)
 
-    def access(self, identifier, action='get'):
+    def access(self, identifier, action='get', payload=None):
         # Same lock as directory grants: disconnect cannot interleave a write.
         cached = self._load(identifier)
         if cached.get('directory') and action != 'dismiss':
@@ -162,8 +289,14 @@ class LocalFileEdits:
             # Dismissing a proposal never touches the user's original file.
             with self.projects._lock():
                 entry = self._load(identifier)
-                if entry['status'] == 'pending':
-                    entry['status'] = 'dismissed'; self._save(entry)
+                if entry['status'] in ('pending','partial'):
+                    if not entry.get('office') and not entry.get('directory'):
+                        self._ensure_hunks(entry)
+                        for hunk in entry['hunks']:
+                            if hunk['status']=='pending': hunk['status']='rejected'
+                        entry['status']=self._hunk_status(entry['hunks']); entry['reviewRevision']=entry.get('reviewRevision',0)+1
+                    else: entry['status'] = 'dismissed'
+                    self._save(entry)
                 return self._public(entry, True)
         candidate = cached['candidateId']
         with self.projects._connected_folder(candidate) as folder:
@@ -174,6 +307,9 @@ class LocalFileEdits:
                     raise LocalProjectError('目标文件夹已被替换，请重新生成提案。', 409)
                 current, metadata = self._read(parent,parts[-1]); self._recover(entry,current)
                 if action=='get': return self._public(entry,True)
+                if not entry.get('office'):
+                    if (action=='apply' and entry['status']=='applied') or (action=='undo' and entry['status']=='undone'): return self._public(entry,True)
+                    return self._review_hunks(entry,action,payload or {},parent,parts[-1],current)
                 if action not in ('apply','undo'): raise LocalProjectError('无效的审阅操作。')
                 target_status = 'applied' if action=='apply' else 'undone'
                 if entry['status']==target_status: return self._public(entry,True)

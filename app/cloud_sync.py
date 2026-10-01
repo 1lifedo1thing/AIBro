@@ -10,7 +10,6 @@ import os
 from pathlib import Path
 import re
 import stat
-import sys
 import tempfile
 import threading
 import time
@@ -119,10 +118,11 @@ class CloudClient:
 
 
 class CredentialStore:
-    """Prefer an installed macOS keychain backend; otherwise private local file.
+    """Backend-only session in a private local 0600 file inside a 0700 directory.
 
-    The keyring package is optional. Other-platform/plaintext/chained backends
-    are not silently trusted. A fallback is explicitly reported to the UI.
+    No Keychain access occurs during startup, connection or disconnect. Existing
+    Keychain-only sessions require explicit SSH reauthorization or account login;
+    their old Keychain entries are left untouched.
     """
     def __init__(self, directory):
         self.directory = Path(directory) / 'cloud-sync'
@@ -131,12 +131,6 @@ class CredentialStore:
         self.path = self.directory / 'cloud-session.json'
         self.service = 'AIWorkstation.CloudSync.' + hashlib.sha256(str(self.directory.resolve()).encode()).hexdigest()[:24]
         self._keyring = None
-        if sys.platform == 'darwin':
-            try:
-                import keyring
-                backend = keyring.get_keyring()
-                if type(backend).__module__ in ('keyring.backends.macOS', 'keyring.backends.OS_X') and backend.priority > 0: self._keyring = backend
-            except Exception: pass
 
     def _write(self, value):
         if self.directory.is_symlink() or self.path.is_symlink(): raise CloudSyncError('云端会话路径异常。', 'UNSAFE_SESSION_PATH')
@@ -154,10 +148,7 @@ class CredentialStore:
         token = data.pop('accessToken', None)
         if not isinstance(token, str) or not token or len(token) > 32768 or any(ord(char) < 33 for char in token): raise CloudSyncError('云端登录响应无效。', 'INVALID_SESSION')
         storage = 'protected-file'
-        if self._keyring:
-            try: self._keyring.set_password(self.service, 'access-token', token); storage = 'macos-keychain'
-            except Exception: pass
-        if storage == 'protected-file': data['accessToken'] = token
+        data['accessToken'] = token
         data['credentialStorage'] = storage
         self._write(data)
         return storage
@@ -174,19 +165,13 @@ class CredentialStore:
         except (ValueError, UnicodeError): raise CloudSyncError('云端会话无法读取，请重新登录。', 'INVALID_SESSION') from None
         finally: os.close(fd)
         if not isinstance(value, dict): raise CloudSyncError('云端会话无法读取，请重新登录。', 'INVALID_SESSION')
-        if value.get('credentialStorage') == 'macos-keychain':
-            try: token = self._keyring.get_password(self.service, 'access-token') if self._keyring else None
-            except Exception: token = None
-            if not token: return None
-            value['accessToken'] = token
+        if value.get('credentialStorage') == 'macos-keychain' and not value.get('accessToken'):
+            raise CloudSyncError('旧云会话保存在钥匙串中。请通过 SSH 重新授权本机，或重新登录云账号；不会再弹出钥匙串窗口。', 'SSH_REAUTH_REQUIRED')
         return value
 
     def clear(self):
         if self.directory.is_symlink() or self.path.is_symlink(): raise CloudSyncError('云端会话路径异常。', 'UNSAFE_SESSION_PATH')
         self.path.unlink(missing_ok=True)
-        if self._keyring:
-            try: self._keyring.delete_password(self.service, 'access-token')
-            except Exception: pass
 
 
 class CloudSync:
@@ -205,6 +190,9 @@ class CloudSync:
         self._thread = None
         from cloud_ssh import CloudSSH
         self.ssh = CloudSSH(self)
+        if self.ssh.job and self.ssh.job.get('state') in ('running', 'uncertain'):
+            self._auto = False
+            self._last_error = self.ssh.job['message']; self._last_code = 'SSH_MOVE_PENDING'
         if start_worker:
             self._thread = threading.Thread(target=self._worker, name='workstation-cloud-sync', daemon=True)
             self._thread.start()
@@ -258,11 +246,17 @@ class CloudSync:
         if not isinstance(username, str) or not username.strip() or len(username) > 256 or not isinstance(password, str) or not password or len(password) > 16384 or not isinstance(name, str) or len(name) > 128:
             raise CloudSyncError('请输入有效的账号、密码和设备名称。', 'INVALID_LOGIN')
         if not self._sync_lock.acquire(blocking=False): raise CloudSyncError('正在同步，请稍后再更改连接。', 'SYNC_BUSY', 409)
+        operation = None
         try:
+            operation = self.ssh._acquire_operation()
+            with self._lock:
+                epoch = self._epoch
+                self._check_epoch(epoch)
             target = self.store.status().get('target')
             if target and target.get('serverUrl') != url:
                 raise CloudSyncError('此本地工作区已绑定其他同步服务。请使用独立本地工作区连接新目标。', 'TARGET_MISMATCH', 409)
             client = self._client_factory(url); client.health()
+            self._check_epoch(epoch)
             result = client.request('POST', '/v1/auth/login', {'username': username.strip(), 'password': password, 'deviceName': name})
             account = self._identity(result.get('account'), ('username',)); device = self._identity(result.get('device'), ('name',))
             session = {'serverUrl': url, 'account': account, 'device': device, 'accessToken': result.get('accessToken'), 'autoSync': payload.get('autoSync', True) is not False}
@@ -271,28 +265,72 @@ class CloudSync:
                 try: self._client_factory(url, session['accessToken']).request('POST', '/v1/auth/logout')
                 except Exception: pass
                 raise CloudSyncError('此本地工作区已绑定其他账号，未混合两个账号的数据。请使用独立本地工作区。', 'TARGET_MISMATCH', 409)
-            with self.workspace.lock(): self.store.bind_target(new_target)
-            storage = self.credentials.save(session); session['credentialStorage'] = storage
-            with self._lock:
-                self._session = session; self._auto = session['autoSync']; self._epoch += 1
-                self._last_error = self._last_code = None
+            self._adopt_ssh_session(session, epoch)
             if self._auto: self._wake.set()
             return self.status()
-        finally: self._sync_lock.release()
+        finally:
+            if operation is not None: os.close(operation)
+            self._sync_lock.release()
+
+    def _adopt_ssh_session(self, session, epoch):
+        """Commit a verified session while the sync and operation locks are held."""
+        with self._lock:
+            self._check_epoch(epoch)
+            target = {'serverUrl': session['serverUrl'], 'accountId': session['account']['id']}
+            old_target = self.store.status().get('target')
+            if old_target and old_target != target:
+                raise CloudSyncError('工作区绑定已变化，未采用本次 SSH 授权。', 'TARGET_MISMATCH', 409)
+            previous = dict(self._session) if self._session else None
+            try:
+                session['credentialStorage'] = self.credentials.save(session)
+                # Re-check even with a reentrant lock: injected persistence hooks
+                # and future cancellation code must not reattach after disconnect.
+                self._check_epoch(epoch)
+                with self.workspace.lock(): self.store.bind_target(target)
+            except Exception:
+                if epoch == self._epoch:
+                    if previous: self.credentials.save(previous)
+                    else: self.credentials.clear()
+                else: self.credentials.clear()
+                raise
+            self._session = session; self._auto = session['autoSync']; self._epoch += 1
+            self._last_error = self._last_code = None
+
+    def _set_auto(self, enabled):
+        """Internal preference write; caller owns the necessary operation locks."""
+        with self._lock:
+            if enabled: self._check_epoch(self._epoch)
+            if self._session:
+                session = dict(self._session); session['autoSync'] = enabled
+                session['credentialStorage'] = self.credentials.save(session); self._session = session
+            self._auto = enabled
+            if not enabled: self._requested = False
+        self._wake.set()
+
+    def _clear_maintenance_error(self):
+        with self._lock:
+            if self._last_code in ('SSH_MOVE_PENDING', 'SSH_JOURNAL_INVALID', 'SSH_BUSY'):
+                self._last_error = self._last_code = None
 
     def settings(self, payload):
         if not isinstance(payload, dict) or type(payload.get('autoSync')) is not bool:
             raise CloudSyncError('自动同步设置无效。', 'INVALID_SETTINGS')
-        with self._lock:
-            if self._session:
-                session = dict(self._session); session['autoSync'] = payload['autoSync']
-                session['credentialStorage'] = self.credentials.save(session); self._session = session
-            self._auto = payload['autoSync']
-        self._wake.set(); return self.status()
+        if payload['autoSync']:
+            if not self._sync_lock.acquire(blocking=False): raise CloudSyncError('正在同步或维护服务器，请稍后再启用自动同步。', 'SYNC_BUSY', 409)
+            try:
+                with self.ssh.operation_guard(): self._set_auto(True)
+            finally: self._sync_lock.release()
+        else: self._set_auto(False)
+        return self.status()
 
     def sync_now(self):
-        self._session_copy()
-        with self._lock: self._requested = True
+        if not self._sync_lock.acquire(blocking=False): raise CloudSyncError('同步或服务器维护正在进行。', 'SYNC_BUSY', 409)
+        try:
+            with self.ssh.operation_guard():
+                _, epoch = self._session_copy()
+                self._check_epoch(epoch)
+                with self._lock: self._requested = True
+        finally: self._sync_lock.release()
         self._wake.set(); return self.status()
 
     def disconnect(self):
@@ -439,8 +477,11 @@ class CloudSync:
     def sync_once(self):
         if not self._sync_lock.acquire(blocking=False): raise CloudSyncError('同步正在进行。', 'SYNC_BUSY', 409)
         with self._lock: self._busy = True
+        operation_fd = None
         try:
+            operation_fd = self.ssh._acquire_operation()
             session, epoch = self._session_copy()
+            self._check_epoch(epoch)
             target = {'serverUrl': session['serverUrl'], 'accountId': session['account']['id']}
             if self.store.status().get('target') != target: raise CloudSyncError('同步账号与本地绑定不一致，已停止。', 'TARGET_MISMATCH', 409)
             client = self._client_factory(session['serverUrl'], session['accessToken'])
@@ -497,24 +538,36 @@ class CloudSync:
             raise CloudSyncError(self._last_error, self._last_code, 500, True) from None
         finally:
             with self._lock: self._busy = False
+            if operation_fd is not None: os.close(operation_fd)
             self._sync_lock.release()
 
-    def resolve(self, conflict_id, choice):
+    def resolve(self, conflict_id, choice, revision=None):
+        from sync_store import ConflictRevisionError, validate_conflict_revision
         if choice not in ('local', 'remote'): raise CloudSyncError('请选择保留本机版本或云端版本。', 'INVALID_RESOLUTION')
         if not self._sync_lock.acquire(blocking=False): raise CloudSyncError('正在同步，请稍后处理冲突。', 'SYNC_BUSY', 409)
+        operation = None
         try:
+            operation = self.ssh._acquire_operation()
+            validate_conflict_revision(revision)
             conflict = next((item for item in self.store.conflicts() if item.get('id') == conflict_id), None)
             if not conflict: raise CloudSyncError('冲突已不存在。', 'CONFLICT_MISSING', 404)
+            if conflict.get('revision') != revision:
+                raise ConflictRevisionError(changed=True)
             stage, blobs = None, {}
-            if choice == 'remote':
-                session, epoch = self._session_copy()
-                client = self._client_factory(session['serverUrl'], session['accessToken'])
-                stage, blobs = self._stage_blobs(client, conflict.get('remote'), epoch); self._check_epoch(epoch)
-            try: self.workspace.resolve_cloud_conflict(conflict_id, choice, blobs=blobs)
+            try:
+                if choice == 'remote':
+                    session, epoch = self._session_copy()
+                    client = self._client_factory(session['serverUrl'], session['accessToken'])
+                    stage, blobs = self._stage_blobs(client, conflict.get('remote'), epoch); self._check_epoch(epoch)
+                self.workspace.resolve_cloud_conflict(conflict_id, choice, revision=revision, blobs=blobs)
             finally:
                 if stage: self._clear_stage(stage, blobs)
             self._wake.set(); return self.status()
-        finally: self._sync_lock.release()
+        except ConflictRevisionError as error:
+            raise CloudSyncError(str(error), error.code, error.status) from None
+        finally:
+            if operation is not None: os.close(operation)
+            self._sync_lock.release()
 
     def _worker(self):
         while not self._closed.is_set():

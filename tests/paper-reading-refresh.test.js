@@ -14,6 +14,7 @@ function harness() {
       hasAttribute(key) { return Object.hasOwn(this.attributes, key); },
       removeAttribute(key) { delete this.attributes[key]; delete this[key]; }, close() { this.open = false; }, replaceChildren() { this.innerHTML = ''; },
       querySelector() { return this.summary ||= { hidden: false, textContent: '' }; } };
+    if(id==='previewDialog'){node.tagName='SECTION';node.hidden=true;delete node.open;delete node.close;}
     elements.set(`#${id}`, node); return node;
   }
   for (const id of ['readingPane', 'previewDialog', 'taskDialog', 'paperDialog', 'previewEyebrow', 'previewTitle', 'previewMeta',
@@ -28,7 +29,7 @@ function harness() {
   let active = null, visible = false, serial = 0;
   const reader = {
     isActive: (kind, id) => visible && active?.kind === kind && active?.id === id,
-    present(kind, id) { active = { kind, id }; visible = true; $('#readingPane').hidden = false; $('#previewDialog').open = true; presents.push({ kind, id }); },
+    present(kind, id) { active = { kind, id }; visible = true; $('#readingPane').hidden = false; $('#previewDialog').hidden = false; presents.push({ kind, id }); },
     reconcile() {},
   };
   const context = vm.createContext({NoteMarkdown:require('../app/note-markdown'), state, $, $$: () => fields, window: { ReadingPane: reader, AttachmentAnalysis }, AttachmentAnalysis, Blob,
@@ -43,7 +44,7 @@ function harness() {
   vm.runInContext(source.slice(source.indexOf('let previewRequestVersion ='), source.indexOf('\nconst searchTypeLabel =')), context);
   vm.runInContext(source.slice(source.indexOf('function savePaperEdits()'), source.indexOf('\nfunction analyzePaper(')), context);
   return { state, $, context, blobs, revoked, presents, calls,
-    hide() { visible = false; $('#readingPane').hidden = true; $('#previewDialog').open = false; context.suspendPreview(); },
+    hide() { visible = false; $('#readingPane').hidden = true; $('#previewDialog').hidden = true; context.suspendPreview(); },
   };
 }
 
@@ -58,7 +59,9 @@ test('saving the active paper note refreshes real reader body and Markdown downl
   assert.equal(h.state.notes[0].content, '# 分析\n\n保存后的新分析');
   assert.match(h.$('#previewContent').innerHTML, /保存后的新分析/);
   assert.equal(h.$('#paperDialog').open, false);
-  assert.equal(h.$('#previewDialog').open, true);
+  assert.equal(h.$('#previewDialog').hidden, false);
+  assert.equal('open' in h.$('#previewDialog'), false);
+  assert.equal('close' in h.$('#previewDialog'), false);
   assert.equal(h.$('#previewDownload').hidden, false);
   const newUrl = h.$('#previewDownload').href;
   assert.notEqual(newUrl, oldUrl);
@@ -85,7 +88,7 @@ test('saving a paper whose note tab is hidden does not reopen the reader', async
   const h = harness(); await h.context.openNote('analysis'); h.hide();
   h.$('#paperDialog').open = true; h.context.savePaperEdits();
   assert.match(h.state.notes[0].content, /保存后的新分析/);
-  assert.equal(h.$('#previewDialog').open, false);
+  assert.equal(h.$('#previewDialog').hidden, true);
   assert.equal(h.$('#readingPane').hidden, true);
   assert.equal(h.$('#previewDownload').hidden, true);
   assert.equal(h.$('#previewDownload').href, undefined);

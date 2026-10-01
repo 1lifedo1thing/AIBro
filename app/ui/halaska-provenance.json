@@ -1,0 +1,24 @@
+{
+  "upstream": "https://ui.halaska.com/halaska-kit.jsx",
+  "sourceSha256": "0ab6ad465c3e0d2659212cce3c4957ff50491c9ac5f4ac690e58ce1832e0de3e",
+  "api": "https://ui.halaska.com/llms.txt",
+  "apiSha256": "1d029e53abd9b4ca9a0e1e160da0e357bc90ba06d7b7b8491270a411f19b57e6",
+  "fontPackage": "https://registry.npmjs.org/geist/-/geist-1.7.2.tgz",
+  "assets": [
+    {
+      "name": "halaska-ui.js",
+      "bytes": 945460,
+      "sha256": "174df83ab301a8a2c673a372d616343ea8cd7ae8529657f41a8e17d004ef48b7"
+    },
+    {
+      "name": "halaska-geist.woff2",
+      "bytes": 69652,
+      "sha256": "a369fcf5628ea2aa4e1b9e2ec6a5b3624e365bda588e1f0f2f12b564f728fbb8"
+    },
+    {
+      "name": "halaska-geist-mono.woff2",
+      "bytes": 71368,
+      "sha256": "fba8f577f38a2bbcbe818efa6348dd58f36303a10b8737c42fefad275be563ab"
+    }
+  ]
+}

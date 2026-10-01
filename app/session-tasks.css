@@ -1,0 +1,31 @@
+/* 会话内任务清单（§1.4）：输入区上方的可折叠浅色条，全部完成时自动隐藏。 */
+.session-task-strip {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin: 0 0 6px;
+  background: var(--surface-wash);
+}
+
+.session-task-strip[hidden] { display: none; }
+
+.session-task-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.session-task-title { font-size: 12px; font-weight: 600; }
+.session-task-clear { font-size: 11px; padding: 2px 8px; }
+
+.session-task-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.session-task-item.done { opacity: .55; text-decoration: line-through; }

@@ -36,11 +36,13 @@ for (const [zone, expected] of [
 }
 
 test('description/status saves wire both date and time through the preservation helper', () => {
-  const save = source.match(/function saveTaskDetails\(\) \{[^\n]+/)[0];
+  const save = source.slice(source.indexOf('async function saveTaskDetails('), source.indexOf('function toggleTaskStatus('));
   assert.match(save, /taskDueValue\(\$\('#taskDueInput'\)\.value, \$\('#taskTimeInput'\)\.value, task\.dueAt\)/);
   const render = source.slice(source.indexOf('function renderTaskDialog('), source.indexOf('function openTask('));
-  assert.match(render, /taskTimeInput[^<]+type="time"/);
-  assert.match(render, /taskDueFields\(task\.dueAt\)\.time/);
+  const component = fs.readFileSync(require.resolve('../app/ui/task-detail.jsx'), 'utf8');
+  assert.match(component, /field\('taskTimeInput'.*type: 'time'/);
+  assert.match(render, /due = taskDueFields\(task\.dueAt\)/);
+  assert.match(render, /taskTimeInput: due\.time/);
 });
 
 test('blank and invalid legacy deadlines can be displayed without throwing', () => {

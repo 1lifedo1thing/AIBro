@@ -31,6 +31,27 @@ class JobsTests(unittest.TestCase):
   j=self.create();c=self.jobs.claim(j['id']);
   with patch('project_jobs.time.time',return_value=time.time()+65):self.assertFalse(self.jobs.check(j['id'],c['token'])['valid'])
   self.assertEqual(self.jobs.list()[0]['status'],'paused')
+ def test_ordered_multiple_skills_survive_reload_and_claim(self):
+  j=self.create(skillIds=['skill_beta','builtin-paper','skill_alpha','skill_beta'],skillId='ignored')
+  self.assertEqual(j['skillIds'],['skill_beta','builtin-paper','skill_alpha']);self.assertEqual(j['skillId'],'skill_beta')
+  same=ProjectJobs(self.store,'instance-a').list()[0]
+  self.assertEqual(same['skillIds'],j['skillIds']);self.assertEqual(self.jobs.claim(j['id'])['job']['skillIds'],j['skillIds'])
+ def test_legacy_choice_and_explicit_clear(self):
+  j=self.create(skillId='builtin-course');self.assertEqual(j['skillIds'],['builtin-course'])
+  cleared=self.jobs.upsert({**self.payload,'id':j['id'],'version':j['version'],'skillIds':[],'skillId':'builtin-course'})
+  self.assertEqual(cleared['skillIds'],[]);self.assertIsNone(cleared['skillId'])
+  updated=self.jobs.upsert({**self.payload,'id':j['id'],'version':cleared['version'],'skillId':'builtin-paper'})
+  self.assertEqual(updated['skillIds'],['builtin-paper'])
+ def test_invalid_skill_arrays_do_not_change_saved_task(self):
+  j=self.create(skillIds=['skill_alpha'])
+  for invalid in (None,'skill_beta',[None],[1],[''],['bad/path'],['skill_alpha']*101):
+   self.assertRaises(ValueError,self.jobs.upsert,{**self.payload,'id':j['id'],'version':j['version'],'skillIds':invalid})
+   self.assertEqual(self.jobs.list()[0],j)
+ def test_multiple_skill_save_failure_is_not_reported_successfully(self):
+  j=self.create(skillIds=['skill_alpha'])
+  with patch.object(self.store,'atomic_write',side_effect=OSError('Synthetic full disk')):
+   self.assertRaises(OSError,self.jobs.upsert,{**self.payload,'id':j['id'],'version':j['version'],'skillIds':['skill_beta','skill_alpha']})
+  self.assertEqual(self.jobs.list()[0]['skillIds'],['skill_alpha'])
  def test_calendar_repeat_keeps_wall_time_across_dst(self):
   from zoneinfo import ZoneInfo
   z=ZoneInfo('America/New_York')

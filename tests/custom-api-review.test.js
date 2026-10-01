@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const Core = require('../app/workstation-core');
 const Delivery = require('../app/attachment-delivery');
 const Models = require('../app/model-picker');
-const transportSource = fs.readFileSync(require.resolve('../app/agent-transport'), 'utf8');
+const transportSource = fs.readFileSync(require.resolve('../app/sse-frame-scanner'), 'utf8') + '\n' + fs.readFileSync(require.resolve('../app/agent-transport'), 'utf8');
 const plan = { message: '已读取材料，等待工作站执行', actions: [{ type: 'create_task', title: '核对课程考核要求', workspace: '课程' }] };
 const planText = JSON.stringify(plan);
 const input = text => [{ role: 'user', content: [{ type: 'input_text', text }] }];
@@ -66,7 +66,9 @@ test('401 and 404 retain actionable errors and never return a successful text an
   for (const [status, payload, pattern] of [[401, { error: { message: 'Invalid fixture credential' } }, /Invalid fixture credential/], [404, {}, /404.*Responses|Responses.*404/]]) {
     const h = harness(() => json(payload, status));
     await assert.rejects(h.request(), error => error.code === 'HTTP' && error.status === status && pattern.test(error.message));
-    assert.equal(h.requests.length, 1);
+    // 401 与协议无关，必须只请求一次；404 同时是“该服务没有这条协议路径”的信号，
+    // 自动判定模式下会换协议重试一次，最终错误仍保留原始 404 与切换指引。
+    assert.equal(h.requests.length, status === 404 ? 2 : 1);
   }
 });
 

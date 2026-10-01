@@ -13,7 +13,7 @@ function baseContext() {
     state: { projects: [{id:'existing-visa',name:'美国签证准备',workspace:'日常'}],imports:[],notes:[],tasks:[],attachments:[],conversations:[] },
     $: selector => { if (!elements.has(selector)) elements.set(selector,element()); return elements.get(selector); },
     uid: prefix => `${prefix}-test-${++n}`, workspaceName: value => ['课程','科研'].includes(value) ? value : '日常',
-    visibleProject: p => !p.archived, Core: {}, save: noop, renderAll: noop, openProject: id => { context.openedProject=id; },
+    visibleProject: p => !p.archived, Core: {}, save: noop, saveDocumentDurably: async () => true, renderAll: noop, openProject: id => { context.openedProject=id; },
     findProject: () => { throw new Error('Manual operations must never call fuzzy project matching'); }
   };
   vm.createContext(context);

@@ -32,5 +32,5 @@
   document.addEventListener('keydown',event=>{if(!menu)return;if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();close(true);}else if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){event.preventDefault();menu.querySelector('button').focus();}},true);
   root.addEventListener('resize',()=>close());document.addEventListener('scroll',()=>close(),true);
  }
- root.FileActions={init,reveal,reference};
+ root.FileActions={init,reveal,reference,close};
 })(globalThis);

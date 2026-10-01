@@ -1,0 +1,38 @@
+@import '@milkdown/crepe/theme/common/style.css';
+
+/* All colors and typography belong to the native workstation theme. */
+.note-document .milkdown {
+  --crepe-color-background: var(--bg);
+  --crepe-color-on-background: var(--text);
+  --crepe-color-surface: var(--panel-raised, var(--panel));
+  --crepe-color-surface-low: var(--panel);
+  --crepe-color-on-surface: var(--text);
+  --crepe-color-on-surface-variant: var(--muted);
+  --crepe-color-outline: var(--line-strong);
+  --crepe-color-primary: var(--accent);
+  --crepe-color-secondary: var(--accent-soft);
+  --crepe-color-on-secondary: var(--text);
+  --crepe-color-inverse: var(--text);
+  --crepe-color-on-inverse: var(--bg);
+  --crepe-color-inline-code: var(--accent);
+  --crepe-color-error: var(--red);
+  --crepe-color-hover: var(--panel-hover);
+  --crepe-color-selected: var(--accent-soft);
+  --crepe-color-inline-area: var(--panel-hover);
+  --crepe-base-font-size: 16px;
+  --crepe-font-title: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  --crepe-font-default: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  --crepe-font-code: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --crepe-shadow-1: 0 2px 8px #0002;
+  --crepe-shadow-2: 0 6px 24px #0003;
+}
+.note-document .milkdown .ProseMirror { min-height: 300px; padding: 24px 32px 80px; outline: none; }
+.note-document .milkdown .ProseMirror:focus-visible { outline: none; }
+.note-document .milkdown .ProseMirror > :first-child { margin-top: 0; }
+.note-document .milkdown button { min-width: 0; min-height: 0; font: inherit; }
+@container (max-width: 540px) {
+  .note-document .milkdown .ProseMirror { padding: 16px 24px 60px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .note-document .milkdown *, .document-source-editor * { animation: none !important; transition: none !important; }
+}

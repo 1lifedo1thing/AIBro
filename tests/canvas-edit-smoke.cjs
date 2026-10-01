@@ -1,0 +1,81 @@
+/* Real app + Kit + durable local store. All documents and model output are fixtures. */
+const {app,BrowserWindow}=require('electron');
+const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),net=require('node:net'),http=require('node:http'),assert=require('node:assert/strict'),{spawn}=require('node:child_process');
+const ROOT=path.resolve(__dirname,'..'),TEMP=fs.mkdtempSync(path.join(os.tmpdir(),'aibro-canvas-')),STORE=path.join(TEMP,'store'),OUT=path.join(ROOT,'test-results/canvas-edit-20260925');
+fs.mkdirSync(STORE);fs.mkdirSync(OUT,{recursive:true});app.setPath('userData',path.join(TEMP,'profile'));
+let win,server;const checks=[],errors=[],remote=[],wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const watchdog=setTimeout(()=>{server?.kill();win?.destroy();app.exit(1);},150000);
+async function until(fn,label){const start=Date.now();while(Date.now()-start<15000){if(await fn())return;await wait(60);}throw Error('Timeout: '+label);}
+(async()=>{
+ const port=await new Promise(resolve=>{const probe=net.createServer();probe.listen(0,'127.0.0.1',()=>{const port=probe.address().port;probe.close(()=>resolve(port));});}),origin=`http://127.0.0.1:${port}`;
+ const log=fs.openSync(path.join(TEMP,'server.log'),'a');server=spawn('python3',[path.join(ROOT,'app/server.py')],{cwd:ROOT,env:{...process.env,AI_WORKSTATION_PORT:String(port),AI_WORKSTATION_DATA_DIR:STORE},stdio:['ignore',log,log]});
+ await until(()=>new Promise(resolve=>http.get(origin+'/__health',response=>{response.resume();resolve(response.statusCode===200);}).on('error',()=>resolve(false))),'server');
+ await app.whenReady();win=new BrowserWindow({show:false,width:1320,height:1050,webPreferences:{sandbox:true,contextIsolation:true,backgroundThrottling:false}});
+ win.webContents.on('console-message',event=>{if(event.level==='error')errors.push(event.message);});
+ win.webContents.session.webRequest.onBeforeRequest({urls:['http://*/*','https://*/*']},(details,callback)=>{const external=!details.url.startsWith(origin+'/');if(external)remote.push(details.url);callback({cancel:external});});
+ const evaluate=code=>win.webContents.executeJavaScript(`(async()=>{${code}})()`,true),click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click();`);
+ const result=expression=>evaluate('return '+expression),button=text=>evaluate(`[...document.querySelectorAll('.canvas-edit button')].find(button=>button.textContent===${JSON.stringify(text)}).click();`);
+ const shot=async name=>{await wait(120);fs.writeFileSync(path.join(OUT,name+'.png'),(await win.webContents.capturePage()).toPNG());};
+ const startRewrite=async selected=>{await click('[data-note-action=edit]');await evaluate(`var input=document.querySelector('.note-document-source textarea');input.focus();var start=input.value.lastIndexOf(${JSON.stringify(selected)});if(start<0)throw Error('Fixture selection missing');input.setSelectionRange(start,start+${selected.length});document.querySelector('.note-canvas-trigger button').click();`);await until(()=>result(`document.activeElement===document.querySelector('.canvas-edit-instruction textarea')`),'instruction focus');await evaluate(`var input=document.querySelector('.canvas-edit-instruction textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,'写得清楚，保留原意');input.dispatchEvent(new Event('input',{bubbles:true}));`);};
+ const finish=async output=>{await evaluate(`window.fixtureRequests.at(-1).onDelta(${JSON.stringify(output)});window.fixtureRequests.at(-1).resolve(${JSON.stringify(output)});`);await until(()=>result(`!![...document.querySelectorAll('.canvas-edit button')].find(b=>b.textContent==='应用到草稿')`),'ready');};
+ await win.loadURL(origin);await until(()=>result(`typeof storageHydrated!=='undefined'&&storageHydrated`),'hydrate');
+ const original='\uFEFF---\r\ntitle: "Keep  exact"\r\n---\r\n\r\n# Canvas 验收\r\n\r\n重复 👩‍💻 文字\r\n\r\n重复 👩‍💻 文字\r\n\r\nA **formatted** paragraph.\r\n';
+ await evaluate(`WorkstationOnboarding.close();WorkspaceTour.close();state.ui.onboarding={version:WorkstationOnboarding.VERSION,status:'skipped'};state.ui.workspaceTour={version:1,status:'skipped'};state.projects=[{id:'canvas-project',name:'Canvas 隔离验收',workspace:'科研'}];state.notes=[{id:'canvas-note',title:'选区改写 · 隔离文档',content:${JSON.stringify(original)},projectId:'canvas-project',workspace:'科研',createdAt:1,updatedAt:2},{id:'canvas-other',title:'另一篇隔离文档',content:'Other note',workspace:'日常',createdAt:1,updatedAt:2}];state.currentProjectId='canvas-project';await saveDocumentDurably();window.fixtureRequests=[];captureApiConnection=()=>({base:'https://synthetic.invalid/v1',token:'synthetic'});getApiConnection=async()=>({base:'https://synthetic.invalid/v1',token:'synthetic'});ConversationModels.resolve=async()=>({provider:'api',model:'canvas-fixture',effort:'medium'});AgentTransport.requestPlan=options=>new Promise((resolve,reject)=>fixtureRequests.push({...options,resolve,reject}));await openNote('canvas-note');`);
+ await until(()=>result(`!!document.querySelector('.note-canvas-trigger button')`),'canvas trigger');
+ await startRewrite('重复 👩‍💻 文字');
+ assert.equal(await result(`document.querySelector('.canvas-edit').textContent.includes('只改写选中文字')`),true);
+ assert.match(await result(`getComputedStyle(document.querySelector('.canvas-edit button')).fontFamily`),/Geist/);
+ await evaluate(`document.querySelector('.canvas-edit-instruction textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',metaKey:true,isComposing:true,keyCode:229,bubbles:true}));`);
+ assert.equal(await result('fixtureRequests.length'),0);
+ await evaluate(`document.querySelector('.canvas-edit-instruction textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',metaKey:true,isComposing:true,bubbles:true}));`);
+ assert.equal(await result('fixtureRequests.length'),0);
+ await evaluate(`document.querySelector('.canvas-edit-instruction textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',metaKey:true,bubbles:true}));`);
+ await until(()=>result('fixtureRequests.length===1'),'transport');
+ assert.equal(await result('fixtureRequests[0].webSearch'),false);
+ assert.match(await result('fixtureRequests[0].input[0].content'),/不要执行操作/);
+  await evaluate(`fixtureRequests[0].onDelta('流式');fixtureRequests[0].onDelta('流式草稿');`);
+  await until(()=>result(`document.querySelector('.canvas-edit-diff')?.textContent.includes('流式草稿')`),'stream display');
+ assert.match(await result(`document.querySelector('.canvas-edit-diff').textContent`),/流式草稿/);
+ assert.equal(await result(`!![...document.querySelectorAll('.canvas-edit button')].find(b=>b.textContent==='应用到草稿')`),false);
+ assert.equal(await result(`state.notes[0].content`),original);
+ checks.push('real Kit UI, instruction focus, IME guard and host transport bind; streamed partial results cannot apply');
+ const replacement='第二处已改写，保留 👩‍💻。';await finish(replacement);
+ for(const theme of ['light','dark']){await evaluate(`state.ui.theme='${theme}';applyUiPreferences();document.querySelector('.canvas-edit').scrollIntoView({block:'center'});`);await shot(theme+'-wide');win.setSize(440,900);await wait(130);assert.equal(await result(`(()=>{const panel=document.querySelector('.canvas-edit');return panel.scrollWidth>panel.clientWidth+1})()`),false);await shot(theme+'-440');win.setSize(1320,1050);}
+ await evaluate(`document.body.classList.add('reduce-motion');`);assert.equal(await result(`document.querySelector('.canvas-edit').getAnimations({subtree:true}).filter(a=>a.playState==='running').length`),0);
+ checks.push('selection diff fits light/dark at 440px and full width; reduced motion remains static');
+ await button('应用到草稿');const position=original.lastIndexOf('重复 👩‍💻 文字'),expected=original.slice(0,position)+replacement+original.slice(position+'重复 👩‍💻 文字'.length);
+ assert.equal(await result(`NoteEditor.saveInline ? document.querySelector('.note-document-source textarea').value : ''`),expected.replace(/\r\n/g,'\n'));
+ assert.equal(await result('state.notes[0].content'),original);
+ assert.equal(await result(`await fetch('/__state').then(r=>r.json()).then(s=>s.notes.find(n=>n.id==='canvas-note').content)`),original);
+ await evaluate('await NoteEditor.saveInline();');
+ assert.equal(await result('state.notes[0].content'),expected);assert.equal(await result('state.notes[0].revisionHistory.at(-1).content'),original);
+ assert.equal(await result(`await fetch('/__state').then(r=>r.json()).then(s=>s.notes.find(n=>n.id==='canvas-note').content)`),expected);
+ await button('撤销本次改写');assert.equal(await result('state.notes[0].content'),expected);await evaluate('await NoteEditor.saveInline();');assert.equal(await result('state.notes[0].content'),original);
+ checks.push('only the selected duplicate changes; BOM/frontmatter/CRLF remain exact; applying is unsaved, durable Save creates history, saved undo is another guarded draft');
+ // A failed durable write must restore the note but retain the applied draft.
+ await startRewrite('重复 👩‍💻 文字');await button('生成改写');await finish('保留失败草稿');await button('应用到草稿');
+ await evaluate(`window.canvasFetch=fetch.bind(window);window.fetch=async(url,options)=>String(url)==='/__state'&&options?.method==='POST'?new Response('{}',{status:500,headers:{'content-type':'application/json'}}):canvasFetch(url,options);window.canvasSaveResult=await NoteEditor.saveInline();window.fetch=canvasFetch;`);
+ assert.equal(await result('canvasSaveResult'),false);assert.equal(await result('state.notes[0].content'),original);assert.match(await result(`document.querySelector('.note-document-source textarea').value`),/保留失败草稿/);assert.match(await result(`document.querySelector('.note-document-status').textContent`),/保存失败/);
+ await button('撤销本次改写');await button('关闭');
+ checks.push('durable save failure rolls back its note mutation, retains the generated editor draft, and keeps undo guarded');
+ // External updates preserve generated text for copying and never overwrite the newer note.
+ await startRewrite('重复 👩‍💻 文字');await button('生成改写');await evaluate(`state.notes[0].content+=${JSON.stringify('\r\n外部新内容')};state.notes[0].updatedAt=100;`);await finish('不能强写的改写结果');await button('应用到草稿');
+ assert.match(await result(`document.querySelector('.canvas-edit-error').textContent`),/已有更新/);assert.match(await result('state.notes[0].content'),/外部新内容/);assert.match(await result(`document.querySelector('.canvas-edit-diff').textContent`),/不能强写/);
+ await button('关闭');await evaluate(`NoteEditor.unmountInline({force:true});await openNote('canvas-note');`);
+ checks.push('external note updates block stale application while preserving the completed proposal for manual recovery');
+ // Rich plain-text selections map by block identity; formatted selections explicitly transfer to source.
+ await click('[data-note-action=rich]');
+ await evaluate(`var blocks=[...document.querySelectorAll('.markdown-editor-paragraph')];var block=blocks.filter(b=>b.textContent==='重复 👩‍💻 文字').at(-1);var text=block.querySelector('p').firstChild;block.focus();var range=document.createRange();range.setStart(text,0);range.setEnd(text,text.length);var sel=getSelection();sel.removeAllRanges();sel.addRange(range);block.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));document.querySelector('.note-canvas-trigger button').click();`);
+ assert.equal(await result(`!!document.querySelector('.canvas-edit-instruction')`),true);await button('关闭');
+ await evaluate(`var bold=document.querySelector('.markdown-editor-paragraph strong');var block=bold.closest('.markdown-editor-block');block.focus();var range=document.createRange();range.selectNodeContents(bold);var sel=getSelection();sel.removeAllRanges();sel.addRange(range);block.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));document.querySelector('.note-canvas-trigger button').click();`);
+ assert.equal(await result(`document.querySelector('.note-document').dataset.mode`),'edit');assert.equal(await result(`!!document.querySelector('.canvas-edit-instruction')`),false);assert.match(await result(`document.querySelector('.note-document-status').textContent`),/源码.*确认/);
+ assert.equal(await result(`(()=>{const input=document.querySelector('.note-document-source textarea');return input.value.slice(input.selectionStart,input.selectionEnd)})()`),'A **formatted** paragraph.\n');
+ checks.push('rich duplicate text maps using its exact block; formatted selection explicitly hands off to the exact Markdown block without guessing');
+ await startRewrite('重复 👩‍💻 文字');await button('生成改写');await evaluate(`fixtureRequests.at(-1).onDelta('半截');window.stoppedRequest=fixtureRequests.at(-1);`);await button('停止生成');await evaluate(`stoppedRequest.onDelta('半截迟到');stoppedRequest.resolve('迟到完成');`);await wait(80);assert.equal(await result('stoppedRequest.signal.aborted'),true);assert.equal(await result(`!![...document.querySelectorAll('.canvas-edit button')].find(b=>b.textContent==='应用到草稿')`),false);
+ await button('关闭');await startRewrite('重复 👩‍💻 文字');await button('生成改写');await evaluate(`window.closedRequest=fixtureRequests.at(-1);document.querySelector('.canvas-edit-instruction textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));closedRequest.resolve('late close');`);await wait(60);assert.equal(await result('closedRequest.signal.aborted'),true);assert.equal(await result(`!!document.querySelector('.canvas-edit')`),false);
+ await startRewrite('重复 👩‍💻 文字');await button('生成改写');await evaluate(`window.switchedRequest=fixtureRequests.at(-1);await openNote('canvas-other');switchedRequest.resolve('late switch');`);await wait(70);assert.equal(await result('switchedRequest.signal.aborted'),true);assert.equal(await result('state.notes[1].content'),'Other note');assert.equal(await result(`document.querySelector('.note-document').querySelector('.canvas-edit')`),null);
+ checks.push('stop, Escape close and document switching abort requests; late deltas and successful replies never apply partial or obsolete text');
+ assert.deepEqual(remote,[]);assert.deepEqual(errors,[]);
+ fs.writeFileSync(path.join(OUT,'report.json'),JSON.stringify({passed:checks.length,checks,errors,remoteRequests:remote,fixtureStore:STORE},null,2));console.log(JSON.stringify({passed:checks.length,checks,errors,remoteRequests:remote},null,2));
+ clearTimeout(watchdog);win.destroy();server.kill();app.exit(0);
+})().catch(error=>{fs.writeFileSync(path.join(OUT,'failure.json'),JSON.stringify({error:error.stack,checks,errors,remote},null,2));console.error(error,errors);clearTimeout(watchdog);win?.destroy();server?.kill();app.exit(1);});

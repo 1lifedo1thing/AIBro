@@ -121,6 +121,7 @@ def test_generation_waiting(directory):
     class TimedEvents:
         def __init__(self, clock, scheduled):
             self.clock, self.scheduled = clock, list(scheduled)
+        def close(self): pass
         def get(self, timeout):
             assert 0 < timeout <= 3
             if self.scheduled and self.scheduled[0][0] <= self.clock.now + timeout:
@@ -152,7 +153,7 @@ def test_generation_waiting(directory):
     def run(scheduled, expected_time, completed=False):
         clock, bridge = Clock(), FakeBridge()
         events = TimedEvents(clock, scheduled)
-        with patch.object(bridge_module.queue, 'Queue', return_value=events), patch.object(bridge_module.time, 'monotonic', clock.monotonic):
+        with patch.object(bridge_module, 'StreamEventBuffer', return_value=events), patch.object(bridge_module.time, 'monotonic', clock.monotonic):
             results = list(bridge.respond('fixture-model', [{'type': 'text', 'text': 'fixture'}]))
         assert clock.now == expected_time, (clock.now, expected_time)
         assert bridge.subscribers == {}
@@ -248,7 +249,7 @@ def test_generation_waiting(directory):
     # and removes its subscriber; canceling before turn/start does not start it.
     for cancel_before_turn in (True, False):
         clock, bridge = Clock(), FakeBridge()
-        with patch.object(bridge_module.queue, 'Queue', return_value=TimedEvents(clock, [(10, event(delta='pending'))])), patch.object(bridge_module.time, 'monotonic', clock.monotonic):
+        with patch.object(bridge_module, 'StreamEventBuffer', return_value=TimedEvents(clock, [(10, event(delta='pending'))])), patch.object(bridge_module.time, 'monotonic', clock.monotonic):
             stream = bridge.respond(None, [{'type': 'text', 'text': 'fixture'}])
             next(stream)
             if not cancel_before_turn:
@@ -265,7 +266,7 @@ def test_generation_waiting(directory):
     # Closing at the next heartbeat interrupts immediately, without waiting
     # for a model delta or completion notification.
     clock, bridge = Clock(), FakeBridge()
-    with patch.object(bridge_module.queue, 'Queue', return_value=TimedEvents(clock, [])), patch.object(bridge_module.time, 'monotonic', clock.monotonic):
+    with patch.object(bridge_module, 'StreamEventBuffer', return_value=TimedEvents(clock, [])), patch.object(bridge_module.time, 'monotonic', clock.monotonic):
         stream = bridge.respond(None, [{'type': 'text', 'text': 'fixture'}])
         while clock.now < 1800:
             assert next(stream) == {'type': 'response.in_progress'}

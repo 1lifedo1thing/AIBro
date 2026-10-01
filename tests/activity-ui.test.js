@@ -165,3 +165,77 @@ test('language changes rerender only interface dates; user entity names remain u
     ActivityUI.destroy(container); assert.equal(events['workstation-language-change'], undefined);
   } finally { global.document = previousDoc; global.WorkstationI18n = previousI18n; }
 });
+
+test('resize defers SVG layout outside observer delivery, coalesces events and cancels stale work', () => {
+  const previous = { ResizeObserver: global.ResizeObserver, requestAnimationFrame: global.requestAnimationFrame, cancelAnimationFrame: global.cancelAnimationFrame };
+  const observers = [], frames = new Map(); let sequence = 0;
+  global.ResizeObserver = class { constructor(callback) { this.callback = callback; observers.push(this); } observe() {} disconnect() { this.disconnected = true; } };
+  global.requestAnimationFrame = callback => { const id = ++sequence; frames.set(id, callback); return id; };
+  global.cancelAnimationFrame = id => frames.delete(id);
+  const flush = () => { const jobs = [...frames.values()]; frames.clear(); jobs.forEach(callback => callback()); };
+  try {
+    const container = new Container(); ActivityUI.render(container, state, options);
+    const initial = container.chart.innerHTML; container.chart.clientWidth = 400;
+    observers[0].callback(); observers[0].callback();
+    assert.equal(container.chart.innerHTML, initial, 'observer must not synchronously change its observed layout');
+    assert.equal(frames.size, 1, 'one scheduled redraw per frame');
+    flush(); assert.notEqual(container.chart.innerHTML, initial); assert.match(container.chart.innerHTML, /viewBox="0 0 400 250"/);
+    container.chart.clientWidth = 500; observers[0].callback(); assert.equal(frames.size, 1);
+    ActivityUI.render(container, state, options); assert.equal(frames.size, 0); assert.equal(observers[0].disconnected, true);
+    observers[0].callback(); assert.equal(frames.size, 0, 'disconnected observer cannot enqueue stale work');
+    observers[1].callback(); assert.equal(frames.size, 1); ActivityUI.destroy(container); assert.equal(frames.size, 0);
+    observers[1].callback(); assert.equal(frames.size, 0, 'destroyed chart cannot enqueue work');
+  } finally { Object.assign(global, previous); }
+});
+
+test('real evidence privacy keeps chart labels, metric totals and typed day entries in agreement', () => {
+  const container = new Container(), opens = [];
+  const data = {
+    projects: [{ id: 'ambiguous' }, { id: 'ambiguous' }],
+    conversations: [{ id: 'hidden-conversation', private: true }],
+    tasks: [{ id: 'shared', title: 'Public task', status: 'done', completedAt: '2026-09-10' }, { id: 'hidden-task', title: 'SECRET task', status: 'done', completedAt: '2026-09-10', sourceConversationId: 'hidden-conversation' }],
+    notes: [{ id: 'shared', title: 'Public note', createdAt: '2026-09-10' }, { id: 'hidden-note', title: 'SECRET note', createdAt: '2026-09-10', provenance: { origin: { private: true } } }],
+    imports: [{ id: 'shared', name: 'Public file', createdAt: '2026-09-10' }, { id: 'hidden-file', name: 'SECRET file', projectId: 'ambiguous', createdAt: '2026-09-10' }]
+  };
+  const result = ActivityUI.render(container, data, { now: options.now, days: 7, getState: () => data, openEntity: (...args) => opens.push(args) });
+  assert.deepEqual(result.totals, { tasks: 1, materials: 2 });
+  assert.match(container.innerHTML, /显示完成任务，共 1 项/);
+  assert.match(container.innerHTML, /显示收集资料，共 2 项/);
+  assert.match(container.innerHTML, /data-activity-index="6" aria-label="[^"]*: 1 \/ 2"/);
+  container.querySelector('[data-activity-index="6"]').click();
+  const entries = container.querySelectorAll('[data-activity-entry="shared"]');
+  assert.equal(entries.length, 3);
+  assert.deepEqual(entries.map(row => row.dataset.activityType), ['task', 'note', 'import']);
+  entries.forEach(row => row.click());
+  assert.deepEqual(opens, [['task', 'shared'], ['note', 'shared'], ['import', 'shared']]);
+  assert.doesNotMatch(container.innerHTML, /SECRET/);
+});
+
+test('a displayed activity entry rechecks real direct, captured and retired-origin privacy before opening', () => {
+  const mutations = [
+    state => { state.notes[0].private = true; },
+    state => { state.notes[0].provenance = { origin: { private: true } }; },
+    state => { state.conversations[0].private = true; },
+    state => { state.agentRuns[0].ephemeral = true; },
+    state => { state.agentRuns = []; state.trash = [{ data: { runs: [{ id: 'run', incognito: true }] } }]; }
+  ];
+  for (const mutate of mutations) {
+    const container = new Container(), opens = [];
+    const latest = {
+      projects: [{ id: 'p', workspace: '科研' }],
+      conversations: [{ id: 'conversation' }], agentRuns: [{ id: 'run', conversationId: 'conversation' }],
+      notes: [{ id: 'note', title: 'Previously public note', projectId: 'p', createdAt: '2026-09-10', agentRunId: 'run' }]
+    };
+    ActivityUI.render(container, latest, { ...options, getState: () => latest, openEntity: (...args) => opens.push(args) });
+    container.querySelector('[data-activity-index="6"]').click();
+    const savedButton = container.querySelector('[data-activity-entry="note"]');
+    assert.ok(savedButton);
+    mutate(latest);
+    savedButton.click();
+    assert.deepEqual(opens, []);
+    assert.equal(container.querySelectorAll('[data-activity-entry]').length, 0);
+    assert.match(container.innerHTML, /显示收集资料，共 0 项/);
+    assert.match(container.innerHTML, /data-activity-index="6" aria-label="[^"]*: 0 \/ 0"/);
+    assert.doesNotMatch(container.innerHTML, /Previously public note/);
+  }
+});

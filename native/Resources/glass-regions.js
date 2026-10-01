@@ -8,7 +8,7 @@
   pending=false;const items=[];known.clear();
   const add=(id,el,radius,extra)=>{if(!visible(el))return;let r=el.getBoundingClientRect();if(extra&&visible(extra)){const b=extra.getBoundingClientRect();r={left:Math.min(r.left,b.left),top:Math.min(r.top,b.top),right:Math.max(r.right,b.right),bottom:Math.max(r.bottom,b.bottom)};r.width=r.right-r.left;r.height=r.bottom-r.top;}
    if(r.width<1||r.height<1)return;items.push({id,x:r.left,y:r.top,width:r.width,height:r.height,radius});known.set(id,[el,...(extra?[extra]:[])]);};
-  const modal=document.activeElement?.closest?.('dialog[open]:not(#previewDialog)')||document.querySelector('dialog[open]:not(#previewDialog)');
+  const modal=document.activeElement?.closest?.('dialog:modal')||document.querySelector('dialog:modal');
   if(modal)add('modal',modal,24);
   // The reader is docked edge-to-edge; its material must meet the square pane
   // bounds instead of looking like a rounded floating card behind two rows.

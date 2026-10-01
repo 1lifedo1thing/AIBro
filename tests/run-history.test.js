@@ -58,7 +58,7 @@ function harness(state = fixture(), options = {}) {
   const document = { body: new Element('body'), createElement: tag => new Element(tag) };
   const opener = new Element('button'); opener.id = 'historyBtn'; document.activeElement = opener;
   const opened = [], toasts = [], saves = [], renders = [];
-  const api = History.createController({ getState: () => state, openConversation: id => opened.push(id), toast: message => toasts.push(message), save: () => { saves.push(JSON.stringify(state)); return options.save?.(state); }, renderAll: () => renders.push(true) }, { document });
+  const api = History.createController({ getState: () => state, openConversation: id => opened.push(id), toast: message => toasts.push(message), save: () => { saves.push(JSON.stringify(state)); return options.save?.(state); }, renderAll: () => renders.push(true), openResult: options.openResult }, { document, ...options.environment });
   api.open();
   const el = id => elements.find(item => item.id === id);
   const flatten = node => [node, ...node.children.flatMap(flatten)];
@@ -216,4 +216,114 @@ test('an explicit false save result retains the record and selection for retry',
   await h.el('runHistoryDeleteSelected').fire('click'); await h.confirm();
   assert.equal(h.state.agentRuns.some(run=>run.id==='r1'),true); assert.match(h.el('runHistoryDeleteSelected').textContent,/1/);
   success=true; await h.confirm(); assert.equal(h.state.agentRuns.some(run=>run.id==='r1'),false); assert.equal(h.saves.length,2);
+});
+
+const Core = require('../app/workstation-core.js');
+const Outcomes = require('../app/run-outcome-presentation.js');
+const Notes = require('../app/note-consolidation.js');
+const Evidence = require('../app/citation-evidence.js');
+const presentationEnvironment = { WorkstationCore: Core, RunOutcomePresentation: Outcomes, AgentTransport: { inspectProtocolOutput: text => text.includes('DSML') ? { code: 'MODEL_PROTOCOL_ERROR' } : null } };
+test('history filters and labels use the same read-only historical correction as chat', () => {
+  const state = fixture(), run = state.agentRuns[0]; run.results = []; run.validationErrors = ['old failure'];
+  state.conversations[0].messages = [{role:'assistant',runId:run.id,text:'已完成整理。'}];
+  const before = JSON.stringify(state), shown = History.presentation(state,run,presentationEnvironment);
+  assert.equal(shown.status,'failed'); assert.match(shown.error,/没有交付整理结果/);
+  assert.equal(History.queryRuns(state,{status:'completed'},presentationEnvironment).some(item=>item.id===run.id),false);
+  assert.equal(History.queryRuns(state,{status:'failed'},presentationEnvironment).some(item=>item.id===run.id),true);
+  assert.equal(JSON.stringify(state),before); assert.equal(run.status,'completed');
+  state.conversations[0].messages[0].text='<DSML> calls'; run.validationErrors=[];
+  assert.match(History.presentation(state,run,presentationEnvironment).error,/未执行的工具调用/);
+  state.conversations[0].messages[0].text='实质性的最终结论';
+  assert.equal(History.presentation(state,run,presentationEnvironment).status,'completed');
+});
+test('a pending durable receipt takes precedence over completed and cannot be permanently deleted', () => {
+  const state=fixture(),run=state.agentRuns[0]; run.approvalReceipt={savePending:true,baseText:'等待写入'};
+  assert.equal(History.presentation(state,run,presentationEnvironment).status,'awaiting-save');
+  assert.equal(History.canDeleteRun(run),false); assert.throws(()=>History.deletionPlan(state,[run.id]),/不能删除/);
+});
+test('unconfirmed execution checkpoints override stale completion without suggesting a new model retry', () => {
+  for (const phase of ['prepared','applied']) {
+    const state=fixture(),run=state.agentRuns[0]; run.results=[];
+    run.executionReceipt={version:1,id:'receipt',phase,error:'保存确认丢失',actionCount:2};
+    state.conversations[0].messages=[{role:'assistant',runId:run.id,text:'已完成整理。'}];
+    const before=JSON.stringify(state),shown=History.presentation(state,run,presentationEnvironment);
+    assert.equal(shown.status,phase==='prepared'?'interrupted':'awaiting-save');assert.equal(shown.tone,'pending');
+    assert.match(shown.label,phase==='prepared'?/可继续整理/:/等待保存确认/);
+    assert.match(shown.hint,phase==='prepared'?/重新校验计划与当前权限/:/不会重新调用模型或再次执行/);
+    assert.equal(shown.error,'保存确认丢失');assert.equal(shown.historicalIssue,false);
+    assert.equal(History.queryRuns(state,{status:'completed'},presentationEnvironment).some(item=>item.id===run.id),false);
+    assert.equal(JSON.stringify(state),before);
+  }
+});
+test('prepared and applied receipts cannot be deleted even when cached run status is terminal', () => {
+  for (const phase of ['prepared','applied']) for (const status of ['interrupted','failed','cancelled','completed']) {
+    const state=fixture(),run=state.agentRuns[0];run.status=status;run.executionReceipt={version:1,phase};
+    assert.equal(History.canDeleteRun(run),false,`${phase}/${status}`);
+    assert.throws(()=>History.deletionPlan(state,[run.id]),/不能删除/);
+  }
+  const state=fixture(),run=state.agentRuns[0];run.executionReceipt={version:1,phase:'committed'};
+  assert.equal(History.canDeleteRun(run),true,'acknowledged terminal records retain their existing deletion policy');
+});
+test('a preparation checkpoint in the current active execution remains running rather than falsely interrupted', () => {
+  const state=fixture(),run=state.agentRuns[0];run.status='running';run.executionReceipt={version:1,phase:'prepared'};
+  const shown=History.presentation(state,run,presentationEnvironment);assert.equal(shown.status,'running');assert.equal(shown.tone,'accent');assert.match(shown.label,/执行中/);assert.doesNotMatch(shown.hint,/继续整理/);
+  assert.equal(History.queryRuns(state,{status:'running'},presentationEnvironment)[0].id,run.id);assert.equal(History.canDeleteRun(run),false);
+});
+test('checkpoint transferred to approval keeps approval priority and its pending-save protection', () => {
+  const state=fixture(),run=state.agentRuns[0];run.status='awaiting-approval';run.executionReceipt={version:1,phase:'prepared'};
+  let shown=History.presentation(state,run,presentationEnvironment);assert.equal(shown.status,'awaiting-approval');assert.match(shown.hint,/审阅并批准/);assert.equal(History.canDeleteRun(run),false);
+  run.approvalReceipt={savePending:true,baseText:'批准后的保存尚未确认'};run.status='completed';run.executionReceipt.phase='applied';
+  shown=History.presentation(state,run,presentationEnvironment);assert.equal(shown.status,'awaiting-save');assert.equal(History.canDeleteRun(run),false);
+});
+test('history detail exposes the recoverable phase and its original conversation without enabling deletion', async () => {
+  const state=fixture(),run=state.agentRuns[0];run.status='interrupted';run.executionReceipt={version:1,phase:'prepared'};
+  const h=harness(state);await h.select(run.id);
+  assert.match(h.content(),/计划已保留 · 可继续整理/);assert.match(h.content(),/恢复方式/);assert.match(h.content(),/重新校验计划与当前权限/);
+  assert.equal(h.el('runHistoryDeleteOne').disabled,true);assert.equal(h.api.openOriginal(),true);assert.deepEqual(h.opened,['live']);
+});
+test('results resolve only exact currently active typed entities and their current owner', () => {
+  const state=fixture(); state.notes=[{id:'n',title:'当前标题',projectId:'p'}];
+  const result={type:'note',id:'n',text:'历史名称',projectId:'gone'};
+  assert.equal(History.resultFor(state,result).title,'当前标题'); assert.equal(History.resultFor(state,result).available,true);
+  for (const patch of [{archived:true},{archivedAt:2},{deleted:true},{deletedAt:2},{status:'archived'},{status:'deleted'},{tombstone:true},{wikiFileError:'gone'}]) {
+    const snapshot={...state,notes:[{...state.notes[0],...patch}]}; assert.equal(History.resultFor(snapshot,result).available,false,JSON.stringify(patch));
+  }
+  state.projects[0].archivedAt=3; assert.equal(History.resultFor(state,result).available,false);
+  state.notes[0].projectId=null; assert.equal(History.resultFor(state,result).available,true,'moved out of former archived project');
+  state.notes.push({...state.notes[0]}); assert.equal(History.resultFor(state,result).available,false);
+  for (const invalid of [null,'historical text',{type:'__proto__',id:'n'},{type:'note'},{type:'paper',id:'n'}]) assert.equal(History.resultFor(state,invalid).available,false);
+});
+test('trash, canonical note aliases and transitive privacy preserve real result boundaries', () => {
+  const state=fixture(); state.notes=[{id:'new',title:'已合并笔记',mergedNoteIds:['old'],projectId:'p'}];
+  state.trash.push({data:{notes:[{id:'old'}]}});
+  const environment={NoteConsolidation:Notes,CitationEvidence:Evidence};
+  assert.equal(History.resultFor(state,{type:'note',id:'old'},environment).id,'new');
+  assert.equal(History.resultFor(state,{type:'note',id:'old'},environment).available,true);
+  state.projects[0].incognito=true; const hidden=History.resultFor(state,{type:'note',id:'old',text:'private previous title'},environment);
+  assert.equal(hidden.available,false); assert.equal(hidden.title,'私密成果');
+  delete state.projects[0].incognito; state.notes[0].sourceConversationId='secret'; state.conversations.push({id:'secret',ephemeral:true});
+  assert.equal(History.resultFor(state,{type:'note',id:'new'},environment).available,false);
+  state.conversations.pop(); state.trash.push({data:{notes:[{id:'new'}]}});
+  assert.equal(History.resultFor(state,{type:'note',id:'new'},environment).available,false);
+});
+test('result click revalidates a stale target and dispatches exact identity after modal closes', async () => {
+  const state=fixture();state.notes=[{id:'n',title:'笔记'}];state.agentRuns[0].results=[{type:'note',id:'n'}];
+  let release,callCount=0; const pending=new Promise(resolve=>release=resolve);
+  const h=harness(state,{openResult:async(type,id)=>{callCount++;assert.equal(type,'note');assert.equal(id,'n');assert.equal(h.el('runHistoryDialog').open,false);await pending;return false;}});
+  await h.select('r1');state.notes[0].archived=true;assert.equal(await h.api.openResult(0),false);assert.equal(callCount,0);
+  delete state.notes[0].archived; const opening=h.api.openResult(0);assert.equal(callCount,1);assert.equal(await h.api.openResult(0),false);release();assert.equal(await opening,false);assert.equal(callCount,1);assert.equal(h.saves.length,0);
+});
+test('unchanged refresh ticks retain a focused detail node and Escape stops the watcher', async()=>{
+  let tick,stopped=0;const h=harness(fixture(),{environment:{setInterval:callback=>{tick=callback;return 99;},clearInterval:id=>{assert.equal(id,99);stopped++;}}});
+  await h.select('r1');const node=h.active().find(item=>item.id==='runHistoryDeleteOne');node.focus();tick();
+  assert.equal(h.active().find(item=>item.id==='runHistoryDeleteOne'),node);assert.equal(h.document.activeElement,node);
+  h.el('runHistoryDialog').close();assert.equal(stopped,1);
+});
+
+
+test('opening a specific execution selects its detail immediately without changing records', () => {
+  const h = harness(), before = JSON.stringify(h.state);
+  h.api.open('r1');
+  assert.equal(h.api.openOriginal(), true); assert.deepEqual(h.opened, ['live']);
+  assert.equal(JSON.stringify(h.state), before); assert.equal(h.saves.length, 0);
 });

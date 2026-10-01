@@ -4,12 +4,13 @@ from urllib.parse import quote
 from wiki_migration import WikiMigration
 from wiki_vault import WikiVaultError
 import wiki_links
+from document_media import DocumentMedia, FILE_URL, image_occurrences
 
 class WikiBundle:
  LIMIT=128*1024*1024
  def __init__(self,store):self.store=store
  @staticmethod
- def sources(note):return list(dict.fromkeys(note.get('sourceAttachmentIds',[])+note.get('wikiImportAssets',[])))
+ def sources(note):return list(dict.fromkeys(note.get('sourceAttachmentIds',[])+note.get('wikiImportAssets',[])+[m[1] for href,_,_ in image_occurrences(note.get('content','')) if (m:=FILE_URL.fullmatch(href))]))
  def preview(self,ids):
   if not isinstance(ids,list) or not 1<=len(ids)<=1000 or any(not isinstance(i,str) for i in ids):raise WikiVaultError('请选择1–1000篇 Wiki')
   with self.store.lock():
@@ -39,6 +40,16 @@ class WikiBundle:
     if total>self.LIMIT:raise WikiVaultError('导出内容超过128 MiB，请缩小范围')
     files[path]=raw
    source_paths={};imports={i['id']:i for i in state.get('imports',[]) if active(i) and (not i.get('projectId') or i['projectId'] in projects)}
+   # Embedded managed images are document content, not optional supplementary
+   # sources. Always preserve their bytes and fail explicitly if unavailable.
+   media=DocumentMedia(self.store)
+   for n in chosen:
+    for href,_,_ in image_occurrences(n.get('content','')):
+     if not FILE_URL.fullmatch(href):continue
+     media.note(state,n['id']);image=media.image_for_note(state,n,href);identifier=image['id']
+     if identifier not in source_paths:
+      target='sources/'+image['path'];put(target,image['data']);source_paths[identifier]=target
+      manifest['sources'].append({'id':identifier,'name':imports.get(identifier,{}).get('name'),'path':target,'sha256':hashlib.sha256(image['data']).hexdigest(),'embedded':True})
    if payload.get('includeSources') is True:
     for n in chosen:
      for identifier in self.sources(n):
@@ -63,6 +74,11 @@ class WikiBundle:
    for n in chosen:
     entry=mapping[n['id']];path=entry['path'];body=n.get('content','')
     # Only the exported copy is repaired; approved local Markdown stays intact.
+    for href,start,end in reversed(image_occurrences(body)):
+     match=FILE_URL.fullmatch(href)
+     if match and match[1] in source_paths:
+      replacement=quote(posixpath.relpath(source_paths[match[1]],posixpath.dirname(path) or '.'),safe='/')
+      body=body[:start]+replacement+body[end:]
     for href,start,end in reversed(wiki_links.occurrences(body,include_images=True)):
      source=n.get('wikiSourceLinks',{}).get(href)
      if source in source_paths:

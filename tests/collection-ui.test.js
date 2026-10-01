@@ -36,6 +36,46 @@ function selectionTarget(key, checked = true) {
 const buttonTarget = selector => ({ closest: target => target === selector ? {} : null });
 const deleteTarget = key => ({ closest: selector => selector === '[data-cui-delete]' ? {} : selector === '[data-cui-key]' ? { dataset: { cuiKey: key } } : null });
 
+test('note metadata uses human labels, preserves custom kinds and gives pending drafts priority', () => {
+  const notes = [
+    { id: 'plain', kind: 'note' }, { id: 'default' }, { id: 'knowledge', kind: '知识' }, { id: 'custom', kind: '课程复习卡' },
+    { id: 'daily', kind: '项目记忆/daily', projectMemoryType: 'daily' },
+    { id: 'plan', kind: '科研 Wiki/output', projectMemoryType: 'plan' },
+    { id: 'long', projectMemoryType: 'long' },
+    { id: 'draft', kind: '课程复习卡', userEdited: true, aiDraft: { content: 'Not adopted' } },
+    { id: 'memory-draft', projectMemoryType: 'daily', aiDraft: { content: 'Not adopted' } },
+    { id: 'unknown-memory', projectMemoryType: 'constructor', kind: '自定义记录' },
+  ];
+  const state = useState({ notes }), before = JSON.stringify(state);
+  assert.deepEqual(records().map(item => item._meta), ['笔记', '笔记', '知识', '课程复习卡', '项目日记', '项目计划', '长期记忆', '待审阅', '待审阅', '自定义记录']);
+  assert.equal(JSON.stringify(state), before, 'Presentation never adopts a draft or rewrites persisted kinds');
+});
+
+test('pending draft state remains visible in list, cards and file-tree views', () => {
+  useState({ notes: [{ id: 'draft', title: 'Example', kind: 'note', userEdited: true, reviewed: true, aiDraft: { content: 'Unsaved proposal' } }] });
+  for (const view of ['list', 'cards', 'tree']) {
+    const container = new Container(); Collection.render(container, { defaultView: view });
+    assert.match(container.innerHTML, /class="collection-status analysis-pending"[^>]*>待审阅<\//, view);
+    assert.doesNotMatch(container.innerHTML, />已保存<|>已采纳</, view);
+  }
+});
+
+test('all document entry kinds forward the exact clicked button, not its nested icon or ambient focus', async () => {
+  const calls = [], state = useState({ notes: [{ id: 'n' }], imports: [{ id: 'i' }], papers: [{ id: 'p' }], tasks: [{ id: 't' }] },
+    Object.fromEntries(['Note', 'Import', 'Paper', 'Task'].map(type => ['open' + type, (id, options) => { calls.push({ type, id, options }); return true; }])));
+  const container = new Container(); Collection.render(container);
+  for (const [type, id] of [['note', 'n'], ['import', 'i'], ['paper', 'p'], ['task', 't']]) {
+    const target = openTarget(`${type}:${id}`), anchor = target.closest('[data-cui-open]');
+    await container.event('click', target);
+    assert.equal(calls.at(-1).id, id); assert.equal(calls.at(-1).options?.anchor, anchor);
+    assert.notEqual(calls.at(-1).options?.anchor, target);
+  }
+  assert.equal(calls.length, 4);
+  state.notes[0].private = true; await container.event('click', openTarget('note:n'));
+  state.imports[0].deletedAt = 1; await container.event('click', openTarget('import:i'));
+  assert.equal(calls.length, 4, 'New navigation metadata must not bypass current privacy/deletion checks');
+});
+
 test('project collections exclude unassigned/other/archived records and use current project workspace', () => {
   useState({ projects: [{ id: 'a', name: '智能控制', workspace: '课程' }, { id: 'b', workspace: '科研' }, { id: 'old', workspace: '课程', archived: true }],
     tasks: [{ id: 'a-task', projectId: 'a', workspace: '日常' }, { id: 'b-task', projectId: 'b' }, { id: 'loose' }, { id: 'archived-task', projectId: 'a', archived: true }, { id: 'old-task', projectId: 'old' }], notes: [], imports: [] });
@@ -206,4 +246,15 @@ test('merge action only accepts selected notes and clears only after successful 
   assert.match(container.innerHTML,/data-cui-merge/);
   await container.event('click',buttonTarget('[data-cui-merge]'));assert.deepEqual(received,['a','b']);assert.doesNotMatch(container.innerHTML,/已选择/);
   container.event('change',selectionTarget('note:a'));container.event('change',selectionTarget('task:t'));assert.doesNotMatch(container.innerHTML,/data-cui-merge/);
+});
+
+test('library type and folder boundaries exclude tasks and prune hidden selections', () => {
+  const deleted=[];useState({projects:[{id:'p'}],tasks:[{id:'todo',projectId:'p',folderPath:'design'}],notes:[{id:'root',title:'Root',projectId:'p'},{id:'child',title:'Child',projectId:'p',folderPath:'design/research'},{id:'neighbor',title:'Neighbor',projectId:'p',folderPath:'design-other'}],imports:[{id:'source',name:'Source',projectId:'p',folderPath:'design'}]}, {deleteItems:async items=>{deleted.push(items);return true}});
+  const options={projectId:'p',types:['note','import'],folderPath:'design'};
+  assert.deepEqual(records(options).map(x=>x.id),['child','source']);
+  assert.deepEqual(records({...options,folderPath:''}).map(x=>x.id),['root']);
+  const container=new Container();Collection.render(container,options);assert.doesNotMatch(container.innerHTML,/value="task"/);
+  container.event('change',selectionTarget('note:child'));assert.match(container.innerHTML,/已选择 1 项/);
+  Collection.render(container,{...options,folderPath:''});assert.doesNotMatch(container.innerHTML,/已选择 1 项/);
+  return container.event('click',deleteTarget('note:child')).then(()=>assert.deepEqual(deleted,[]));
 });

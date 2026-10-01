@@ -1,24 +1,113 @@
-(function(root){'use strict';const W=root.ResearchWiki,t=(zh,en)=>root.WorkstationI18n?.getLanguage?.()==='en'?en:zh;
+(function(root){'use strict';const W=root.ResearchWiki,t=(zh,en)=>/^en(?:-|$)/i.test(root.WorkstationI18n?.getLanguage?.()||root.document?.documentElement?.lang||'')?en:zh;
 const FIELD_LABELS={definition:'Definition and scope',distinctions:'Related concepts and differences',description:'Data and tasks',task:'Evaluation task',protocol:'Protocol and metrics',purpose:'Purpose and audience',question:'Research question',method:'Method and contributions',evidence:'Evidence and source locations',limitations:'Limitations and scope',principle:'Core principle',assumptions:'Assumptions and prerequisites',procedure:'Implementation and procedure',hypothesis:'Hypothesis',setup:'Setup and controls',versions:'Code and data versions',results:'Metrics and results',interpretation:'Interpretation and limitations',symptom:'Problem and symptoms',attempts:'Attempts and outcomes',conditions:'Reproduction conditions',feedback:'Original feedback and sources',response:'Response and decisions',validation:'Validation plan and evidence',status:'Status',connections:'Connections and inspiration',observations:'Observations and evidence',inferences:'Inferences to validate',contradictions:'Conflicts and invalidated conclusions',nextSteps:'Next steps and open questions'};
-let hooks,host,search,filter='',projectId,dialog,saving=false,newId=null;
+let hooks,host,headerRoot,headerIsland,cardsIsland,query='',filter='',projectId,dialog,composerIsland,composerSession,actionBusy='',actionError='';
+const cardOperations=new Map(),cardErrors=new Map();
 const el=(tag,cls,text)=>{const n=document.createElement(tag);n.className=cls||'';if(text!==undefined)n.textContent=text;return n;};
 const button=(text,fn,cls='secondary')=>{const b=el('button',cls,text);b.type='button';b.onclick=fn;return b;};
-function init(h){hooks=h;host=document.getElementById('wiki');host.append(el('header','wiki-heading'),el('div','wiki-scopes'),el('div','wiki-types'));search=el('input','wiki-search');search.type='search';search.setAttribute('aria-label','Search research Wiki');search.oninput=renderCards;host.append(search);const layout=el('div','wiki-layout'),tree=el('nav','wiki-tree');tree.setAttribute('aria-label',t('科研知识目录','Research knowledge directory'));layout.append(tree,el('div','wiki-grid'));host.append(layout);document.addEventListener('workstation-language-change',render);render();}
-function render(){if(!host)return;const heading=host.querySelector('header');heading.replaceChildren();const text=el('div');text.append(el('small','wiki-eyebrow','RESEARCH / WIKI'),el('h1','',t('科研 Wiki','Research Wiki')),el('p','',t('让研究有积累，让下一次从已知出发。','Build on what you know, across every conversation.')));const storage=el('div','wiki-storage');storage.append(button(hooks.getState()._wikiEnabled?t('刷新 Markdown','Refresh Markdown'):t('建立 Markdown Wiki','Create Markdown Wiki'),async()=>{try{await hooks.refresh(!hooks.getState()._wikiEnabled);render();hooks.toast(t('Wiki 已同步','Wiki synchronized'));}catch(e){hooks.toast(e.message);}}));if(root.WikiMigrationUI)storage.append(button(t('迁入已有笔记 / Markdown','Import notes / Markdown'),()=>root.WikiMigrationUI.open()));if(root.WikiMaintenance)storage.append(button(t('检查移动链接','Check moved links'),()=>root.WikiMaintenance.open()));if(root.WikiExport)storage.append(button(t("导出目录与原件","Export Wiki and sources"),()=>root.WikiExport.open(W.entries(hooks.getState(),{projectId,type:filter,query:search.value}).map(n=>n.id))));if(root.ResearchInspector)storage.append(button(t('知识检查','Knowledge checks'),()=>root.ResearchInspector.openHealth({projectId})),button(t('检索试验','Retrieval lab'),()=>root.ResearchInspector.openSearch({projectId})),button(t('资料处理','Source processing'),()=>root.ResearchInspector.openSources({projectId})));text.append(storage);if(hooks.getState()._wikiError)text.append(el('p','wiki-pending',hooks.getState()._wikiError));heading.append(text,button(t('＋ 新建条目','＋ New entry'),()=>compose(),'primary'));search.placeholder=t('搜索问题、方法、证据或失败经验…','Search questions, methods, evidence or lessons…');
- const scopes=host.querySelector('.wiki-scopes');scopes.replaceChildren();const options=[['all',t('全部科研','All research')],['',t('独立条目','Unassigned')],...(hooks.getState().projects||[]).filter(p=>W.active(p)&&p.workspace==='科研').map(p=>[p.id,p.name])];if(projectId&&!options.some(x=>x[0]===projectId))projectId=undefined;
- for(const [id,name]of options){const b=button(name,()=>{projectId=id==='all'?undefined:id||null;render();},'wiki-scope');b.setAttribute('aria-pressed',String((id==='all'&&projectId===undefined)||(id===''&&projectId===null)||id===projectId));if(id&&id!=='all')b.dataset.userContent='';scopes.append(b);}
- const kinds=host.querySelector('.wiki-types');kinds.replaceChildren();for(const [key,kind]of [['',{zh:'全部',en:'All',icon:'◌'}],...Object.entries(W.TYPES)]){const count=W.entries(hooks.getState(),{projectId,type:key}).length;const b=button(`${kind.icon}  ${t(kind.zh,kind.en)}  ${count}`,()=>{filter=key;render();},'wiki-kind');b.dataset.wikiType=key;b.setAttribute('aria-pressed',String(filter===key));kinds.append(b);}renderCards();}
-function renderCards(){renderTree();const grid=host.querySelector('.wiki-grid');grid.replaceChildren();const state=hooks.getState(),notes=W.entries(state,{projectId,type:filter,query:search.value});if(!notes.length){const empty=el('div','wiki-empty');empty.append(el('h2','',t('从一个问题，一次尝试开始。','Start with a question or an experiment.')),el('p','',t('论文导读会在这里显示。你也可以记录方法、失败经验或 Review 反馈。','Paper guides appear here, alongside methods, lessons and review feedback.')));grid.append(empty);}
- for(const note of notes){const kind=W.TYPES[W.typeOf(note)],card=el('article','wiki-card');card.dataset.wikiNote=note.id;const meta=el('div','wiki-meta');meta.append(el('span','wiki-badge',`${kind.icon} ${t(kind.zh,kind.en)}`),el('time','',new Date(note.updatedAt).toLocaleDateString()));const title=el('h2','',note.title);title.dataset.userContent='';const excerpt=el('p','wiki-excerpt',String(note.content||'').split('\n').filter(x=>x.trim()&&!/^\s*[#>]/.test(x)&&x.trim()!=='未记录。').slice(0,3).join('\n'));excerpt.dataset.userContent='';card.append(meta,title,excerpt);
- const relation=W.related(state,note),owner=state.projects.find(p=>p.id===note.projectId);const label=el('p','wiki-owner',owner?.name||t('独立科研条目','Unassigned research'));label.dataset.userContent='';card.append(label);card.append(el('small','wiki-provenance',`${t('来源','Sources')} ${(note.sourceAttachmentIds||[]).length+relation.sources.length} · ${t('反向关联','Backlinks')} ${relation.backlinks.length}`));if(note.aiDraft)card.append(el('p','wiki-pending',t('有待审阅修改 · 正文保留当前版本','Changes awaiting review · current version preserved')));
- if(note.wikiFileError)card.append(el('p','wiki-pending',t('文件不可读，当前显示缓存：','File unavailable; showing cached text: ')+note.wikiFileError));const actions=el('footer');if(note.wikiFileError)actions.append(button(t('恢复已保存正文','Restore saved content'),async()=>{try{await hooks.restore(note.id);render();}catch(e){hooks.toast(e.message);}}));actions.append(button(t('阅读与编辑','Read & edit'),()=>hooks.open(note.id)),button(t('与 AI 继续研究','Continue with AI'),()=>hooks.continue(note.id).catch(e=>hooks.toast(e.message))),button(t('移入回收站','Move to trash'),()=>hooks.remove(note.id)));if(root.WikiMerge)actions.append(button(t('合并条目','Merge entries'),()=>root.WikiMerge.open(note.id)));if(root.ResearchInspector)actions.append(button(t('来源与关联','Sources and links'),()=>root.ResearchInspector.openRelations(note.id)));card.append(actions);grid.append(card);}
+// Header and keyed cards have separate React roots. The directory and unsaved
+// entry dialog retain their original DOM lifecycle and storage contracts.
+function init(h){
+ hooks=h;host=document.getElementById('wiki');if(!host)return;
+ headerIsland?.unmount();cardsIsland?.unmount();headerIsland=null;cardsIsland=null;headerRoot=el('div','wiki-header-root');
+ const layout=el('div','wiki-layout'),tree=el('nav','wiki-tree');tree.setAttribute('aria-label',t('科研知识目录','Research knowledge directory'));
+ layout.append(tree,el('div','wiki-grid'));host.replaceChildren(headerRoot,layout);
+ document.removeEventListener('workstation-language-change',render);document.addEventListener('workstation-language-change',render);render();
+}
+function headerProps(){
+ const state=hooks.getState(),projects=(state.projects||[]).filter(p=>W.active(p)&&p.workspace==='科研');
+ if(projectId&&!projects.some(p=>p.id===projectId))projectId=undefined;
+ const entries=W.entries(state,{projectId}),counts=Object.fromEntries(Object.keys(W.TYPES).map(type=>[type,0]));
+ for(const note of entries)counts[W.typeOf(note)]++;
+ return {
+  query,type:filter,scope:projectId===undefined?'all':projectId===null?'unassigned':'project:'+projectId,
+  count:W.entries(state,{projectId,type:filter,query}).length,
+  scopes:[{value:'all',label:t('全部科研','All research')},{value:'unassigned',label:t('独立条目','Unassigned')},...projects.map(p=>({value:'project:'+p.id,label:p.name}))],
+  types:[{value:'',label:t('全部类型','All types'),count:entries.length},...Object.entries(W.TYPES).map(([value,kind])=>({value,label:t(kind.zh,kind.en),count:counts[value]}))],
+  canImport:!!root.WikiMigrationUI,canResearch:!!hooks.research,actions:[
+   {id:'refresh',group:'storage',label:state._wikiEnabled?t('刷新 Markdown','Refresh Markdown'):t('建立 Markdown Wiki','Create Markdown Wiki')},
+   ...(root.WikiExport?[{id:'export',group:'storage',label:t('导出目录与原件','Export Wiki and sources')}]:[]),
+   ...(root.WikiMaintenance?[{id:'links',group:'checks',label:t('检查移动链接','Check moved links')}]:[]),
+   ...(root.ResearchInspector?[{id:'health',group:'checks',label:t('知识检查','Knowledge checks')},{id:'search',group:'checks',label:t('检索试验','Retrieval lab')},{id:'sources',group:'checks',label:t('资料处理','Source processing')}]:[])
+  ],
+  busy:actionBusy,error:actionError||state._wikiError||'',
+  onQuery:value=>{query=value;render();},onType:value=>{filter=value;render();},
+  onScope:value=>{projectId=value==='all'?undefined:value==='unassigned'?null:value.slice('project:'.length);render();},
+  onAction:performAction
+ };
+}
+function renderHeader(){
+ const props=headerProps();
+ if(headerIsland)headerIsland.update(props);else headerIsland=root.HalaskaUI.mount(headerRoot,'ResearchWikiHeader',props);
+}
+function render(){if(!host)return;renderHeader();host.querySelector('.wiki-tree').setAttribute('aria-label',t('科研知识目录','Research knowledge directory'));renderCards();if(dialog?.open)renderComposer();}
+async function performAction(id){
+ if(actionBusy)return;
+ const returnFocus=document.activeElement;
+ actionError='';
+ if(id==='new'){compose();return;}
+ if(id==='refresh'){actionBusy=id;renderHeader();}
+ try{
+  switch(id){
+   case 'refresh':await hooks.refresh(!hooks.getState()._wikiEnabled);hooks.toast(t('Wiki 已同步','Wiki synchronized'));break;
+   case 'import':await root.WikiMigrationUI?.open();break;
+   case 'research':await hooks.research?.(projectId);break;
+   case 'export':await root.WikiExport?.open(W.entries(hooks.getState(),{projectId,type:filter,query}).map(n=>n.id));break;
+   case 'links':await root.WikiMaintenance?.open();break;
+   case 'health':await root.ResearchInspector?.openHealth({projectId});break;
+   case 'search':await root.ResearchInspector?.openSearch({projectId});break;
+   case 'sources':await root.ResearchInspector?.openSources({projectId});break;
+  }
+ }catch(error){actionError=error?.message||String(error);hooks.toast(actionError);}
+ finally{actionBusy='';if(id==='refresh')render();else renderHeader();if(id==='refresh'&&document.activeElement===document.body&&returnFocus?.isConnected&&returnFocus.getClientRects().length)returnFocus.focus({preventScroll:true});}
+}
+function cardExcerpt(content){
+ // Reuse the editor's display parser; never strip or write the stored note.
+ const body=root.NoteEditor?.markdownBody?root.NoteEditor.markdownBody(content):String(content||'');
+ return body.split('\n').filter(line=>line.trim()&&!/^\s*[#>]/.test(line)&&line.trim()!=='未记录。').slice(0,3).join('\n');
+}
+function cardView(note,state){
+ const kind=W.TYPES[W.typeOf(note)],relation=W.related(state,note),owner=(state.projects||[]).find(p=>p.id===note.projectId);
+ const date=note.updatedAt??note.createdAt,time=date===undefined?null:new Date(date);
+ return {id:note.id,title:note.title||'',type:W.typeOf(note),typeLabel:t(kind.zh,kind.en),typeIcon:kind.icon,
+  excerpt:cardExcerpt(note.content),owner:owner?.name||t('独立科研条目','Unassigned research'),
+  date:time&&!Number.isNaN(time.valueOf())?time.toISOString():'',
+  sourceCount:(note.sourceAttachmentIds||[]).length+relation.sources.length,backlinkCount:relation.backlinks.length,
+  pendingDraft:!!note.aiDraft,fileError:note.wikiFileError||'',canMerge:!!root.WikiMerge,canRelations:!!root.ResearchInspector,
+  pendingAction:cardOperations.get(note.id)?.action||'',actionError:cardErrors.get(note.id)||''};
+}
+function renderCards(){
+ renderTree();const grid=host.querySelector('.wiki-grid'),state=hooks.getState(),notes=W.entries(state,{projectId,type:filter,query});
+ const focus=document.activeElement,ownedFocus=grid.contains(focus);
+ const props={notes:notes.map(note=>cardView(note,state)),filtered:!!(query.trim()||filter),onAction:performCardAction,onCreate:compose,
+  onReset:()=>{query='';filter='';render();document.getElementById('wikiSearch')?.focus({preventScroll:true});}};
+ if(cardsIsland)cardsIsland.update(props);else cardsIsland=root.HalaskaUI.mount(grid,'ResearchWikiCards',props);
+ // Keyed retained cards keep their DOM and open menu. If an external update
+ // removes the focused card, return to the stable search control, not body.
+ if(ownedFocus&&document.activeElement===document.body){const target=focus.isConnected&&!focus.disabled?focus:!focus.isConnected?document.getElementById('wikiSearch'):null;if(target?.getClientRects().length)target.focus({preventScroll:true});}
+}
+function performCardAction(id,action){
+ if(cardOperations.has(id))return cardOperations.get(id).promise;
+ const note=W.entries(hooks.getState()).find(item=>item.id===id);
+ if(!note)throw Error(t('条目已删除、归档或不在科研范围中。','This entry was removed, archived, or is no longer in research.'));
+ const operation={action,promise:null,focus:document.activeElement};cardOperations.set(id,operation);cardErrors.delete(id);
+ operation.promise=(async()=>{
+  try{switch(action){
+   case 'open':return await hooks.open(id);
+   case 'continue':return await hooks.continue(id);
+   case 'remove':return await hooks.remove(id);
+   case 'merge':return await root.WikiMerge?.open(id);
+   case 'relations':return hooks.sources ? await hooks.sources(id) : await root.ResearchInspector?.openRelations(id);
+   case 'restore':if(note.wikiFileError)await hooks.restore(id);return;
+  }}catch(error){cardErrors.set(id,error?.message||String(error));hooks.toast(error?.message||String(error));throw error;}
+  finally{if(cardOperations.get(id)===operation){cardOperations.delete(id);render();const active=document.activeElement;if(operation.focus&&!operation.focus.isConnected&&(active===document.body||!active?.getClientRects().length)){const target=document.getElementById('wikiSearch');if(target?.getClientRects().length)target.focus({preventScroll:true});}}}
+ })();return operation.promise;
 }
 function renderTree(){
  const tree=host.querySelector('.wiki-tree'),state=hooks.getState();const expanded=new Set([...tree.querySelectorAll('details[open]')].map(d=>d.dataset.path));const known=new Set([...tree.querySelectorAll('details')].map(d=>d.dataset.path));tree.replaceChildren();const nodes=new Map();
  const folder=(path)=>{let parent=tree,key='';for(const name of path){key+='/'+name;if(!nodes.has(key)){const d=el('details');d.dataset.path=key;d.open=!known.has(key)||expanded.has(key);d.append(el('summary','',name));parent.append(d);nodes.set(key,d);}parent=nodes.get(key);}return parent;};
  const projects=new Set((state.projects||[]).filter(p=>W.active(p)&&p.workspace==='科研').map(p=>p.id));
  const scoped=n=>W.active(n)&&(!n.projectId? n.workspace==='科研':projects.has(n.projectId))&&(projectId===undefined||(n.projectId||null)===projectId);
- const q=search.value.toLocaleLowerCase().trim();
+ const q=query.toLocaleLowerCase().trim();
  for(const note of (state.notes||[]).filter(scoped)){
   const type=W.typeOf(note);if(filter&&type!==filter)continue;if(q&&!`${note.title} ${note.content}`.toLocaleLowerCase().includes(q))continue;
   const diskPath=state._wikiFiles?.[note.id]?.path;const path=diskPath?diskPath.split('/').slice(0,-1):type==='paper'?['sources','papers']:type?[({method:'methods',concept:'concepts',dataset:'datasets',benchmark:'benchmarks',output:'outputs',experiment:'experiments',failure:'failures',review:'reviews',idea:'questions'})[type]]:['notes'];
@@ -30,9 +119,68 @@ function renderTree(){
  }
  if(!tree.children.length)tree.append(el('p','wiki-empty',t('暂无匹配资料','No matching documents')));
 }
-function compose(){if(dialog?.open)return;newId=null;dialog?.remove();dialog=el('dialog','wiki-dialog');dialog.setAttribute('aria-label',t('新建科研 Wiki 条目','New research Wiki entry'));const draft=hooks.getState().ui.wikiDraft||{type:filter||'experiment',projectId:projectId||null,sections:{}};let type=W.TYPES[draft.type]?draft.type:'experiment',pid=draft.projectId||null,values={...(draft.sections||{})};const title=el('input','wiki-title');title.placeholder=t('为这个研究条目起个名字','Name this research entry');title.value=draft.title||'';title.setAttribute('aria-label',title.placeholder);const fields=el('div','wiki-fields'),types=el('div','wiki-types'),projects=el('div','wiki-scopes'),status=el('p','wiki-status');status.setAttribute('role','status');
- const stash=()=>{hooks.getState().ui.wikiDraft={type,projectId:pid,title:title.value,sections:values};hooks.save();};title.oninput=stash;
- const draw=()=>{types.replaceChildren();for(const [id,kind]of Object.entries(W.TYPES)){const b=button(t(kind.zh,kind.en),()=>{type=id;stash();draw();},'wiki-kind');b.setAttribute('aria-pressed',String(type===id));b.dataset.createWikiType=id;types.append(b);}projects.replaceChildren();for(const [id,name]of [[null,t('独立科研条目','Unassigned research')],...hooks.getState().projects.filter(p=>W.active(p)&&p.workspace==='科研').map(p=>[p.id,p.name])]){const b=button(name,()=>{pid=id;stash();draw();},'wiki-scope');b.setAttribute('aria-pressed',String(pid===id));projects.append(b);}fields.replaceChildren();for(const [key,label]of Object.entries(W.fields(type))){const row=el('label','wiki-field'),area=el('textarea');area.value=values[key]||'';area.placeholder=t('尚无依据可以留空，不必填满。','Leave blank when evidence is unavailable.');area.dataset.wikiSection=key;area.oninput=()=>{values[key]=area.value;stash();};row.append(el('span','',t(label,FIELD_LABELS[key]||label)),area);fields.append(row);}};
- const save=button(t('保存条目','Save entry'),async()=>{if(saving)return;saving=true;dialog.querySelectorAll('input,textarea,button').forEach(n=>n.disabled=true);try{const sections=Object.fromEntries(Object.keys(W.fields(type)).map(k=>[k,values[k]||'']));const note=hooks.create({wikiType:type,title:title.value,sections,projectId:pid,noteId:newId});newId=note.id;await hooks.persist();delete hooks.getState().ui.wikiDraft;hooks.save();dialog.close();render();await hooks.open(note.id);}catch(e){status.textContent=e.message;}finally{saving=false;dialog.querySelectorAll('input,textarea,button').forEach(n=>n.disabled=false);}},'primary');save.dataset.wikiSave='true';const actions=el('footer');actions.append(button(t('稍后继续','Continue later'),()=>dialog.close()),save);dialog.addEventListener('cancel',e=>{if(saving)e.preventDefault();});dialog.append(el('h2','',t('留下可复用的研究记忆','Save reusable research memory')),types,projects,title,fields,status,actions);draw();document.body.append(dialog);dialog.showModal();title.focus();}
-root.ResearchWikiUI={init,render,compose};
+// New-entry creation is a single acknowledged transaction. The reader owns edits.
+async function createEntryDurably(h,draft){
+ const state=h.getState(),title=String(draft.title||'').trim(),pid=draft.projectId||null;
+ if(draft.pendingNoteId)throw Object.assign(Error(t('上次创建的条目已被更新，请打开已有条目继续编辑。','The previous entry has changed. Open it to continue editing.')),{retainedNoteId:draft.pendingNoteId});
+ if([...W.entries(state,{projectId:pid}),...(state.notes||[]).filter(note=>W.active(note)&&(note.projectId||null)===pid&&note.workspace==='科研')].some(note=>String(note.title||'').trim().toLocaleLowerCase()===title.toLocaleLowerCase()))throw Error(t('此范围已有同名条目，请使用不同标题，或打开已有条目编辑。','An entry with this title already exists in this scope. Choose another title or edit the existing entry.'));
+ const sections=Object.fromEntries(Object.keys(W.fields(draft.type)).map(key=>[key,draft.sections[key]||'']));
+ const note=h.create({wikiType:draft.type,title:draft.title,sections,projectId:pid}),created=JSON.stringify(note);
+ const savedDraft=state.ui.wikiDraft;
+ delete state.ui.wikiDraft;
+ try{if(await h.persist()===false)throw Error(t('保存未得到确认，请重试。','The save was not acknowledged. Please retry.'));return note;}
+ catch(error){
+  const current=h.getState(),record=(current.notes||[]).find(item=>item.id===note.id);
+  if(record&&JSON.stringify(record)===created)current.notes.splice(current.notes.indexOf(record),1);
+  const retained=record&&JSON.stringify(record)!==created?note.id:null;
+  if(!current.ui.wikiDraft)current.ui.wikiDraft={...(savedDraft||draft),sections:{...draft.sections},...(retained?{pendingNoteId:retained}:{})};
+  try{h.save();}catch(_){} // Queue the rollback and retained draft; preserve the original error.
+  if(retained)throw Object.assign(Error(t('保存未确认，且条目已被其他操作更新。已保留记录，请打开已有条目继续。','The save was not acknowledged and another operation changed the entry. The record was preserved; open it to continue.')),{retainedNoteId:retained});
+  throw error;
+ }
+}
+function composerProps(){
+ const session=composerSession,draft=session.draft,state=hooks.getState(),projects=(state.projects||[]).filter(p=>W.active(p)&&p.workspace==='科研');
+ const unavailable=draft.projectId&&!projects.some(p=>p.id===draft.projectId);
+ return {draft,busy:session.saving,error:session.error,savedId:session.savedId,
+  types:Object.entries(W.TYPES).map(([value,kind])=>({value,label:t(kind.zh,kind.en)})),
+  scopes:[{value:'',label:t('独立科研条目','Unassigned research')},...projects.map(p=>({value:p.id,label:p.name})),...(unavailable?[{value:draft.projectId,label:t('原项目已不可用，请重新选择','Previous project unavailable — choose another'),disabled:true}]:[])],
+  fields:Object.entries(W.fields(draft.type)).map(([key,label])=>({key,label:t(label,FIELD_LABELS[key]||label),common:Object.hasOwn(W.COMMON,key)})),
+  onChange:patch=>{if(session.saving||session.savedId||draft.pendingNoteId)return;session.draft={...session.draft,...patch};stashComposer();renderComposer();},
+  onSave:saveComposer,onClose:()=>{if(!session.saving)dialog.close();},onOpen:openComposedEntry};
+}
+function stashComposer(){hooks.getState().ui.wikiDraft={...composerSession.draft,sections:{...composerSession.draft.sections}};try{hooks.save();}catch(error){composerSession.error=error?.message||String(error);}}
+function renderComposer(){
+ if(!composerIsland||!composerSession)return;
+ dialog.setAttribute('aria-label',t('新建科研 Wiki 条目','New research Wiki entry'));composerIsland.update(composerProps());
+}
+function compose(){
+ if(dialog?.open)return;
+ composerIsland?.unmount();dialog?.remove();
+ const draft=hooks.getState().ui.wikiDraft||{type:filter||'experiment',projectId:projectId||null,title:'',sections:{}};
+ composerSession={draft:{...draft,type:W.TYPES[draft.type]?draft.type:'experiment',projectId:draft.projectId||null,title:draft.title||'',sections:{...(draft.sections||{})}},saving:false,error:'',savedId:null,opener:document.activeElement};
+ dialog=el('dialog','wiki-dialog wiki-compose-dialog');dialog.setAttribute('aria-label',t('新建科研 Wiki 条目','New research Wiki entry'));dialog.setAttribute('aria-describedby','wikiComposeDescription');
+ const content=el('div','wiki-compose-root');dialog.append(content);document.body.append(dialog);
+ composerIsland=root.HalaskaUI.mount(content,'ResearchWikiComposer',composerProps());
+ dialog.addEventListener('cancel',event=>{if(composerSession.saving)event.preventDefault();});
+ dialog.addEventListener('close',()=>{const session=composerSession;if(!session||session.opening)return;const active=document.activeElement;if(active===document.body||dialog.contains(active)){const target=session.opener?.isConnected?session.opener:document.querySelector('[data-wiki-action="new"]');if(target?.getClientRects().length)target.focus({preventScroll:true});}});
+ dialog.showModal();dialog.querySelector('.wiki-title')?.focus();
+}
+async function openComposedEntry(){
+ const session=composerSession,id=session.savedId||session.draft.pendingNoteId;if(!id||session.saving)return;
+ session.saving=true;session.opening=true;session.error='';renderComposer();dialog.close();
+ try{if(!W.entries(hooks.getState()).some(note=>note.id===id))throw Error(t('条目已归档、删除或暂不可用。','The entry is archived, removed, or currently unavailable.'));if(await hooks.open(id)===false)throw Error(t('阅读窗口尚未打开，可重试打开。','The reader did not open. Try opening it again.'));}
+ catch(error){session.error=t('条目已保留。','The entry is preserved. ')+(error?.message||String(error));dialog.showModal();}
+ finally{session.saving=false;session.opening=false;if(dialog.open){renderComposer();dialog.querySelector('[data-wiki-compose-action="open"]')?.focus();}}
+}
+async function saveComposer(){
+ const session=composerSession;if(!session||session.saving||session.savedId||session.draft.pendingNoteId)return;
+ session.saving=true;session.error='';stashComposer();renderComposer();
+ try{
+  const note=await createEntryDurably(hooks,session.draft);session.savedId=note.id;render();
+ }catch(error){session.error=error?.message||String(error);if(error?.retainedNoteId)session.draft.pendingNoteId=error.retainedNoteId;}
+ finally{session.saving=false;renderComposer();}
+ if(session.savedId)await openComposedEntry();else dialog.querySelector('[data-wiki-save]')?.focus({preventScroll:true});
+}
+root.ResearchWikiUI={init,render,compose,cardExcerpt,cardView,createEntryDurably};
 })(globalThis);

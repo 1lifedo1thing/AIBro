@@ -15,6 +15,11 @@ final class WebGlassHost:NSView {
     private var regions:[String:NSView]=[:]
     private var transparentWeb=false
     private var dimmed=false
+    private var surfaceVisible=false
+    private var focusRequested=false
+    private var publishedSurfaceVisibility:Bool?
+    private var publishedVisibility:Bool?
+    private var publicationVersion=0
     override var isFlipped:Bool {true}
     override var isOpaque:Bool {true}
     init(web:WKWebView){
@@ -25,7 +30,64 @@ final class WebGlassHost:NSView {
         web.underPageBackgroundColor = .clear;addSubview(web);web.autoresizingMask=[.width,.height]
     }
     required init?(coder:NSCoder){fatalError("init(coder:) has not been implemented")}
-    override func layout(){super.layout();web.frame=bounds}
+    override func layout(){super.layout();web.frame=bounds;publishPresentationVisibility()}
+    override func viewDidMoveToWindow(){
+        super.viewDidMoveToWindow()
+        NotificationCenter.default.removeObserver(self)
+        if let window {
+            for name in [NSWindow.didChangeOcclusionStateNotification,NSWindow.didMiniaturizeNotification,NSWindow.didDeminiaturizeNotification,NSWindow.didResizeNotification,NSWindow.willCloseNotification] {
+                NotificationCenter.default.addObserver(self,selector:#selector(presentationChanged(_:)),name:name,object:window)
+            }
+            for name in [NSApplication.didHideNotification,NSApplication.didUnhideNotification] {
+                NotificationCenter.default.addObserver(self,selector:#selector(presentationChanged(_:)),name:name,object:NSApp)
+            }
+        }
+        publishPresentationVisibility()
+    }
+    deinit{NotificationCenter.default.removeObserver(self)}
+    @objc private func presentationChanged(_ notification:Notification){publishPresentationVisibility()}
+    func setSurfaceVisible(_ visible:Bool){
+        surfaceVisible=visible
+        setNativeSurfaceVisibility(web,visible:visible)
+        publishPresentationVisibility()
+        applyRequestedFocus()
+    }
+    func requestFocusWhenVisible(){focusRequested=true;applyRequestedFocus()}
+    func cancelRequestedFocus(){focusRequested=false}
+    private func applyRequestedFocus(){
+        guard focusRequested,surfaceVisible,!web.isHidden,let window else{return}
+        if window.makeFirstResponder(web){focusRequested=false}
+    }
+    // Opacity-only SwiftUI destinations keep WebKit alive. This is presentation
+    // state only: do not suspend snapshots, streaming, saves or background work.
+    var presentationVisible:Bool {
+        guard surfaceVisible,bounds.width>0,bounds.height>0,!isHiddenOrHasHiddenAncestor,
+              let window,window.isVisible,!window.isMiniaturized,!NSApp.isHidden else{return false}
+        return window.occlusionState.contains(.visible)
+    }
+    func beginPresentationNavigation(){publicationVersion+=1;publishedVisibility=nil;publishedSurfaceVisibility=nil}
+    func publishPresentationVisibility(force:Bool=false){
+        publishSurfaceVisibility(force:force)
+        let visible=presentationVisible
+        guard force || publishedVisibility != visible else{return}
+        publishedVisibility=visible;publicationVersion+=1
+        let version=publicationVersion,value=visible ? "true":"false"
+        let script="window.__aibroPresentationVisible=\(value);window.dispatchEvent(new CustomEvent('aibro:presentation-visibility',{detail:{visible:\(value)}}));"
+        web.evaluateJavaScript(script){[weak self] _,error in
+            // A provisional page may reject evaluation. Commit/readiness/finish
+            // and later visibility events replay the latest value without a poll.
+            if error != nil,self?.publicationVersion == version{self?.publishedVisibility=nil}
+        }
+    }
+    private func publishSurfaceVisibility(force:Bool){
+        let visible=surfaceVisible
+        guard force || publishedSurfaceVisibility != visible else{return}
+        publishedSurfaceVisibility=visible
+        let value=visible ? "true":"false"
+        web.evaluateJavaScript("window.__aibroSurfaceVisible=\(value);window.dispatchEvent(new CustomEvent('aibro:surface-visibility',{detail:{visible:\(value)}}));"){[weak self] _,error in
+            if error != nil,self?.surfaceVisible == visible{self?.publishedSurfaceVisibility=nil}
+        }
+    }
     override func viewDidChangeEffectiveAppearance(){super.viewDidChangeEffectiveAppearance();needsDisplay=true}
     override func draw(_ dirtyRect:NSRect){
         let dark=effectiveAppearance.bestMatch(from:[.aqua,.darkAqua]) == .darkAqua

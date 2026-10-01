@@ -2,17 +2,24 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
+const installRunCheckpointHost = require('./helpers/run-checkpoint-host.cjs');
 const Core = require('../app/workstation-core');
 const AttachmentAnalysis = require('../app/attachment-analysis');
 const AttachmentContext = require('../app/attachment-context');
 const AttachmentDelivery = require('../app/attachment-delivery');
+const PlanReview = require('../app/plan-review');
 const source = fs.readFileSync(require.resolve('../app/app.js'), 'utf8');
 const cut = (start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
 const empty = () => ({ projects: [{id:'research', name:'控制实验', workspace:'科研'}], tasks:[], notes:[], imports:[], papers:[], links:[], trash:[], agentRuns:[], conversations:[{id:'conversation',title:'Existing conversation',projectId:'research',workspace:'科研',messages:[],attachments:[]}], currentConversationId:'conversation', settings:{permissions:{'日常':'auto','课程':'auto','科研':'approval'}} });
 function executionContext() {
-  let next=0;
-  const c=vm.createContext({structuredClone,state:empty(),Core,AttachmentContext,AttachmentDelivery,AttachmentAnalysis,window:{AttachmentAnalysis},workspaceName:v=>v==='科研'||v==='课程'?v:'日常',uid:prefix=>`${prefix}-${++next}`,normalizeStateShape:()=>{},addRunStep:()=>{},save:()=>{},renderAll:()=>{}});
+  let next=0; const toasts=[];
+  const c=vm.createContext({structuredClone,state:empty(),Core,AttachmentContext,AttachmentDelivery,AttachmentAnalysis,window:{AttachmentAnalysis},workspaceName:v=>v==='科研'||v==='课程'?v:'日常',uid:prefix=>`${prefix}-${++next}`,normalizeStateShape:()=>{},addRunStep:()=>{},save:()=>{},renderAll:()=>{},toasts,toast:message=>toasts.push(String(message))});
   vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function commitAttachmentAnalysis(', '\nfunction executeActions(')+cut('function executeActions(', '\nfunction fallbackWorkflow(')+cut('function actionsNeedApproval(', '\nfunction actionSummary('),c);
+  installRunCheckpointHost(c);
+  c.prepareApproval = () => {
+    const controller = PlanReview.createController({ getState: () => c.state, getRun: id => c.state.agentRuns.find(run => run.id === id), contextForRun: run => c.approvalContext(run), applyPlan: Core.applyPlan, save: c.saveDocumentDurably, isBusy: () => !!c.approveRun.busy?.size });
+    c.window.PlanReview = { capture: controller.capture, assertCurrent: controller.assertCurrent, reportError: controller.reportError };
+  };
   return c;
 }
 
@@ -43,14 +50,14 @@ for (const phase of ['model preparation', 'model response']) test(`deleting the 
   const node=key=>{if(!nodes.has(key)) nodes.set(key,{value:'',textContent:'',disabled:false,scrollHeight:0,scrollTop:0,clientHeight:0,classList:{remove(){},add(){}},setAttribute(){},querySelector(){return null},appendChild(){},firstElementChild:{}});return nodes.get(key);};
   let ready, finishTransport, markTransportStarted; const pending=new Promise(resolve=>{ready=resolve}); const transportStarted=new Promise(resolve=>{markTransportStarted=resolve}); const transportResult=new Promise(resolve=>{finishTransport=resolve});
   const models={configuration:()=>({provider:'api',model:'fixture-model',effort:''}),resolve:()=>pending};
-  Object.assign(c,{$:node,window:{ConversationModels:models,AttachmentAnalysis},ConversationModels:models,localStorage:{getItem:()=>''},document:{createElement:()=>node('temporary-holder')},AbortController,URL,setTimeout,clearTimeout,
+  Object.assign(c,{$:node,window:{...c.window,ConversationModels:models,AttachmentAnalysis},ConversationModels:models,localStorage:{getItem:()=>''},document:{createElement:()=>node('temporary-holder')},AbortController,URL,setTimeout,clearTimeout,
     activeRunController:null,liveRenderTimer:null,currentConversation:()=>c.state.conversations[0],currentAttachments:()=>[],defaultModelConfiguration:()=>({provider:'api',model:'fixture-model',effort:''}),
     renderConversation(){},renderMessage(){},classifyWorkspace:()=> '科研',visiblePaper:()=>true,actionSummary:()=>'',
     AgentTransport:{requestPlan:async()=>{markTransportStarted();return transportResult}},
     addRunStep:(run,text,status)=>{run.steps.push({text,status})},
   });
   node('#agentInput').value='创建一个任务';node('#apiBase').value='https://example.invalid/v1';node('#apiKey').value='fixture-key';
-  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function assertRunActive(', '\nlet activeRunController')+cut('function apiOrigin(', '\nfunction renderSettings(')+cut('async function sendMessage(', '\nfunction stopCurrentRun()'),c);
+  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function assertRunActive(', '\nlet activeRunController')+cut('function apiOrigin(', '\nfunction renderSettings(')+cut('async function requestAgentPlan(', '\nasync function sendMessage(')+cut('async function sendMessage(', '\nfunction stopCurrentRun()'),c);
   const sending=c.sendMessage();
   assert.equal(c.state.agentRuns.length,1); const run=c.state.agentRuns[0];
   if(phase==='model response') { ready({provider:'api',model:'fixture-model',effort:''}); await Promise.race([transportStarted,sending.then(()=>{throw new Error('Workflow finished before transport request: '+run.error)})]); }
@@ -59,7 +66,9 @@ for (const phase of ['model preparation', 'model response']) test(`deleting the 
   c.state.conversations=[];c.state.agentRuns=[];
   if(phase==='model preparation') ready({provider:'api',model:'fixture-model',effort:''});
   finishTransport(JSON.stringify({workspace:'日常',message:'Done',actions:[{type:'create_task',title:'Unexpected resurrected task',sourceAttachmentIds:[]}]}));await sending;
-  assert.equal(run.status,'cancelled');assert.match(run.error,/原对话已删除或归档/);
+  assert.equal(c.state.agentRuns.length,0,'A deleted run must not be restored by a late result');
+  assert.equal(c.state.conversations.length,0,'A deleted conversation must not be restored');
+  assert.notEqual(run.status,'completed');assert.match(c.toasts.at(-1),/原对话已删除或归档/);
   assert.equal(c.state.tasks.length,0,'A removed conversation must not create tasks after its response arrives');
 });
 
@@ -87,12 +96,12 @@ test('changing the conversation scope during model preparation affects only the 
   let ready;const pending=new Promise(resolve=>{ready=resolve});let recalledScope, requestText;
   const models={configuration:()=>({provider:'api',model:'fixture-model',effort:''}),resolve:()=>pending};
   const retrieval={buildIndexedContext:(_state,scope)=>{recalledScope={...scope};return {text:'FROZEN_CONTEXT',entries:[],coverage:{}}}};
-  Object.assign(c,{$:node,window:{ConversationModels:models,ContextRetrieval:retrieval,AttachmentAnalysis},ConversationModels:models,localStorage:{getItem:()=>''},document:{createElement:()=>node('holder')},AbortController,URL,setTimeout,clearTimeout,
+  Object.assign(c,{$:node,window:{...c.window,ConversationModels:models,ContextRetrieval:retrieval,AttachmentAnalysis},ConversationModels:models,localStorage:{getItem:()=>''},document:{createElement:()=>node('holder')},AbortController,URL,setTimeout,clearTimeout,
     activeRunController:null,liveRenderTimer:null,currentConversation:()=>c.state.conversations[0],currentAttachments:()=>[],defaultModelConfiguration:()=>({provider:'api',model:'fixture-model',effort:''}),renderConversation(){},renderMessage(){},classifyWorkspace:()=> '科研',visiblePaper:()=>true,actionSummary:()=>'',
     AgentTransport:{requestPlan:async request=>{requestText=request.input;return JSON.stringify({workspace:'科研',message:'Read only result',actions:[]})}},addRunStep:(run,text,status)=>{run.steps.push({text,status})},
   });
   node('#agentInput').value='总结这个项目';node('#apiBase').value='https://example.invalid/v1';node('#apiKey').value='fixture-key';
-  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function assertRunActive(', '\nlet activeRunController')+cut('function apiOrigin(', '\nfunction renderSettings(')+cut('async function sendMessage(', '\nfunction stopCurrentRun()'),c);
+  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function assertRunActive(', '\nlet activeRunController')+cut('function apiOrigin(', '\nfunction renderSettings(')+cut('async function requestAgentPlan(', '\nasync function sendMessage(')+cut('async function sendMessage(', '\nfunction stopCurrentRun()'),c);
   const sending=c.sendMessage();const run=c.state.agentRuns[0];
   c.state.conversations[0].projectId='another-project';c.state.conversations[0].workspace='日常';
   ready({provider:'api',model:'fixture-model',effort:''});await sending;
@@ -112,21 +121,23 @@ test('legacy content and new links use their owning project policy when workspac
 });
 
 test('approving a stale plan after its project is archived does not create an unassigned task', { timeout: 4000 }, async () => {
-  const c=executionContext();c.toast=()=>{};c.window={AttachmentAnalysis};
-  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function assertRunActive(', '\nlet activeRunController')+cut('async function approveRun(', '\nfunction rejectRun('),c);
+  const c=executionContext();c.toast=()=>{};c.window={...c.window,AttachmentAnalysis};
+  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function assertRunActive(', '\nlet activeRunController')+cut('function approvalBusy(', '\nasync function fetchWithTimeout('),c);
   const run={id:'pending',status:'awaiting-approval',conversationId:'conversation',projectId:'research',workspace:'科研',steps:[],pendingActions:[{type:'create_task',title:'Stale approval task',sourceAttachmentIds:[]}]};
-  c.state.agentRuns.push(run);c.state.conversations[0].messages.push({pendingRunId:'pending',text:'Please approve'});
+  c.state.agentRuns.push(run);c.state.conversations[0].messages.push({id:'approval-message',pendingRunId:'pending',text:'Please approve'});
   c.state.projects[0].archived=true;
+  c.prepareApproval();
   await assert.doesNotReject(()=>c.approveRun('pending'),'Stale approval should provide an actionable UI outcome rather than an uncaught error');
   assert.equal(c.state.tasks.length,0,'Approval must revalidate the project lifecycle before commit');
   assert.notEqual(run.status,'completed');
 });
 
 test('a valid pending plan can be approved while an unrelated request controller is aborted', { timeout: 4000 }, async () => {
-  const c=executionContext();c.toast=()=>{};c.window={AttachmentAnalysis};const controller=new AbortController();controller.abort();c.activeRunController=controller;
-  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function assertRunActive(', '\nlet activeRunController')+cut('async function approveRun(', '\nfunction rejectRun('),c);
+  const c=executionContext();c.toast=()=>{};c.window={...c.window,AttachmentAnalysis};const controller=new AbortController();controller.abort();c.activeRunController=controller;
+  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function assertRunActive(', '\nlet activeRunController')+cut('function approvalBusy(', '\nasync function fetchWithTimeout('),c);
   const run={id:'pending',status:'awaiting-approval',conversationId:'conversation',projectId:'research',workspace:'科研',steps:[],pendingActions:[{type:'create_task',title:'Approved task',sourceAttachmentIds:[]}]};
-  c.state.agentRuns.push(run);c.state.conversations[0].messages.push({pendingRunId:'pending',text:'Please approve'});
+  c.state.agentRuns.push(run);c.state.conversations[0].messages.push({id:'approval-message',pendingRunId:'pending',text:'Please approve'});
+  c.prepareApproval();
   await c.approveRun('pending');
   assert.equal(run.status,'completed',run.error);assert.equal(c.state.tasks.length,1);assert.equal(c.state.tasks[0].projectId,'research');
 });
@@ -149,15 +160,16 @@ test('archiving a preflight-matched project cancels approval instead of creating
   const folder={id:'verified-local',rootId:'authorized-root',name:'homepage',path:'/fixture/homepage'};
   let snapshots=0;
   const LocalProjects={snapshot:async()=>{snapshots++;return {folder,tree:[],files:[]}},ensureAccess:async()=>({roots:[{id:folder.rootId}]})};
-  Object.assign(c,{window:{LocalProjectAgent,LocalProjects,AttachmentAnalysis},LocalProjectAgent,LocalProjects,WorkstationPermissionPolicy:require('../app/permission-policy')});
+  Object.assign(c,{window:{...c.window,LocalProjectAgent,LocalProjects,AttachmentAnalysis},LocalProjectAgent,LocalProjects,WorkstationPermissionPolicy:require('../app/permission-policy')});
   c.state.conversations[0].projectId=null;
   const run={id:'matched-pending',status:'awaiting-approval',conversationId:'conversation',projectId:null,workspace:'科研',permissionMode:'request',steps:[],localCandidates:[folder],localSearched:true,
     pendingActions:[{type:'create_project',id:'new-alias',name:c.state.projects[0].name,workspace:'科研'},{type:'link_local_project',projectId:'new-alias',candidateId:folder.id,workspace:'科研'}]};
-  c.state.agentRuns.push(run);c.state.conversations[0].messages.push({pendingRunId:run.id,text:'Approve the matched project'});
+  c.state.agentRuns.push(run);c.state.conversations[0].messages.push({id:'approval-message',pendingRunId:run.id,text:'Approve the matched project'});
   assert.equal(c.actionsNeedApproval(run),true);
   assert.deepEqual(Array.from(run.expectedProjectTargets,target=>target.id),['research']);
-  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function assertRunActive(', '\nlet activeRunController')+cut('async function approveRun(', '\nfunction rejectRun('),c);
+  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function assertRunActive(', '\nlet activeRunController')+cut('function approvalBusy(', '\nasync function fetchWithTimeout('),c);
   c.state.projects[0].archived=true;
+  c.prepareApproval();
   await c.approveRun(run.id);
   assert.equal(run.status,'cancelled');
   assert.equal(c.state.projects.length,1,'Approval must not create a new active project after its matched target is archived');

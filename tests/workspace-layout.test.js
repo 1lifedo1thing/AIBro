@@ -27,6 +27,7 @@ test('the open context inspector cannot consume the minimum chat width when othe
   }
 });
 function harness(options={}){
+  let layoutCalls=0,geometryReads=0,frameId=0;const frames=new Map(),requestedFrames=[],cancelledFrames=[];
   class Node{
     constructor(tag){this.tagName=tag;this.children=[];this.attributes={};this.dataset={};this.listeners={};this.hidden=false;this.className='';this._text='';this.value='';this.style={setProperty:(key,value)=>this.style[key]=value};const values=new Set();this.classList={add:(...v)=>v.forEach(x=>values.add(x)),remove:(...v)=>v.forEach(x=>values.delete(x)),contains:v=>values.has(v),toggle:(v,on)=>{if(on===undefined)on=!values.has(v);on?values.add(v):values.delete(v);return on;}};}
     append(...nodes){for(const n of nodes){if(n.parent)n.remove();n.parent=this;this.children.push(n);}}
@@ -36,12 +37,17 @@ function harness(options={}){
     querySelector(selector){return this.all().find(n=>selector.startsWith('#')?n.id===selector.slice(1):selector.startsWith('.')?n.className.split(' ').includes(selector.slice(1)):n.tagName===selector)||null;}
     set textContent(value){this._text=String(value);this.children=[];}get textContent(){return this._text+this.children.map(n=>n.textContent).join('');}
     setAttribute(k,v){this.attributes[k]=String(v);}getAttribute(k){return this.attributes[k];}
+    get parentElement(){return this.parent||null;}
+    closest(selector){for(let node=this;node;node=node.parentElement)if(selector==='[data-aibro-file-drop-owner]'&&node.getAttribute('data-aibro-file-drop-owner')!==undefined)return node;return null;}
     addEventListener(k,fn){(this.listeners[k]||=[]).push(fn);}removeEventListener(k,fn){this.listeners[k]=(this.listeners[k]||[]).filter(x=>x!==fn);}
     fire(k,values={}){const e={target:this,button:0,preventDefault(){this.prevented=true;},stopImmediatePropagation(){this.stopped=true;},...values};const results=(this.listeners[k]||[]).map(fn=>fn(e));return{event:e,done:Promise.all(results)};}
     focus(){document.activeElement=this;}setPointerCapture(id){this.capture=id;}releasePointerCapture(){this.capture=null;}
-    getBoundingClientRect(){return this.rect?.()||{left:0,right:100,top:0,width:100,height:800};}
+    getBoundingClientRect(){geometryReads++;return this.rect?.()||{left:0,right:100,top:0,width:100,height:800};}
   }
-  const document=new Node('document');document.body=new Node('body');document.append(document.body);document.createElement=tag=>new Node(tag);const win=new Node('window');win.innerWidth=options.width||1440;win.requestAnimationFrame=fn=>fn();
+  const document=new Node('document');document.body=new Node('body');document.append(document.body);document.createElement=tag=>new Node(tag);const win=new Node('window');win.innerWidth=options.width||1440;
+  win.requestAnimationFrame=fn=>{if(!options.deferFrames)return fn();const id=++frameId;frames.set(id,fn);requestedFrames.push(fn);return id;};
+  win.cancelAnimationFrame=id=>{cancelledFrames.push(id);frames.delete(id);};
+  const flushFrame=()=>{const ready=[...frames.values()];frames.clear();ready.forEach(fn=>fn());};
   const add=(id,className,parent=document.body)=>{const n=new Node('div');n.id=id;n.className=className;parent.append(n);return n;};
   const sidebar=add('sidebar','sidebar');add('bottom','sidebar-bottom',sidebar);const navigator=add('navigator','conversation-navigator');const main=add('main','main');const top=add('top','top-actions',main);const theme=add('themeBtn','icon',top);theme.append(new Node('svg'));const agent=add('agent','agent-view',main);const message=add('message','message',agent);const input=add('agentInput','',agent);const reader=add('readingPane','reading-pane');const toolbar=add('toolbar','reading-toolbar',reader);add('readingExpand','reading-control',toolbar);
   const projectView=add('project','project-view',main);const projectTree=add('projectTree','project-tree',projectView);const projectContent=add('projectContent','project-content',projectView);
@@ -52,17 +58,104 @@ function harness(options={}){
   reader.rect=()=>({left:win.innerWidth-css('reader')-8,right:win.innerWidth-8,top:8,width:css('reader'),height:784});
   agent.rect=()=>document.body.classList.contains('reading-open')&&(win.innerWidth<=1000||document.body.classList.contains('reading-expanded'))?{left:0,top:0,right:0,width:0,height:0}:{left:css('sidebar')+css('navigator'),right:win.innerWidth-css('reader')-8,top:60,width:Math.max(0,win.innerWidth-css('sidebar')-css('navigator')-css('reader')-16),height:720};
   projectView.rect=agent.rect;
-  const hooks={getState:()=>state,save:()=>{saves.push(JSON.parse(JSON.stringify(state.ui.panelWidths)));return options.save?.();},toast:message=>notices.push(message),isImportBusy:()=>!!options.busy,stageDroppedFiles:async files=>{staged.push(files);return options.stage?.(files);},onTheme:()=>{themeCalls++;state.ui.theme=state.ui.theme==='light'?'dark':'light';document.body.classList.toggle('light-mode',state.ui.theme==='light');}};
+  const hooks={onLayout:()=>{layoutCalls++;},getState:()=>state,save:()=>{saves.push(JSON.parse(JSON.stringify(state.ui.panelWidths)));return options.save?.();},toast:message=>notices.push(message),isImportBusy:()=>!!options.busy,stageDroppedFiles:async files=>{staged.push(files);return options.stage?.(files);},onTheme:()=>{themeCalls++;state.ui.theme=state.ui.theme==='light'?'dark':'light';document.body.classList.toggle('light-mode',state.ui.theme==='light');}};
   if(!options.noProjectHook)hooks.stageProjectFiles=async(files,id)=>{projectStaged.push({files,id});return options.stageProject?.(files,id);};
   api=Layout.createController(hooks,{document,window:win});
   const $=selector=>document.querySelector(selector),transfer=(files=[{name:'lecture.pdf'}],extra={})=>({types:['Files'],files,items:[],...extra});
-  return{api,state,saves,notices,staged,projectStaged,projectTree,projectContent,document,win,message,input,$,transfer,themeCalls:()=>themeCalls,drop:(values={})=>document.fire('drop',{target:message,dataTransfer:transfer(),...values})};
+  return{api,state,saves,notices,staged,projectStaged,projectTree,projectContent,document,win,message,input,$,transfer,flushFrame,frames,requestedFrames,cancelledFrames,layoutCalls:()=>layoutCalls,geometryReads:()=>geometryReads,themeCalls:()=>themeCalls,drop:(values={})=>document.fire('drop',{target:message,dataTransfer:transfer(),...values})};
 }
 test('pointer resizing previews without saves, commits once, and cancellation restores stored widths',()=>{
   const h=harness();const handle=h.$('#resize-sidebar');handle.fire('pointerdown',{clientX:210,pointerId:1});h.win.fire('pointermove',{clientX:290,pointerId:1});assert.equal(h.api.snapshot().layout.sidebar,290);assert.equal(h.saves.length,0);h.win.fire('pointerup',{pointerId:1});assert.equal(h.state.ui.panelWidths.sidebar,290);assert.equal(h.saves.length,1);
   handle.fire('pointerdown',{clientX:290,pointerId:2});h.win.fire('pointermove',{clientX:180,pointerId:2});h.win.fire('pointercancel',{pointerId:2});assert.equal(h.api.snapshot().layout.sidebar,290);assert.equal(h.saves.length,1);
   handle.fire('pointerdown',{clientX:290,pointerId:3});h.win.fire('pointerup',{pointerId:3});assert.equal(h.saves.length,1,'Click without moving is not a stored resize');
   handle.fire('pointerdown',{clientX:290,pointerId:4});h.win.fire('pointermove',{clientX:200,pointerId:4});handle.fire('lostpointercapture',{pointerId:4});assert.equal(h.api.snapshot().dragging,false);assert.equal(h.api.snapshot().layout.sidebar,290);assert.equal(h.saves.length,1);
+});
+test('pointer bursts paint only the latest width once per animation frame, keeping ARIA synchronized',()=>{
+  const h=harness({deferFrames:true}),handle=h.$('#resize-sidebar');
+  const calls=h.layoutCalls(),reads=h.geometryReads();
+  handle.fire('pointerdown',{clientX:210,pointerId:1});
+  for(let clientX=211;clientX<=310;clientX++)h.win.fire('pointermove',{clientX,pointerId:1});
+  assert.equal(h.frames.size,1);assert.equal(h.api.snapshot().layout.sidebar,210);
+  assert.equal(h.layoutCalls(),calls);assert.equal(h.geometryReads(),reads);
+  assert.equal(h.saves.length,0);h.flushFrame();
+  assert.equal(h.layoutCalls(),calls+1);assert.equal(h.geometryReads(),reads+3);
+  assert.equal(h.api.snapshot().layout.sidebar,310);assert.equal(handle.getAttribute('aria-valuenow'),'310');
+  assert.match(handle.getAttribute('aria-valuetext'),/310/);assert.equal(h.saves.length,0);
+  h.win.fire('pointermove',{clientX:280,pointerId:1});h.flushFrame();
+  assert.equal(h.layoutCalls(),calls+2);assert.equal(h.api.snapshot().layout.sidebar,280);
+});
+test('pointer release commits its last position before an unpainted frame, then invalidates that frame',()=>{
+  const h=harness({deferFrames:true}),handle=h.$('#resize-sidebar');
+  handle.fire('pointerdown',{clientX:210,pointerId:2});h.win.fire('pointermove',{clientX:270,pointerId:2});
+  const stale=h.requestedFrames.at(-1);h.win.fire('pointerup',{clientX:295,pointerId:2});
+  assert.equal(h.state.ui.panelWidths.sidebar,295);assert.equal(h.api.snapshot().layout.sidebar,295);
+  assert.equal(h.saves.length,1);assert.equal(h.frames.size,0);assert.equal(h.cancelledFrames.length,1);
+  assert.equal(handle.capture,null);assert.equal(h.api.snapshot().dragging,false);
+  const calls=h.layoutCalls(),reads=h.geometryReads();stale();h.flushFrame();
+  assert.equal(h.layoutCalls(),calls);assert.equal(h.geometryReads(),reads);assert.equal(h.saves.length,1);
+});
+test('release without a coordinate flushes the most recent move and keeps PDF width separate',()=>{
+  const h=harness({width:1440,deferFrames:true,preferred:{reader:430,readerPdf:760}});
+  h.document.body.classList.add('aibro-native','reading-open','reading-pdf');h.api.refresh();
+  const handle=h.$('#resize-reader');handle.fire('pointerdown',{clientX:900,pointerId:3});
+  h.win.fire('pointermove',{clientX:880,pointerId:3});h.flushFrame();assert.equal(h.api.snapshot().layout.reader,780);
+  h.win.fire('pointermove',{clientX:840,pointerId:3});h.win.fire('pointerup',{pointerId:3});
+  assert.equal(h.state.ui.panelWidths.readerPdf,820);assert.equal(h.state.ui.panelWidths.reader,430);
+  assert.equal(h.api.snapshot().layout.reader,820);assert.equal(h.saves.length,1);assert.equal(h.frames.size,0);
+});
+test('cancel, Escape, blur, capture loss and resize discard pending and painted previews without persisting',()=>{
+  const cancelers={
+    pointercancel:h=>h.win.fire('pointercancel',{pointerId:4}),
+    escape:h=>h.document.fire('keydown',{key:'Escape'}),
+    blur:h=>h.win.fire('blur'),
+    capture:h=>h.$('#resize-sidebar').fire('lostpointercapture',{pointerId:4}),
+    resize:h=>h.win.fire('resize')
+  };
+  for(const [kind,cancel] of Object.entries(cancelers))for(const painted of [false,true]){
+    const h=harness({deferFrames:true,preferred:{sidebar:230}}),handle=h.$('#resize-sidebar');
+    handle.fire('pointerdown',{clientX:230,pointerId:4});h.win.fire('pointermove',{clientX:290,pointerId:4});
+    if(painted){h.flushFrame();assert.equal(h.api.snapshot().layout.sidebar,290);h.win.fire('pointermove',{clientX:320,pointerId:4});}
+    const stale=h.requestedFrames.at(-1);cancel(h);
+    assert.equal(h.state.ui.panelWidths.sidebar,230,kind);assert.equal(h.api.snapshot().layout.sidebar,230,kind);
+    assert.equal(h.api.snapshot().dragging,false,kind);assert.equal(h.document.body.classList.contains('workspace-resizing'),false,kind);
+    const calls=h.layoutCalls();stale();assert.equal(h.layoutCalls(),calls,kind);h.flushFrame();
+    assert.equal(h.saves.length,0,kind);assert.equal(h.api.snapshot().layout.sidebar,230,kind);
+  }
+});
+test('a second pointer cannot replace, move or finish the captured gesture',()=>{
+  const h=harness({deferFrames:true}),handle=h.$('#resize-sidebar'),nav=h.$('#resize-navigator');
+  handle.fire('pointerdown',{clientX:210,pointerId:5});h.win.fire('pointermove',{clientX:270,pointerId:5});
+  nav.fire('pointerdown',{clientX:458,pointerId:6});h.win.fire('pointermove',{clientX:600,pointerId:6});
+  h.win.fire('pointerup',{clientX:600,pointerId:6});assert.equal(h.api.snapshot().dragging,true);assert.equal(h.saves.length,0);
+  h.win.fire('pointerup',{clientX:280,pointerId:5});assert.deepEqual(h.state.ui.panelWidths,{sidebar:280});
+  assert.equal(h.saves.length,1);assert.equal(h.frames.size,0);
+});
+test('surface changes cancel an outstanding reader gesture before it can write either document preference',()=>{
+  for(const change of [h=>h.document.body.classList.remove('reading-pdf'),h=>h.document.body.classList.remove('reading-open'),h=>h.document.body.classList.add('reading-expanded'),h=>h.document.body.dataset.view='project']){
+    for(const trigger of ['refresh','frame','release']){
+      const preferred={reader:430,readerPdf:760},h=harness({width:1440,deferFrames:true,preferred});
+      h.document.body.classList.add('aibro-native','reading-open','reading-pdf');h.api.refresh();
+      h.$('#resize-reader').fire('pointerdown',{clientX:900,pointerId:7});h.win.fire('pointermove',{clientX:820,pointerId:7});change(h);
+      if(trigger==='refresh')h.api.refresh();else if(trigger==='frame')h.flushFrame();else h.win.fire('pointerup',{clientX:800,pointerId:7});
+      h.flushFrame();assert.deepEqual(h.state.ui.panelWidths,preferred,trigger);assert.equal(h.saves.length,0,trigger);
+      assert.equal(h.api.snapshot().dragging,false,trigger);assert.equal(h.frames.size,0,trigger);
+    }
+  }
+});
+test('keyboard and explicit reset end pending gestures, and destruction prevents deferred layout work',()=>{
+  for(const operation of ['keyboard','reset','destroy']){
+    const h=harness({deferFrames:true,preferred:{sidebar:230}}),handle=h.$('#resize-sidebar');
+    handle.fire('pointerdown',{clientX:230,pointerId:8});h.win.fire('pointermove',{clientX:300,pointerId:8});
+    const stale=h.requestedFrames.at(-1);
+    if(operation==='keyboard')handle.fire('keydown',{key:'ArrowRight'});
+    else if(operation==='reset')h.api.reset('sidebar');else h.api.destroy();
+    const calls=h.layoutCalls(),reads=h.geometryReads();stale();h.flushFrame();
+    assert.equal(h.layoutCalls(),calls);assert.equal(h.geometryReads(),reads);assert.equal(h.api.snapshot().dragging,false);
+    assert.equal(h.state.ui.panelWidths.sidebar,operation==='keyboard'?246:operation==='reset'?undefined:230);
+    assert.equal(h.saves.length,operation==='destroy'?0:1);assert.equal(h.frames.size,0);
+  }
+  const h=harness({deferFrames:true});h.win.fire('resize');const stale=h.requestedFrames.at(-1);h.api.destroy();
+  const calls=h.layoutCalls();stale();assert.equal(h.layoutCalls(),calls);assert.equal(h.frames.size,0);
 });
 test('accessible separators support arrow/Home/End and doubleclick reset; reader direction follows its left edge',()=>{
   const h=harness();const nav=h.$('#resize-navigator');assert.equal(nav.getAttribute('role'),'separator');nav.fire('keydown',{key:'ArrowRight'});assert.equal(h.state.ui.panelWidths.navigator,264);nav.fire('keydown',{key:'Home'});assert.equal(h.api.snapshot().layout.navigator,170);nav.fire('keydown',{key:'End'});assert.equal(h.api.snapshot().layout.navigator,380);nav.fire('dblclick');assert.equal(h.state.ui.panelWidths.navigator,undefined);assert.equal(h.api.snapshot().layout.navigator,248);
@@ -131,12 +224,12 @@ test('conversation overlay promises pending materials rather than automatic AI a
   const h=harness();h.document.fire('dragover',{target:h.message,dataTransfer:h.transfer()});assert.equal(h.$('#conversationDropOverlay').dataset.dropTarget,'conversation');assert.match(h.$('#conversationDropOverlay').textContent,/待发送材料/);assert.match(h.$('#conversationDropOverlay').textContent,/随下一条指令/);
 });
 test('native host reserves no web sidebar and keeps both reading panes usable',()=>{
-  for(const width of [680,800,1024,1440]){
+  for(const width of [840,1024,1440]){
     const result=Layout.fitLayout(context({width,nativeShell:true,readingOpen:true}),{reader:9999});
-    assert.equal(result.sidebar,0);assert.equal(result.navigator,0);assert.ok(result.main>=320);assert.ok(result.reader>=320);
+    assert.equal(result.sidebar,0);assert.equal(result.navigator,0);assert.ok(result.main>=400);assert.ok(result.reader>=400);
     assert.equal(result.reader+result.main+8,width);assert.deepEqual(result.handles,{sidebar:false,navigator:false,reader:true});
   }
-  assert.equal(Layout.fitLayout(context({width:640,nativeShell:true,readingOpen:true})).fullReader,true);
+  for(const width of [640,680,800]){const small=Layout.fitLayout(context({width,nativeShell:true,readingOpen:true}));assert.equal(small.fullReader,true);assert.equal(small.reader,width);assert.equal(small.handles.reader,false);}
   assert.equal(Layout.fitLayout(context({width:1400,nativeShell:true,readingOpen:true,readingExpanded:true})).main,0);
 });
 test('native reader resize hit area sits entirely in the gutter and keeps drag semantics',()=>{
@@ -159,8 +252,92 @@ test('native project retains navigator and content room when the reader is open 
  const preferences={reader:1200};
  for(const width of [680,800,888,1000,1200,1600]){
   const result=Layout.fitLayout(context({view:'project',width,nativeShell:true,readingOpen:true}),preferences);
-  assert.ok(result.main>=Math.min(560,width-328));assert.ok(result.reader>=320);
-  assert.equal(result.reader+result.main+8,width);
+  if(width<980){assert.equal(result.fullReader,true);assert.equal(result.reader,width);assert.equal(result.main,0);}else{assert.ok(result.main>=560);assert.ok(result.reader>=400);assert.equal(result.reader+result.main+8,width);}
  }
  assert.equal(preferences.reader,1200,'temporary fitting must not overwrite saved reader preference');
+});
+
+
+test('PDFs receive a larger independent reader default while retaining a usable conversation',()=>{
+ for(const nativeShell of [false,true])for(const width of [1024,1180,1280,1440,1920]){
+  const result=Layout.fitLayout(context({nativeShell,width,readingOpen:true,readingPdf:true}),{reader:420});
+  if(result.fullReader){assert.equal(result.main,0);assert.equal(result.handles.reader,false);continue;}
+  const available=width-result.sidebar-(nativeShell?8:24),minimum=nativeShell?400:360;
+  assert.ok(result.main>=minimum,JSON.stringify(result));assert.ok(result.reader>=520);assert.ok(result.reader>=available*.59,JSON.stringify(result));assert.ok(result.reader<=available*.65);
+  assert.equal(result.reader+result.main,available);assert.ok(result.reader>420,'old note width cannot silently shrink a PDF');
+ }
+});
+test('PDF focus thresholds favor readable documents and preserve project navigation minimums',()=>{
+ for(const nativeShell of [false,true])for(const width of [800,960,1024,1120,1180,1280,1440])for(const view of ['agent','project']){
+  const result=Layout.fitLayout(context({nativeShell,width,view,readingOpen:true,readingPdf:true}),{readerPdf:99999});
+  if(result.fullReader){assert.equal(result.main,0);assert.equal(result.handles.reader,false);}
+  else{assert.ok(result.main>=(view==='project'?560:nativeShell?400:360));assert.ok(result.reader>=520);assert.ok(result.reader+result.main+result.sidebar<=width);}
+ }
+ assert.equal(Layout.fitLayout(context({nativeShell:true,width:1024,view:'agent',readingOpen:true,readingPdf:true})).fullReader,false);
+ assert.equal(Layout.fitLayout(context({nativeShell:true,width:960,view:'agent',readingOpen:true,readingPdf:true})).fullReader,true);
+ assert.equal(Layout.fitLayout(context({nativeShell:true,width:1024,view:'project',readingOpen:true,readingPdf:true})).fullReader,true);
+});
+test('PDF resize, reset, narrow fitting and document switches preserve separate durable widths',()=>{
+ const h=harness({width:1440,preferred:{reader:430,readerPdf:760}});h.document.body.classList.add('reading-open','reading-pdf');h.api.refresh();
+ const handle=h.$('#resize-reader');assert.equal(h.api.snapshot().layout.reader,760);
+ handle.fire('pointerdown',{clientX:900,pointerId:42});h.win.fire('pointermove',{clientX:880,pointerId:42});assert.equal(h.api.snapshot().layout.reader,780);h.win.fire('pointerup',{pointerId:42});
+ assert.equal(h.state.ui.panelWidths.readerPdf,780);assert.equal(h.state.ui.panelWidths.reader,430);
+ h.win.innerWidth=900;h.api.refresh();assert.equal(h.api.snapshot().layout.fullReader,true);assert.equal(h.state.ui.panelWidths.readerPdf,780);
+ h.win.innerWidth=1440;h.document.body.classList.remove('reading-pdf');h.api.refresh();assert.equal(h.api.snapshot().layout.reader,430);
+ h.document.body.classList.add('reading-pdf');h.api.refresh();handle.fire('dblclick');assert.equal(h.state.ui.panelWidths.readerPdf,undefined);assert.equal(h.state.ui.panelWidths.reader,430);
+ assert.ok(h.api.snapshot().layout.reader>600);
+});
+
+
+function localDropSurface(h, kind='document-image', enabled=()=>true, parent=h.$('#readingPane')) {
+  const owner=h.document.createElement('section');owner.setAttribute('data-aibro-file-drop-owner',kind);owner.aibroCanReceiveFileDrop=enabled;
+  const target=h.document.createElement('div');owner.append(target);parent.append(owner);return{owner,target};
+}
+test('only explicit live document and capture owners receive file drops before global import',async()=>{
+ for(const kind of ['document-image','capture-attachment']){
+  const h=harness();if(kind==='capture-attachment')h.document.body.dataset.view='captures';
+  const {target}=localDropSurface(h,kind);
+  const over=h.document.fire('dragover',{target,dataTransfer:h.transfer()});assert.equal(over.event.stopped,undefined);assert.equal(over.event.dataTransfer.dropEffect,'copy');assert.equal(h.$('#conversationDropOverlay').hidden,true);
+  const result=h.drop({target});await result.done;assert.equal(result.event.stopped,undefined);assert.equal(result.event.prevented,undefined);assert.equal(h.staged.length,0);assert.equal(h.projectStaged.length,0);assert.equal(h.notices.length,0);
+ }
+});
+test('live owners allow protected dragover but block file drops with no readable File payload',async()=>{
+ for(const kind of ['document-image','capture-attachment']){
+  const h=harness(),{target}=localDropSurface(h,kind);
+  const transfer={types:['Files'],files:[],items:[{kind:'file',getAsFile:()=>null}],getData:()=>''};
+  const over=h.document.fire('dragover',{target,dataTransfer:transfer});
+  assert.equal(over.event.stopped,undefined);assert.equal(over.event.prevented,undefined);assert.equal(over.event.dataTransfer.dropEffect,'copy');
+  const result=h.drop({target,dataTransfer:transfer});await result.done;
+  assert.equal(result.event.prevented,true);assert.equal(result.event.stopped,true);
+  assert.equal(h.staged.length,0);assert.equal(h.projectStaged.length,0);assert.match(h.notices.at(-1),/没有读取到可用文件/);
+ }
+});
+test('read-only, unavailable, disconnected and forged owners remain blocked instead of opening files or importing elsewhere',async()=>{
+ for(const variant of ['disabled','missing-contract','throwing-contract','invisible','disconnected']){
+  const h=harness(),{owner,target}=localDropSurface(h,'document-image',()=>true,h.message);
+  if(variant==='disabled')owner.aibroCanReceiveFileDrop=()=>false;
+  if(variant==='missing-contract')delete owner.aibroCanReceiveFileDrop;
+  if(variant==='throwing-contract')owner.aibroCanReceiveFileDrop=()=>{throw Error('editor unavailable');};
+  if(variant==='invisible')owner.rect=()=>({width:0,height:0});
+  if(variant==='disconnected')owner.remove();
+  const over=h.document.fire('dragover',{target,dataTransfer:h.transfer()});assert.equal(over.event.prevented,true,variant);assert.equal(over.event.stopped,true,variant);assert.equal(over.event.dataTransfer.dropEffect,'none',variant);
+  const result=h.drop({target});await result.done;assert.equal(result.event.prevented,true,variant);assert.equal(result.event.stopped,true,variant);assert.equal(h.staged.length,0,variant);assert.match(h.notices.at(-1),/当前编辑区域/,variant);
+ }
+});
+test('a local owner is revalidated at drop and does not inherit an unrelated global upload lock',async()=>{
+ const h=harness({busy:true});let enabled=true;const {target}=localDropSurface(h,'capture-attachment',()=>enabled);
+ const first=h.drop({target});await first.done;assert.equal(first.event.stopped,undefined);assert.equal(h.staged.length,0);
+ h.document.fire('dragover',{target,dataTransfer:h.transfer()});enabled=false;
+ const next=h.drop({target});await next.done;assert.equal(next.event.stopped,true);assert.equal(next.event.prevented,true);assert.equal(h.staged.length,0);
+});
+test('ordinary contenteditable and unknown markers do not bypass existing conversation import routing',async()=>{
+ for(const marker of [null,'user-html']){
+  const h=harness(),target=h.document.createElement('div');target.setAttribute('contenteditable','true');
+  if(marker)target.setAttribute('data-aibro-file-drop-owner',marker);target.aibroCanReceiveFileDrop=()=>true;h.message.append(target);
+  const result=h.drop({target});await result.done;assert.equal(result.event.stopped,true);assert.equal(h.staged.length,1);
+ }
+});
+test('text-only drags remain owned by editor text handlers without entering file dispatch',async()=>{
+ const h=harness(),{target}=localDropSurface(h);const result=h.drop({target,dataTransfer:{types:['text/plain'],files:[]}});await result.done;
+ assert.equal(result.event.stopped,undefined);assert.equal(result.event.prevented,undefined);assert.equal(h.staged.length,0);assert.equal(h.notices.length,0);
 });

@@ -5,13 +5,54 @@ const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),cryp
 const {LOCK,command,buildRuntime,download,sha256,treeHash,notices}=require('./release-runtime');
 const {verifyPackagedApp}=require('./release-verify');
 const {buildDmg}=require('./release-dmg');
-const {checkOutput,optionsFrom,validateRuntimePackage}=require('./release-macos');
+const {checkOutput,optionsFrom,validateRuntimePackage,requiredSourceInputs,sourceGit}=require('./release-macos');
 const {fingerprint}=require('../app/app-assets');
+function requiredNativeSourceInputs(root){
+  const files=new Set([...requiredSourceInputs(root),
+    'native/Package.swift','native/Sources/AIBro/AIBro.swift',
+    'native/Resources/bridge.js','native/Resources/desktop.js','native/Resources/workspace.css',
+    'scripts/build-native-app.sh','scripts/run-native-preview.sh','scripts/release-native.js',
+    'scripts/copy-native-assets.js',
+    'scripts/build-halaska-ui.mjs','scripts/halaska-data-table-patch.mjs',
+    'scripts/build-document-editors.mjs','scripts/lib/document-editor-patches.mjs',
+    'scripts/build-document-markdown.mjs',
+    'app/ui/halaska-kit.jsx','app/ui/halaska-bridge.jsx','app/ui/halaska-llms.txt',
+    'app/ui/fonts/Geist-Variable.woff2','app/ui/fonts/GeistMono-Variable.woff2',
+    'app/editor/entry.js','app/editor/base.css','app/editor/document-markdown.js',
+    'docs/licenses/DOCUMENT-EDITORS.txt','docs/licenses/DOCUMENT-MARKDOWN.txt']);
+  // The App ships prebuilt JS/CSS, while its corresponding-source archive must
+  // also include the adapters, vendored originals, local patches and notices.
+  // Discover new inputs from disk, not git ls-files: untracked inputs must fail.
+  function collect(relative,extensions){
+    const directory=path.join(root,relative);
+    if(!fs.existsSync(directory)||!fs.lstatSync(directory).isDirectory())throw Error('Required source directory must be a real directory: '+relative);
+    for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
+      const name=relative+'/'+entry.name;
+      if(entry.isDirectory())collect(name,extensions);
+      else if(extensions.has(path.extname(entry.name)))files.add(name);
+      else if(entry.isSymbolicLink())throw Error('Required release source must not be a symbolic link: '+name);
+    }
+  }
+  collect('native/Sources',new Set(['.swift']));
+  collect('native/Resources',new Set(['.js','.css']));
+  const uiExtensions=new Set(['.js','.jsx','.mjs','.ts','.tsx','.css','.json','.txt','.woff2']);
+  collect('app/ui',uiExtensions);collect('app/editor',uiExtensions);
+  collect('docs/licenses',new Set(['.txt']));
+  return [...files].sort();
+}
 function sourceIdentity(root){
-  const git=args=>command('/usr/bin/git',['-c','core.fsmonitor=false','-C',root,...args]);
-  if(git(['status','--porcelain','--untracked-files=no']).trim())throw Error('Commit tracked changes before building a release.');
+  root=path.resolve(root);
+  const git=args=>sourceGit(root,args);
+  if(fs.realpathSync(git(['rev-parse','--show-toplevel']).trim())!==fs.realpathSync(root))throw Error('Native release source must be the Git checkout root.');
+  const required=requiredNativeSourceInputs(root);
+  for(const file of required){
+    const filename=path.join(root,file);
+    if(!fs.existsSync(filename)||!fs.lstatSync(filename).isFile())throw Error('Required release source must be a regular file: '+file);
+  }
+  if(git(['status','--porcelain','--untracked-files=no']).trim())throw Error('Release source has uncommitted tracked changes. Commit before building a release.');
   const files=git(['ls-files','-z']).split('\0').filter(Boolean).sort();
-  for(const required of ['native/Sources/AIBro/AIBro.swift','scripts/build-native-app.sh','scripts/release-native.js'])if(!files.includes(required))throw Error('Missing tracked native source: '+required);
+  const tracked=new Set(files),missing=required.filter(file=>!tracked.has(file));
+  if(missing.length)throw Error('Required native release sources are not tracked. Add and commit before building: '+missing.join(', '));
   const hash=crypto.createHash('sha256');
   for(const file of files){hash.update(file+'\0');hash.update(fs.readFileSync(path.join(root,file)));hash.update('\0');}
   return {revision:git(['rev-parse','HEAD']).trim(),trackedSourceClean:true,inputsSha256:hash.digest('hex')};
@@ -52,4 +93,4 @@ async function buildNativeRelease({output,cache=path.join(os.tmpdir(),'ai-bro-re
   }finally{fs.rmSync(stage,{recursive:true,force:true});}
 }
 if(require.main===module)buildNativeRelease(optionsFrom(process.argv.slice(2))).then(r=>console.log(JSON.stringify({output:r.output,version:r.version},null,2))).catch(e=>{console.error(e);process.exitCode=1;});
-module.exports={sourceIdentity,buildNativeRelease};
+module.exports={requiredNativeSourceInputs,sourceIdentity,buildNativeRelease};

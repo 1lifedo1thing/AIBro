@@ -105,4 +105,4 @@ async function buildRelease({output,cache=path.join(os.tmpdir(),'ai-bro-release-
 }
 function optionsFrom(argv){const result={};for(let i=0;i<argv.length;i+=2){if(!['--output','--cache'].includes(argv[i])||!argv[i+1]||argv[i+1].startsWith('--'))throw Error('Usage: node scripts/release-macos.js --output NEW_DIRECTORY [--cache CACHE_DIRECTORY]');result[argv[i].slice(2)]=argv[i+1];}return result;}
 if(require.main===module)buildRelease(optionsFrom(process.argv.slice(2))).then(result=>console.log(JSON.stringify({output:result.output,archive:result.archive,version:result.manifest.version,signature:result.manifest.signature},null,2))).catch(error=>{console.error(error.message);process.exitCode=1;});
-module.exports={validateRuntimePackage,checkOutput,electronRuntime,buildRelease,optionsFrom,requiredSourceInputs,sourceIdentity,verifySourceIdentity};
+module.exports={validateRuntimePackage,checkOutput,electronRuntime,buildRelease,optionsFrom,requiredSourceInputs,sourceIdentity,verifySourceIdentity,sourceGit};

@@ -29,6 +29,16 @@ import WebKit
     func userContentController(_ userContentController:WKUserContentController,didReceive message:WKScriptMessage,replyHandler:@escaping(Any?,String?)->Void) {
         guard let origin=workspace?.origin, message.frameInfo.isMainFrame,let url=message.frameInfo.request.url,url.scheme=="http",url.host==origin.host,url.port==origin.port,let body=message.body as? [String:Any],let command=body["command"] as? String else{replyHandler(nil,"拒绝非工作区请求");return}
         do {
+            if command=="navigate-workspace",let destination=body["destination"] as? [String:Any],let view=destination["view"] as? String,let workspace {
+                guard ["overview","conversations","agenda","daily","courses","research","wiki","captures","dashboard","trash","agent"].contains(view),(destination["section"] == nil || destination["section"] is String),(destination["requestId"] == nil || destination["requestId"] is String) else {replyHandler(nil,"不支持此工作区位置");return}
+                Task { @MainActor in replyHandler(await workspace.navigateWorkspace(view,section:destination["section"] as? String,requestId:destination["requestId"] as? String),nil) };return
+            }
+            if command=="browser",let request=body["request"] as? [String:Any],let workspace {
+                Task { @MainActor in
+                    do {replyHandler(try await workspace.browser.request(request,root:workspace.root,workspaceOrigin:workspace.origin),nil)}
+                    catch {let failure=error as? BrowserFailure;var result=failure?.details ?? [:];result["error"]=error.localizedDescription;result["code"]=failure?.code ?? "BROWSER_ERROR";if result["status"] == nil {result["status"]=failure?.code == "CANCELLED" ? "cancelled":"failed"};replyHandler(result,nil)}
+                };return
+            }
             if command=="vector-index",let action=body["action"] as? String,let profile=body["profile"] as? String {
                 let store=vectors
                 vectorQueue.async {

@@ -1,0 +1,5 @@
+.document-toolbar-kit { display:flex; align-items:center; gap:8px; flex-wrap:wrap; width:100%; min-width:0; padding:3px 0; }
+.document-toolbar-kit-tools,.document-toolbar-kit-actions { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+.document-toolbar-kit-state { font-size:11px; color:var(--muted); margin-left:auto; min-width:0; overflow-wrap:anywhere; }
+.document-toolbar-kit > [role=group] { flex-shrink:0; }
+@container (max-width:480px) { .document-toolbar-kit { gap:5px; } .document-toolbar-kit-state { font-size:10px; } }

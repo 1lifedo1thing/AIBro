@@ -12,6 +12,7 @@
   // names, result cards, document bodies and ordinary links are absent.
   const UI_SELECTORS = [
     '[data-i18n]', '[data-i18n-template]', '[data-i18n-attrs]', '.layout-theme-label', '.manual-task-entry>span', '.agent-message:not(.live-message) .progress-heading-text', '.progress-count', '.progress-elapsed', '#polishPromptLabel', '#polishHelp', '#polishUndo', '#polishReview', '#polishStatus', '#polishCopy', '.polish-heading p',
+    '.selection-bar button', '.selection-actions button',
     'label[for]', '.setting-label', '.setting-help', '.dialog-actions button', '.dialog-actions a',
     '[data-space-tab]', '[data-space-filter]', '[data-project-tab]', '[data-paper-filter]', '.paper-review-status', '.inspector-tab',
     '[data-permission] option', '#provider option', '#contextWorkspace option', '#newProjectWorkspaceInput option', '#assignWorkspaceInput option',

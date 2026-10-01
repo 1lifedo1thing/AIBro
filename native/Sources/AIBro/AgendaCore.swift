@@ -43,6 +43,23 @@ enum AgendaError: LocalizedError {
     case message(String)
     var errorDescription: String? { if case .message(let s) = self { return s }; return nil }
 }
+
+/// A calendar-day deadline must never fall back to a normalized timestamp.
+/// Timed deadlines keep their exact instant; date-only deadlines remain local.
+enum AgendaDeadline {
+    static func date(day:String?,millis:Double?,calendar:Calendar = .current)->Date? {
+        if let day {
+            guard day.range(of:"^[0-9]{4}-[0-9]{2}-[0-9]{2}$",options:.regularExpression) != nil else{return nil}
+            let parts=day.split(separator:"-").compactMap{Int($0)}
+            guard parts.count==3 else{return nil}
+            let components=DateComponents(year:parts[0],month:parts[1],day:parts[2])
+            guard let date=calendar.date(from:components),calendar.dateComponents([.year,.month,.day],from:date)==components else{return nil}
+            return date
+        }
+        guard let millis,millis.isFinite else{return nil}
+        return Date(timeIntervalSince1970:millis/1000)
+    }
+}
 enum AgendaEngine {
     static func occurrences(_ event: AgendaEvent, from: Date, to: Date) -> [AgendaOccurrence] {
         guard !event.deleted, to > from, (try? event.validate()) != nil else { return [] }

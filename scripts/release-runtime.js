@@ -102,7 +102,7 @@ function cleanPythonEnv(directory,env=process.env){
 }
 function verifyRuntime(directory){
   const python=path.join(directory,'bin','python'+PYTHON_SERIES),env=cleanPythonEnv(directory);
-  const program='import sys,json,sqlite3,hashlib,ssl,fitz,certifi\nassert sys.version_info[:2]==(3,12)\nassert hasattr(hashlib,"scrypt")\nassert fitz.VersionBind=="'+LOCK.wheels[0].version+'"\nassert ssl.create_default_context().get_ca_certs()\ndoc=fitz.open();page=doc.new_page();page.insert_text((40,40),"Bundled runtime PDF")\nraw=doc.tobytes();source=fitz.open(stream=raw,filetype="pdf");assert "Bundled runtime PDF" in source[0].get_text()\npix=source[0].get_pixmap();assert pix.tobytes("png").startswith(b"\\x89PNG");assert pix.tobytes("jpeg").startswith(b"\\xff\\xd8")\nprint(json.dumps({"python":sys.version.split()[0],"pymupdf":fitz.VersionBind,"sqlite":sqlite3.sqlite_version,"openssl":ssl.OPENSSL_VERSION,"pdf":True,"caCertificates":len(ssl.create_default_context().get_ca_certs())}))';
+  const program='import sys,json,sqlite3,hashlib,ssl,fitz,certifi,io,PIL\nfrom PIL import Image,features\nassert PIL.__version__=="'+LOCK.wheels.find(w=>w.name==='Pillow').version+'"\nassert features.check("webp")\nfor format in ("PNG","JPEG","GIF","WEBP"):\n buf=io.BytesIO();Image.new("RGB",(3,2),"red").save(buf,format=format);image=Image.open(io.BytesIO(buf.getvalue()));image.load();assert image.size==(3,2)\nassert sys.version_info[:2]==(3,12)\nassert hasattr(hashlib,"scrypt")\nassert fitz.VersionBind=="'+LOCK.wheels[0].version+'"\nassert ssl.create_default_context().get_ca_certs()\ndoc=fitz.open();page=doc.new_page();page.insert_text((40,40),"Bundled runtime PDF")\nraw=doc.tobytes();source=fitz.open(stream=raw,filetype="pdf");assert "Bundled runtime PDF" in source[0].get_text()\npix=source[0].get_pixmap();assert pix.tobytes("png").startswith(b"\\x89PNG");assert pix.tobytes("jpeg").startswith(b"\\xff\\xd8")\nprint(json.dumps({"python":sys.version.split()[0],"pymupdf":fitz.VersionBind,"pillow":PIL.__version__,"imageFormats":["PNG","JPEG","GIF","WEBP"],"sqlite":sqlite3.sqlite_version,"openssl":ssl.OPENSSL_VERSION,"pdf":True,"caCertificates":len(ssl.create_default_context().get_ca_certs())}))';
   return JSON.parse(command(python,['-s','-B','-c',program],{env}));
 }
 function copyPythonLicenses(archive,destination){
@@ -134,6 +134,23 @@ function buildRuntime({output,cache=path.join(os.tmpdir(),'ai-bro-release-cache'
     fs.writeFileSync(path.join(directory,'runtime.json'),JSON.stringify(manifest,null,2)+'\n');fs.renameSync(directory,output);return manifest;
   }finally{fs.rmSync(stage,{recursive:true,force:true});}
 }
-function optionsFrom(argv){const result={};for(let i=0;i<argv.length;i+=2){if(!['--output','--cache','--verify'].includes(argv[i])||!argv[i+1])throw Error('Usage: node scripts/release-runtime.js --output NEW_DIRECTORY [--cache CACHE_DIRECTORY], or --verify RUNTIME_DIRECTORY');result[argv[i].slice(2)]=argv[i+1];}return result;}
-if(require.main===module){try{const opts=optionsFrom(process.argv.slice(2));console.log(JSON.stringify(opts.verify?verifyRuntime(path.resolve(opts.verify)):buildRuntime(opts),null,2));}catch(error){console.error(error.message);process.exitCode=1;}}
-module.exports={LOCK,sha256,command,download,validateArtifact,safeRelative,tarEntries,unpackPython,filesUnder,isMachO,signRuntime,treeHash,cleanPythonEnv,verifyRuntime,notices,buildRuntime,optionsFrom};
+function extendRuntime({directory,cache=path.join(os.tmpdir(),'ai-bro-release-cache')}={}){
+  // Call only on the release candidate's copied runtime. Existing pinned
+  // dependencies are never upgraded or replaced by this incremental path.
+  directory=path.resolve(directory);const manifestPath=path.join(directory,'runtime.json');
+  const previous=JSON.parse(fs.readFileSync(manifestPath,'utf8'));
+  if(previous.python?.sha256!==LOCK.python.sha256||previous.arch!=='arm64'||previous.platform!=='darwin')throw Error('Runtime does not match pinned Python; rebuild it explicitly.');
+  for(const wheel of previous.wheels||[]){const expected=LOCK.wheels.find(w=>w.name===wheel.name);if(!expected||expected.sha256!==wheel.sha256)throw Error('Existing wheel differs from release lock; rebuild runtime explicitly.');}
+  const missing=LOCK.wheels.filter(w=>!previous.wheels.some(old=>old.name===w.name));
+  if(!missing.length){verifyRuntime(directory);return previous;}
+  const site=path.join(directory,'lib','python'+PYTHON_SERIES,'site-packages'),wheels=missing.map(w=>download(w,cache));
+  const install='import pathlib,sys,zipfile,stat\nroot=pathlib.Path(sys.argv[1]);entries=[];seen=set()\nfor filename in sys.argv[2:]:\n with zipfile.ZipFile(filename) as z:\n  for item in z.infolist():\n   p=pathlib.PurePosixPath(item.filename)\n   if p.is_absolute() or ".." in p.parts or "\\\\" in item.filename or stat.S_ISLNK(item.external_attr>>16):raise ValueError("Unsafe wheel entry")\n   if item.is_dir():continue\n   target=root.joinpath(*p.parts)\n   if target.exists() or target.is_symlink() or str(target) in seen or any(parent.is_symlink() for parent in target.parents):raise ValueError("Duplicate or unsafe wheel path")\n   seen.add(str(target));entries.append((target,z.read(item)))\nwritten=[]\ntry:\n for target,raw in entries:\n  target.parent.mkdir(parents=True,exist_ok=True)\n  with target.open("xb") as handle:handle.write(raw)\n  written.append(target)\nexcept BaseException:\n for target in written:target.unlink(missing_ok=True)\n raise\n';
+  command(path.join(directory,'bin','python'+PYTHON_SERIES),['-s','-B','-c',install,site,...wheels],{env:cleanPythonEnv(directory)});
+  fs.writeFileSync(path.join(directory,'THIRD-PARTY-NOTICES.txt'),notices());
+  const signedFiles=signRuntime(directory),probe=verifyRuntime(directory);
+  const result={...previous,wheels:LOCK.wheels,sources:LOCK.sources,signedFiles,treeSha256:treeHash(directory),probe};
+  fs.writeFileSync(manifestPath,JSON.stringify(result,null,2)+'\n');return result;
+}
+function optionsFrom(argv){const result={};for(let i=0;i<argv.length;i+=2){if(!['--output','--cache','--verify','--extend'].includes(argv[i])||!argv[i+1])throw Error('Usage: node scripts/release-runtime.js --output NEW_DIRECTORY [--cache CACHE_DIRECTORY], --verify RUNTIME_DIRECTORY, or --extend COPIED_CANDIDATE_RUNTIME');result[argv[i].slice(2)]=argv[i+1];}return result;}
+if(require.main===module){try{const opts=optionsFrom(process.argv.slice(2));console.log(JSON.stringify(opts.verify?verifyRuntime(path.resolve(opts.verify)):opts.extend?extendRuntime({directory:opts.extend,cache:opts.cache}):buildRuntime(opts),null,2));}catch(error){console.error(error.message);process.exitCode=1;}}
+module.exports={LOCK,sha256,command,download,validateArtifact,safeRelative,tarEntries,unpackPython,filesUnder,isMachO,signRuntime,treeHash,cleanPythonEnv,verifyRuntime,notices,buildRuntime,extendRuntime,optionsFrom};

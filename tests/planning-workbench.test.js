@@ -161,3 +161,28 @@ test('multi-day calendar ticks align at actual midnight and do not round fractio
   assert.ok(scale.ticks.every(tick=>new Date(tick.value).getHours()===0));
   assert.equal(scale.min,min);assert.equal(scale.max,max);
 });
+
+test('creation and movement reject duplicate and inherited-private destination identities', () => {
+  for (const mutate of [
+    state => { state.projects.push({ ...state.projects[1] }); },
+    state => { state.projects[1].provenance = { origin: { private: true } }; },
+    state => { state.trash = [{ data: { projects: [{ id: 'course', private: true }] } }]; },
+    state => { state.projects[1].sourceConversationId = 'secret'; state.conversations = [{ id: 'secret', incognito: true }]; }
+  ]) {
+    const state = fixture(); mutate(state); const before = structuredClone(state);
+    assert.throws(() => Planning.planCreate(state, { title: '任务', projectId: 'course' }, { uid: () => 'new' }), /目标项目/);
+    assert.throws(() => Planning.planMove(state, ['range'], { projectId: 'course' }), /目标项目/);
+    assert.deepEqual(state, before);
+  }
+  assert.throws(() => Planning.planCreate(fixture(), { title: '任务', workspace: 'other' }, { uid: () => 'new' }), /空间/);
+});
+
+test('moves validate incoming and outgoing dependencies against the entire proposed batch', () => {
+  const state = fixture();
+  state.tasks.push({ id: 'dependent', title: 'Follow up', projectId: 'daily', project: '个人主页', workspace: '日常', dependsOn: ['range'] });
+  const before = structuredClone(state);
+  assert.throws(() => Planning.planMove(state, ['range'], { projectId: 'course' }), /依赖/);
+  assert.throws(() => Planning.planMove(state, ['dependent'], { projectId: 'course' }), /依赖/);
+  const together = Planning.planMove(state, ['range', 'dependent'], { projectId: 'course' });
+  assert.equal(together.count, 2); assert.deepEqual(state, before);
+});

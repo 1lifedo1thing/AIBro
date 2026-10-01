@@ -13,7 +13,7 @@ test('view navigation binds buttons without making the body a bubbling click han
   const views = [];
   vm.runInNewContext(statement, {
     $$: selector => [body, button].filter(node => selector === '[data-view]' || (selector === 'button[data-view]' && node.tagName === 'BUTTON')),
-    showView: view => views.push(view),
+    navigateWorkspaceLocation: view => views.push(view),
     viewLabels: { research: '科研' }
   });
   assert.equal(body.onclick, null, 'body data-view is UI state; a handler here rebuilds checkboxes before change fires');

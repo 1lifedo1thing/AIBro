@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 function harness(fetch) {
   const context = vm.createContext({ fetch, AbortController, setTimeout, clearTimeout, TextDecoder, WorkstationCore: require('../app/workstation-core') });
-  vm.runInContext(fs.readFileSync(require.resolve('../app/agent-transport'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(require.resolve('../app/sse-frame-scanner'), 'utf8') + '\n' + fs.readFileSync(require.resolve('../app/agent-transport'), 'utf8'), context);
   return context.AgentTransport;
 }
 const stream = events => new Response(new ReadableStream({ start(c) { for (const event of events) c.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`)); c.close(); } }), { headers: { 'content-type': 'text/event-stream' } });

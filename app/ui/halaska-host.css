@@ -1,0 +1,25 @@
+/* Local integration rules. The original Halaska source is kept unchanged. */
+@font-face {
+  font-family: 'Geist'; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url('./halaska-geist.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Geist Mono'; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url('./halaska-geist-mono.woff2') format('woff2');
+}
+[data-halaska-root] { font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif; min-width: 0; }
+[data-halaska-root] *, [data-halaska-root] *::before, [data-halaska-root] *::after { box-sizing: border-box; }
+[data-halaska-root] button { text-transform: none; }
+[data-halaska-root] button:active:not(:disabled) { translate: none; }
+[data-halaska-root] :is(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent) !important; outline-offset: 3px !important;
+}
+body.reduce-motion [data-halaska-root] *, body.reduce-motion [data-halaska-root] *::before,
+body.reduce-motion [data-halaska-root] *::after {
+  animation: none !important; transition: none !important; scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-halaska-root] *, [data-halaska-root] *::before, [data-halaska-root] *::after {
+    animation: none !important; transition: none !important; scroll-behavior: auto !important;
+  }
+}

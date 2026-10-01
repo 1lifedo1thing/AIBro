@@ -4,12 +4,16 @@
 .agent-progress summary::-webkit-details-marker{display:none}
 .progress-heading-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;max-width:62ch}
 .progress-elapsed{font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--faint)}
+.progress-cost{margin-left:6px;font-size:10px;font-variant-numeric:tabular-nums;color:var(--faint);white-space:nowrap}
 .progress-count{font-size:11px;white-space:nowrap;opacity:.75;margin-left:auto}
 .progress-chevron{font-size:16px;width:16px;height:16px;line-height:1;flex:none;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;transition:transform 140ms ease}
-.agent-progress[open]>.progress-chevron,.agent-progress[open]>summary>.progress-chevron{transform:rotate(90deg)}
+.agent-progress[open]>summary .progress-chevron{transform:rotate(90deg)}
 .progress-heading-mark,.progress-mark{display:inline-flex;align-items:center;justify-content:center;flex:0 0 16px;min-height:20px}
 .progress-spinner{width:12px;height:12px;border:1.5px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:progress-turn 900ms linear infinite}
-.progress-timeline{list-style:none;margin:8px 0 0;padding:0 0 0 1px;max-height:300px;overflow:auto;scrollbar-width:thin;overscroll-behavior:contain}
+/* 展开必须是真的展开：段正文与时间线都不设内部高度上限、不使用内层滚动。
+   嵌套滚动会把滚轮捕获在局部（overscroll-behavior 还会阻止滚动传给页面），
+   于是“自动展开”的段只能在一个小窗口里查看——滚动统一交给对话消息区。 */
+.progress-timeline{list-style:none;margin:8px 0 0;padding:0 0 0 1px}
 .progress-item{display:flex;align-items:flex-start;gap:10px;position:relative;padding:6px 0;min-width:0}
 .progress-item:before{content:"";position:absolute;width:1px;background:var(--line);left:7px;top:27px;bottom:-1px}
 .progress-item:last-child:before{display:none}
@@ -17,11 +21,92 @@
 .progress-item-content summary{cursor:pointer;list-style:none;display:flex;gap:6px;align-items:baseline}
 .progress-item-content summary:after{content:"›";opacity:.6;width:16px;height:16px;line-height:1;flex:none;overflow:hidden;display:inline-flex;align-items:center;justify-content:center}
 .progress-item-content details[open] summary:after{transform:rotate(90deg)}
-.progress-item-body{padding:8px 12px;margin:6px 0 4px;border-left:2px solid var(--line);white-space:pre-wrap;line-height:1.75;font-size:12px;color:var(--muted);background:var(--surface-wash,transparent);border-radius:0 6px 6px 0;max-height:180px;overflow:auto}
+.progress-item-body{padding:8px 12px;margin:6px 0 4px;border-left:2px solid var(--line);white-space:pre-wrap;line-height:1.75;font-size:12px;color:var(--muted);background:var(--surface-wash,transparent);border-radius:0 6px 6px 0}
 .progress-item.is-running{color:var(--text)}
 .progress-item.is-failed .progress-mark{color:var(--danger,#d87878)}
+/* A group owns one disclosure and keeps every original call inside it. Status
+   counts stay visible when closed; expanded output uses the transcript scroll. */
+.progress-group{list-style:none;padding:4px 0;min-width:0;color:var(--muted)}
+.progress-group-details{min-width:0}
+.progress-group-details>summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:28px;list-style:none;cursor:pointer;min-width:0}
+.progress-group-mark{display:inline-flex;align-items:center;justify-content:center;flex:0 0 16px;font-size:11px;color:var(--faint)}
+.progress-group.is-running>.progress-group-details>summary .progress-group-mark{color:var(--accent)}
+.progress-group.is-failed>.progress-group-details>summary .progress-group-mark{color:var(--danger)}
+.progress-group-text{min-width:0;flex:1 1 110px;overflow-wrap:anywhere;font-size:12px;color:var(--muted)}
+.progress-group-status,.progress-group-cost{font-size:10px;color:var(--faint);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.progress-group-details>summary>.progress-chevron{margin-left:auto}
+.progress-group-details[open]>summary>.progress-chevron{transform:rotate(90deg)}
+.progress-group-details>summary:has(>.halaska-activity-summary):after{content:"›";display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;flex:none;color:var(--faint);font-size:14px;transition:transform 220ms cubic-bezier(.2,0,0,1)}
+.progress-group-details[open]>summary:has(>.halaska-activity-summary):after{transform:rotate(90deg)}
+.progress-group-items{list-style:none;min-width:0;margin:3px 0 3px 7px;padding:0 0 0 18px;border-left:1px solid var(--line)}
+.progress-group-items>.progress-item:before{display:none}
+@media(max-width:500px){.progress-group-status{flex-basis:100%;order:4;padding-left:24px}.progress-group-items{padding-left:12px}}
 .agent-progress summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:4px}
 @keyframes progress-turn{to{transform:rotate(360deg)}}
 @media(max-width:700px){.progress-elapsed{font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--faint)}
-.progress-count{display:none}.progress-heading-text{max-width:100%}.progress-timeline{max-height:240px}}
+.progress-count{display:none}.progress-heading-text{max-width:100%}}
 @media(prefers-reduced-motion:reduce){.progress-spinner{animation:none;border-style:dotted}.progress-chevron{transition:none}}
+
+/* Halaska lifecycle hierarchy: one activity signal, an open timeline, no card
+   inside a card. Specificity keeps earlier experimental workbench skins from
+   turning this back into a tinted orbit panel. Original palette is inherited. */
+.agent-progress.agent-progress{border:0;border-radius:0;background:transparent;padding:0;margin:10px 0 18px;box-shadow:none;transition:none}
+.agent-progress.agent-progress[open]{padding:0;border:0;background:transparent;border-radius:0}
+.agent-progress.agent-progress>summary{min-height:34px;gap:8px;padding:3px 0}
+.agent-progress.agent-progress .progress-heading-mark{flex-basis:16px;color:var(--muted)}
+.agent-progress.agent-progress .progress-phase-label{background:none;color:var(--text);-webkit-text-fill-color:currentColor;animation:none!important;font-weight:550}
+.agent-progress.agent-progress .progress-heading-text{max-width:40ch;color:var(--muted)}
+.agent-progress.agent-progress .progress-count{color:var(--faint);font-size:10px;opacity:1}
+.agent-progress.agent-progress .progress-timeline{padding:0 0 0 1px;margin:6px 0 0}
+.agent-progress.agent-progress .progress-item{padding:5px 0;gap:10px}
+.agent-progress.agent-progress .progress-item-content>details>summary{min-height:24px;align-items:center;color:var(--muted)}
+.agent-progress.agent-progress .progress-item-content>details[open]>summary,.agent-progress.agent-progress .progress-item.is-running summary{color:var(--text)}
+.agent-progress.agent-progress .progress-item-content summary:after{font-size:14px;transition:transform 220ms cubic-bezier(.2,0,0,1)}
+.agent-progress.agent-progress .progress-item-body{border:0;border-radius:0;background:transparent;margin:2px 0 4px;padding:4px 0 6px;line-height:1.75;color:var(--muted)}
+.agent-progress.agent-progress .progress-cost{padding:0;background:transparent;color:var(--faint);font-size:10px}
+.agent-progress.agent-progress .progress-mark{font-size:11px;min-height:24px;color:var(--faint);transition:color 180ms ease}
+.agent-progress.agent-progress .progress-item.is-running .progress-mark{color:var(--accent)}
+.agent-progress.agent-progress .progress-item.is-failed .progress-mark{color:var(--danger)}
+.progress-active-mark{width:6px;height:6px;display:block;border-radius:50%;background:currentColor}
+.progress-activity{display:flex;width:16px;height:16px;align-items:center;justify-content:center}
+.progress-activity svg{width:16px;height:16px;stroke:currentColor;stroke-width:1.5;animation:progress-turn 1.5s linear infinite}
+.progress-activity circle{opacity:.18}.progress-activity path{stroke-linecap:round}
+[data-progress-phase=waiting] .progress-activity svg{animation:none;opacity:.65}
+body.reduce-motion .progress-activity svg{animation:none}
+body.reduce-motion .agent-progress.agent-progress summary:after{transition:none}
+@media(prefers-reduced-motion:reduce){.progress-activity svg{animation:none}.agent-progress.agent-progress summary:after{transition:none}}
+@media(max-width:700px){.agent-progress.agent-progress .progress-heading-text{max-width:100%}.agent-progress.agent-progress .progress-count{display:none}}
+
+/* Real Halaska islands retain the host palette, message layout and open-state
+   owner. Full tool output remains below, without a nested scroll or clamp. */
+.halaska-lifecycle-summary{display:block;min-width:0;width:100%}
+.halaska-lifecycle-line{display:flex;align-items:center;gap:8px;min-width:0;width:100%;flex-wrap:wrap}
+.halaska-lifecycle-line .progress-heading-text{flex:1 1 140px;white-space:normal;overflow-wrap:anywhere;overflow:visible;max-width:none!important;font-size:12px}
+.halaska-lifecycle-line .progress-phase-label{font-size:12px;white-space:nowrap}
+.halaska-lifecycle-line .progress-chevron{margin-left:auto}
+.halaska-lifecycle-line .progress-count{margin-left:0}
+.halaska-lifecycle-line .progress-activity{width:20px;flex-basis:20px!important}
+.halaska-lifecycle-key{display:none;align-items:center;gap:4px;color:var(--faint);font-size:10px}
+.agent-progress>summary:focus-visible .halaska-lifecycle-key{display:inline-flex}
+.halaska-lifecycle-card{display:grid;gap:10px;min-width:0}
+.halaska-lifecycle-card-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;min-width:0}
+.halaska-lifecycle-card-heading h6{min-width:0;overflow-wrap:anywhere}
+.halaska-lifecycle-description{margin:0!important;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;font-size:12px;color:var(--muted)}
+.halaska-lifecycle-buttons{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0}
+.halaska-lifecycle-buttons>span{min-width:0;max-width:100%}
+.halaska-lifecycle-buttons button{max-width:100%;overflow-wrap:anywhere;box-sizing:border-box}
+.pending-actions>[data-halaska-conversation],.message-actions>[data-halaska-conversation]{width:100%;min-width:0}
+.message-actions:has(>[data-halaska-conversation]){display:block}
+.halaska-agent-receipt{display:grid;gap:4px;min-width:0}
+.halaska-lifecycle-stop{margin-top:10px}
+.halaska-lifecycle-stop .stop-run{position:static!important;transform:none!important}
+.conversation-process-navigation{min-width:0;margin:4px 0 10px}
+.agent-progress[open]:has(>.conversation-process-navigation:not([hidden]))>summary .progress-count{display:none}
+.halaska-process-tabs{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);min-width:0}
+.halaska-process-tabs .kit-navigation{min-width:0;flex:0 1 auto}
+.halaska-process-tabs>.kit-navigation+*{text-align:right;color:var(--faint);padding:4px 0}
+.agent-progress [data-live-key="process-progress-panel"],.agent-progress [data-live-key="process-tools-panel"]{min-width:0}
+.agent-progress .tool-ledger{margin:0;padding:0;border:0;background:transparent;box-shadow:none}
+.agent-progress [role="tabpanel"][hidden],.conversation-process-navigation[hidden],.message-body[hidden]{display:none!important}
+@media(max-width:500px){.halaska-process-tabs{align-items:flex-start;flex-wrap:wrap;gap:0}.halaska-process-tabs>.kit-navigation+*{flex-basis:100%;text-align:left;padding:3px 0 6px}}
+@media(max-width:500px){.halaska-lifecycle-line{gap:6px}.halaska-lifecycle-line .progress-heading-text{flex-basis:100%;order:5}.halaska-lifecycle-line .progress-elapsed{margin-left:auto}.halaska-lifecycle-line .progress-chevron{margin-left:0}.halaska-lifecycle-key{display:none!important}}

@@ -6,12 +6,13 @@
   'use strict';
   const Research = typeof module === 'object' && module.exports ? require('./research-library.js') : globalThis.ResearchLibrary;
   const Wiki = typeof module === 'object' && module.exports ? require('./research-wiki.js') : globalThis.ResearchWiki;
+  const Provenance = typeof module === 'object' && module.exports ? require('./artifact-provenance.js') : globalThis.ArtifactProvenance;
   const Dependencies=typeof module==='object'&&module.exports?require('./task-dependencies'):globalThis.TaskDependencies;
   const spaces = ['日常', '课程', '科研'];
   const norm = value => String(value || '').trim().toLowerCase().replace(/[\s·_-]+/g, '');
   const clone = value => JSON.parse(JSON.stringify(value));
   const folderPath = value => String(value || '').split(/[\\/]+/).map(x => x.trim()).filter(x => x && x !== '.' && x !== '..').slice(0, 6).join('/');
-  const runLabel = status => ({ completed: '已完成', 'completed-local': '已完成 · 本地', 'completed-local-fallback': '已完成 · 本地', failed: '执行失败', cancelled: '已停止', interrupted: '已中断', rejected: '已拒绝', 'awaiting-approval': '等待审批', running: '执行中' }[status] || '已结束');
+  const runLabel = status => ({ completed: '已完成', 'completed-local': '已完成 · 本地', 'completed-local-fallback': '已完成 · 本地', failed: '执行失败', cancelled: '已停止', interrupted: '已中断', rejected: '已拒绝', 'awaiting-save': '等待保存结果', 'awaiting-approval': '等待审批', running: '执行中' }[status] || '已结束');
   function endpoint(base, resource = 'responses') {
     const url = new URL(String(base || '').trim());
     if (!['http:', 'https:'].includes(url.protocol)) throw new Error('API 地址必须使用 http 或 https');
@@ -50,6 +51,58 @@
     if (!parsed || typeof parsed !== 'object') throw new Error('模型返回了无效的操作计划');
     if (parsed.actions !== undefined && !Array.isArray(parsed.actions)) throw new Error('操作计划 actions 必须是数组');
     return { ...parsed, actions: parsed.actions || [] };
+  }
+  function validateCompletion(payload, deliverableCount = 0) {
+    const message = typeof payload?.message === 'string' ? payload.message.trim() : '';
+    const unsupported = !message || /^(?:已|已经)?(?:完成|整理完成|完成整理|处理完成|完成处理|全部完成|done|completed)[。.!！\s]*$/i.test(message);
+    if (!deliverableCount && unsupported) throw Object.assign(new Error('模型没有返回可查看的回答或产出，尚未完成本次任务。请提供实际内容或完整操作计划。'), { code: 'EMPTY_AGENT_RESULT' });
+  }
+  function validateAnalysisDeliverables(payload, { goal = '', attachmentIds = [], outcome } = {}) {
+    // This is a bounded integrity check for a claimed material-analysis result,
+    // not a ban on empty notes or a semantic judgement of an ordinary answer.
+    const request = String(goal || ''), message = typeof payload?.message === 'string' ? payload.message.trim() : '';
+    const fillingRequested = /填充|填入|补全(?:正文|内容|章节)|\b(?:populate|fill (?:in|out)|complete (?:the )?(?:body|content))\b/i.test(request);
+    const blankRequested = !fillingRequested && /(?:创建|新建|建立|添加).{0,20}(?:空白|空的|空笔记|空文档)|正文.{0,6}(?:留空|为空)|(?:仅|只)(?:保留|包含).{0,12}(?:标题|结构|章节)|(?:create|add|new).{0,20}(?:blank|empty)/i.test(request);
+    const analysisRequested = /分析|整理|总结|归纳|提炼|综述|analy[sz]|summari[sz]|synthesi[sz]|organi[sz]/i.test(request)
+      && (attachmentIds.length > 0 || /资料|材料|附件|课件|论文|文档|笔记|报告|pdf|document|material|note|paper|report/i.test(request));
+    const completionClaim = /^(?:已|已经)?(?:完成|整理完成|完成整理|处理完成|完成处理|全部完成|done|completed)[。.!！\s]*$/i.test(message)
+      || /(?:已(?:经)?(?:完成|整理|分析|总结|归纳|提炼)|(?:分析|整理|总结|归纳|提炼).{0,12}(?:完成|完毕)|(?:analysis|summary|synthesis).{0,12}(?:complete|done))/i.test(message);
+    const proposesNotes = (payload?.actions || []).some(action => ['create_note', 'create_knowledge_item', 'update_note', 'append_note', 'upsert_paper', 'upsert_wiki'].includes(action?.type));
+    if (blankRequested || !analysisRequested || !proposesNotes || !outcome) return;
+    const substantive = value => String(value || '').replace(/<!--[\s\S]*?(?:-->|$)/g, '').replace(/^\s*(---|\+\+\+)\r?\n[\s\S]*?\r?\n\1(?:\r?\n|$)/, '').replace(/^[^\r\n]+\r?\n\s*(?:={2,}|-{2,})\s*(?:\r?\n|$)/gm, '').split(/\r?\n/).some(line => {
+      if (/^\s*(?:```|~~~)/.test(line)) return false;
+      const text = line.trim().replace(/^(?:[-*+>]\s+|\d+[.)、]\s*)+/, '').replace(/[*_`~]/g, '').trim();
+      return text && !/^#{1,6}\s|^```|^[-|\s:]+$/.test(text)
+        && !/^(?:待(?:补充|分析|整理|填写|核验|确认)|暂无(?:内容|分析)?|未(?:提供|分析|整理|填写|核验)|todo|tbd|pending|n\/?a|(?:已|已经)?(?:完成|整理完成|完成整理|处理完成|全部完成))[。.!！\s]*$/i.test(text);
+    });
+    const rows = (outcome.results || []).filter(result => result.type === 'note' && ['created', 'updated', 'drafted', 'matched'].includes(result.operation));
+    const notes = rows.map(result => {
+      const note = (outcome.state?.notes || []).find(note => note.id === result.id);
+      let body = result.operation === 'drafted' ? note?.aiDraft?.content : note?.content;
+      // upsert_paper always produces Markdown headings, metadata and source
+      // links. Check its actual section text rather than that generated shell.
+      if (note?.paperId && payload.actions.some(action => action.type === 'upsert_paper')) {
+        const paper = (outcome.state?.papers || []).find(paper => paper.id === note.paperId && paper.noteId === note.id);
+        if (paper) body = Object.values(paper.structured || {}).map(section => Research.sectionText(section)).join('\n');
+      }
+      return { result, note, body };
+    });
+    const invalid = notes.some(({ note, body }) => !note || !substantive(body));
+    const saved = notes.some(({ result, body }) => ['created', 'updated'].includes(result.operation) && substantive(body));
+    const reviewExplained = /待(?:审阅|确认|合并)|尚未保存|请[^\n。]{0,24}(?:审阅|确认)|\b(?:await(?:s|ing)? review|pending review|not (?:yet )?saved|needs? review|review (?:the )?draft)\b/i.test(message);
+    const drafted = notes.some(({ result }) => result.operation === 'drafted');
+    const matched = notes.some(({ result }) => result.operation === 'matched');
+    const retainedExplained = /保留|已有|未(?:改动|修改|更新)|无需(?:改动|修改|更新)|\b(?:retain(?:ed)?|existing|unchanged|without changes|no changes)\b/i.test(message);
+    if (invalid || completionClaim && ((!saved && !(drafted && reviewExplained) && !(matched && retainedExplained)) || drafted && !reviewExplained)) {
+      throw Object.assign(new Error('资料整理尚未形成可交付的正文：空笔记、标题或待补充内容不能算分析成果；保留已有笔记不代表本轮已更新，待审阅草稿须明确说明。请提供实际分析正文或如实说明未完成的部分。'), { code: 'INCOMPLETE_ANALYSIS_RESULT' });
+    }
+  }
+  function responseIssue(message, run, protocolIssue) {
+    if (!message || message.role === 'user' || message.live || (run && !['completed', 'completed-local', 'completed-local-fallback'].includes(run.status))) return null;
+    if (protocolIssue) return { code: 'MODEL_PROTOCOL_ERROR', text: '这次回复未完成：模型返回了未执行的工具调用格式，旧版本误标为已完成。此前读取记录仍保留，可以重试继续处理。' };
+    const count = ['results','localFileEdits','agendaProposals','memoryNoteIds','clarifyQuestions'].reduce((n,key)=>n+(Array.isArray(run?.[key])?run[key].length:0),0)+(message.results?.length||0);
+    if (run?.validationErrors?.length && !count && !run.pendingActions?.length && message.text === '已完成整理。') return { code: 'EMPTY_AGENT_RESULT', text: '这次回复没有交付整理结果：旧版本在计划修复后提前结束。此前读取记录仍保留，可以重试继续处理。' };
+    return null;
   }
   // Reveal the user-facing message while structured actions are still streaming.
   // Incomplete JSON and tool arguments never spill into the transcript.
@@ -90,12 +143,38 @@
   labels.upsert_wiki = '保存科研 Wiki';
   labels.upsert_paper = '保存论文分析';
   labels.delete_attachment = '资料移入回收站';
+  // The delete guard only needs to answer one question: "did this attachment change
+  // since the plan was read?" Storing the full attachment body for every in-scope item
+  // (40 attachments ~= 700 KB per run) made workspace.json grow into tens of megabytes,
+  // and every load/save/browser-storage write re-serialized all of it. A synchronous
+  // 128-bit content stamp answers the same question in ~40 bytes. Not cryptographic —
+  // it guards against accidental concurrent edits, not against forgery.
+  function contentStamp(text) {
+    const s = String(text); let a = 0x811c9dc5, b = 0x9e3779b9;
+    for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); a = Math.imul(a ^ c, 0x01000193) >>> 0; b = Math.imul(b ^ c, 0x85ebca6b) >>> 0; }
+    return `v1-${s.length.toString(36)}-${a.toString(36)}-${b.toString(36)}`;
+  }
+  // Older runs stored raw JSON bodies in `attachmentSnapshots`. Rewrite them to stamps
+  // once on load; already-stamped rows start with "v1-" and are left untouched, so this
+  // is safe to run on every load and idempotent.
+  function migrateAttachmentSnapshots(state) {
+    let migrated = 0;
+    (state?.agentRuns || []).forEach(run => {
+      const snaps = run?.attachmentSnapshots;
+      if (!snaps || typeof snaps !== 'object' || Array.isArray(snaps)) return;
+      Object.keys(snaps).forEach(key => {
+        const value = snaps[key];
+        if (typeof value === 'string' && value.charCodeAt(0) === 123) { snaps[key] = contentStamp(value); migrated += 1; }
+      });
+    });
+    return migrated;
+  }
   function attachmentSnapshots(state,scope={}) {
     const active=x=>x&&!x.deleted&&!x.deletedAt&&!x.archived&&!x.archivedAt&&!['deleted','archived'].includes(x.status);
     return Object.fromEntries((state.imports||[]).filter(item=>{
       const parent=(state.projects||[]).find(p=>p.id===item.projectId);
       return active(item)&&(!item.projectId||active(parent))&&(!scope.projectId||item.projectId===scope.projectId)&&(!scope.workspace||scope.workspace==='auto'||(parent?.workspace||item.workspace)===scope.workspace);
-    }).map(item=>[item.id,JSON.stringify(item)]));
+    }).map(item=>[item.id,contentStamp(JSON.stringify(item))]));
   }
   function applyPlan(original, actions, context = {}) {
     if (!Array.isArray(actions) || actions.length > 80) throw new Error('单次最多执行 80 个动作，请分批整理');
@@ -106,7 +185,10 @@
       const snapshots=context.attachmentSnapshots||{};
       const currentScope=attachmentSnapshots(original,{projectId:context.projectId,workspace:context.workspace});
       if(matches.length!==1||!Object.hasOwn(snapshots,action.attachmentId)||!Object.hasOwn(currentScope,action.attachmentId))throw Error('资料不在本轮允许删除范围内，请重新读取当前项目资料');
-      if(snapshots[action.attachmentId]!==JSON.stringify(matches[0]))throw Error('资料在读取后发生变化，请重新核对再删除');
+      // Legacy rows stored the full JSON body; new rows store a content stamp. Both
+      // forms answer the same question, so either match accepts the delete.
+      const stored=snapshots[action.attachmentId],current=JSON.stringify(matches[0]);
+      if(stored!==current&&stored!==contentStamp(current))throw Error('资料在读取后发生变化，请重新核对再删除');
     }
     const state = clone(original); const results = []; const refs = new Map(); const touchedProjects = new Set();
     const now = context.now || Date.now(); let counter = 0;
@@ -136,7 +218,27 @@
       return ids;
     };
     const route = (item, project, workspace) => { item.workspace = project?.workspace || workspace; item.projectId = project?.id || null; item.project = project?.name || null; };
-    const record = (type, item, text, operation) => results.push({ type, id: item?.id, text, operation, projectId: item?.projectId || (type === 'project' ? item.id : null) });
+    const recordProvenance = (type, item, operation) => {
+      if (Provenance && type === 'project' && operation === 'created') {
+        // Projects have no document body/evidence receipt, but their creation
+        // origin must outlive PrivateMode's deletion of its conversation/run.
+        // Matching an existing project must never relabel public knowledge.
+        const run = context.provenanceRun?.id === context.runId ? context.provenanceRun : null;
+        const identity = value => typeof value === 'string' && value.length > 0 && value.length <= 200 && !/[\u0000-\u001f\u007f]/.test(value) ? value : null;
+        const origin = { recorded: true, runId: identity(context.runId), conversationId: identity(context.conversationId || run?.conversationId),
+          projectId: identity(context.projectId || run?.projectId), at: now };
+        const privateOrigin = Provenance.access(original, { type: 'local', runId: context.runId, conversationId: context.conversationId, projectId: context.projectId }).private ||
+          !!run && Provenance.access(original, { ...run, type: 'local' }).private;
+        if (origin.runId || origin.conversationId || origin.projectId || privateOrigin) item.provenance = { version: 1, origin: { ...origin, ...(privateOrigin ? { private: true } : {}) } };
+        return;
+      }
+      if (!Provenance || context.provenanceRun?.id !== context.runId || !['note', 'paper', 'task'].includes(type) || !['created', 'updated', 'drafted'].includes(operation)) return;
+      Provenance.attach(original, context.provenanceRun, { type, id: item.id, record: item, operation, variant: operation === 'drafted' ? 'draft' : 'body', at: now });
+    };
+    const record = (type, item, text, operation) => {
+      recordProvenance(type, item, operation);
+      results.push({ type, id: item?.id, text, operation, projectId: item?.projectId || (type === 'project' ? item.id : null) });
+    };
     const linkSources = (ids, target, project, workspace) => ids.forEach(id => {
       const item = state.imports.find(x => x.id === id);
       if (project && !item.projectId) { route(item, project, workspace); record('import', item, `归档资料：${item.name}`, 'assigned'); }
@@ -188,7 +290,7 @@
       }
       if (content === String(item.content || '') && title === String(item.title || '')) return 'matched';
       const history = Array.isArray(item.revisionHistory) ? item.revisionHistory.slice(-19).map(clone) : [];
-      history.push({ title: String(item.title || ''), content: String(item.content || ''), updatedAt: item.updatedAt || item.createdAt || null, savedAt: now, userEdited: item.userEdited === true });
+      history.push({ title: String(item.title || ''), content: String(item.content || ''), updatedAt: item.updatedAt || item.createdAt || null, savedAt: now, userEdited: item.userEdited === true, ...(item.provenance ? { provenance: clone(item.provenance) } : {}) });
       Object.assign(item, { title, content, revisionHistory: history, updatedAt: now });
       return 'updated';
     }
@@ -291,6 +393,8 @@
         const input = { ...action, id: previous?.id, title, workspace: '科研', projectId: project?.id || previous?.projectId || null, sourceAttachmentId: sources[0], sourceAttachmentIds: sources, url: action.url || source?.url || previous?.url || null, updatedAt: now };
         // Agent output cannot silently certify itself as a human-reviewed paper.
         delete input.reviewed; delete input.reviewedAt; delete input.userEdits;
+        // Provenance is supplied by the host run, never by model parameters.
+        delete input.provenance; delete input.agentRunId; delete input.sourceConversationId;
         const result = Research.upsertPaper(state.papers || [], input, { now });
         state.papers = result.papers;
         const paper = result.paper;
@@ -312,6 +416,8 @@
           paper.reviewedAt = previous.reviewedAt || null;
         }
         paper.sourceConversationId ||= context.conversationId;
+        paper.agentRunId ||= context.runId;
+        recordProvenance('paper', paper, result.created ? 'created' : 'updated');
         paper.noteId ||= `note_${paper.id}`;
         const markdown = Research.paperMarkdown(paper);
         let note = state.notes.find(item => item.id === paper.noteId);
@@ -333,7 +439,7 @@
         const noteOperation = newNote ? 'created' : applyNoteProposal(note, { title: paper.title, content: markdown }, noteSources);
         // Full Markdown edits, including consolidated notes, are authoritative.
         // Structured paper updates may propose aiDraft but cannot replace them.
-        Object.assign(note, { paperId: paper.id, kind: '论文分析', workspace: '科研', projectId: paper.projectId, project: paperProject?.name || previous?.project || null, sourceAttachmentIds: noteSources, sourceConversationId: note.sourceConversationId || paper.sourceConversationId, tags: [...new Set([...(note.tags || []), ...(paper.tags || [])])], folderPath: noteFolder, updatedAt: now });
+        Object.assign(note, { paperId: paper.id, kind: '论文分析', workspace: '科研', projectId: paper.projectId, project: paperProject?.name || previous?.project || null, sourceAttachmentIds: noteSources, sourceConversationId: note.sourceConversationId || paper.sourceConversationId, agentRunId: note.agentRunId || context.runId, tags: [...new Set([...(note.tags || []), ...(paper.tags || [])])], folderPath: noteFolder, updatedAt: now });
         linkSources(sources, note, paperProject, '科研');
         record('note', note, `${noteOperation === 'drafted' ? '生成论文待合并草稿' : noteOperation === 'matched' ? '保留现有论文笔记' : newNote ? '保存论文分析' : '增量更新论文'}：${note.title}`, noteOperation);
         if (action.id) refs.set(action.id, paper.id);
@@ -383,6 +489,13 @@
         else {
           const patch = type === 'append_note' ? {} : { ...(action.patch || {}) }; if (type !== 'append_note' && Object.hasOwn(action, 'status')) patch.status = action.status;
           let operation = 'updated';
+          // 产出校验：任务声明了产出、且这次要把状态改成完成时，先机械核对一次。
+          // 没声明产出的任务完全不受影响；核对不过就抛错，绝不假装完成。
+          if (isTask && patch.status === 'done' && item.status !== 'done' && typeof TaskDeliverable === 'object' && TaskDeliverable) {
+            const merged = { ...item, ...cleanTaskPatch(patch, item) };
+            const verdict = TaskDeliverable.validate(merged, { notes: state.notes || [], tasks: state.tasks || [], projectId: item.projectId || null });
+            if (!verdict.ok) throw new Error(TaskDeliverable.message(merged, verdict));
+          }
           if (isTask) Object.assign(item, cleanTaskPatch(patch, item));
           else {
             if (type === 'append_note') {
@@ -422,5 +535,5 @@
     const uniqueResults = [...new Map(results.map(r => [`${r.type}:${r.id}:${r.operation}`, r])).values()];
     return { state, results: uniqueResults, projectIds: [...touchedProjects] };
   }
-  return { endpoint, folderPath, runLabel, parsePlan, partialMessage, dueInWeek, taskSources, applyPlan, attachmentSnapshots, actionLabels: labels };
+  return { endpoint, folderPath, runLabel, parsePlan, validateCompletion, validateAnalysisDeliverables, responseIssue, partialMessage, dueInWeek, taskSources, applyPlan, attachmentSnapshots, contentStamp, migrateAttachmentSnapshots, actionLabels: labels };
 });

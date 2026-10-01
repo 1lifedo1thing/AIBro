@@ -68,9 +68,38 @@
   }
   const identityBlock = value => ({ type: 'input_text', text: JSON.stringify({ attachment: value }) });
   const textAvailable = item => [item.content, item.text, item.extractedText, ...(Array.isArray(item.pages) ? item.pages.flatMap(page => [page?.text, page?.content]) : [])].some(value => string(value).trim());
+  const firstText = values => values.find(value => string(value).trim()) || '';
+  const pageNumber = value => ['number', 'string'].includes(typeof value) && Number.isSafeInteger(Number(value)) && Number(value) > 0 && Number(value) <= 10000 ? Number(value) : null;
+  function pdfText(item) {
+    // Match AttachmentContext's page-first representation. In particular, a
+    // nonempty aggregate must not mask a pages array containing no usable text.
+    const pages = (Array.isArray(item.pages) ? item.pages : []).flatMap((page, index) => page && typeof page === 'object' && !Array.isArray(page)
+      ? [{ ...page, page: pageNumber(page.page ?? page.pageNumber) || index + 1, text: firstText([page.text, page.content]) }] : []);
+    const content = firstText([item.content, item.text, item.extractedText]);
+    const hasPageText = pages.some(page => page.text.trim());
+    if (!hasPageText && !content.trim()) throw new AttachmentDeliveryError(`《${string(item.name || item.originalName) || 'PDF'}》暂无可用的提取文字，可能是扫描件或文字索引尚未完成。请选择“发送原件”，或完成文字识别后再用文字模式；本次没有发送 PDF 原件或页面图像。`, 'PDF_TEXT_UNAVAILABLE', item);
+    const selectedPages = hasPageText ? pages : [], numbers = [...new Set(selectedPages.map(page => page.page))].sort((a, b) => a - b);
+    const availableTextPages = numbers.filter(page => selectedPages.some(part => part.page === page && part.text.trim()));
+    const pagesWithoutText = numbers.filter(page => !availableTextPages.includes(page));
+    const declaredPageCount = pageNumber(item.pageCount), available = new Set(availableTextPages);
+    const pageCount = declaredPageCount === null ? null : Math.max(declaredPageCount, ...numbers);
+    const boundary = {
+      scope: 'available_extracted_text', pageCount, availableTextPages, pagesWithoutText,
+      missingTextPages: pageCount === null ? null : Array.from({ length: pageCount }, (_, index) => index + 1).filter(page => !available.has(page)),
+      availableTextChars: hasPageText ? selectedPages.reduce((sum, page) => sum + page.text.length, 0) : content.length,
+      textSource: hasPageText ? 'stored_pages' : 'stored_aggregate',
+      extractionTruncated: item.contentTruncated === true || item.truncated === true || selectedPages.some(page => page.truncated === true),
+      // Legacy imports capped aggregate text, pages, and per-page text without
+      // consistently recording truncation. Never infer full PDF coverage here.
+      extractionMayBeTruncated: content.length >= 60000 || pages.length >= 500 || selectedPages.some(page => page.text.length >= 12000),
+      extractionCompleteness: 'unknown', originalIncluded: false, pageImagesIncluded: false, visualContentIncluded: false
+    };
+    return { item: { ...item, content, pages: selectedPages }, boundary };
+  }
   async function prepare(attachments, options = {}) {
-    const { provider = 'api', getBlob, getPdfInfo, getPdfPage, signal, onProgress, forceText = false } = options;
+    const { provider = 'api', getBlob, getPdfInfo, getPdfPage, signal, onProgress, forceText = false, pdfReadMode = 'original' } = options;
     check(signal);
+    if (pdfReadMode !== 'original' && pdfReadMode !== 'text') throw new AttachmentDeliveryError('PDF 读取方式无效，请选择“发送原件”或“读取文字”。', 'INVALID_PDF_READ_MODE');
     if (!Array.isArray(attachments) || attachments.some(item => !item || typeof item !== 'object' || Array.isArray(item))) throw new AttachmentDeliveryError('附件清单无效，请重新选择附件。', 'INVALID_ATTACHMENTS');
     const seen = new Set();
     for (const item of attachments) { const id = string(item.id); if (id && seen.has(id)) throw new AttachmentDeliveryError('同一附件在本次请求中重复出现，请重新选择。', 'DUPLICATE_ATTACHMENT', item); if (id) seen.add(id); }
@@ -82,6 +111,15 @@
       const image = type.startsWith('image/'), pdf = type === 'application/pdf', office = officeTypes.has(type);
       const storedSize = Number.isSafeInteger(item.size) && item.size > 0 ? item.size : null;
       const record = { attachmentId: id, name, originalName: string(item.originalName) || name, mimeType: type, originalBytes: storedSize, originalBytesSource: storedSize === null ? 'unavailable' : 'stored_original_metadata' };
+      if (pdf) record.pdfReadMode = forceText === true ? 'text' : pdfReadMode;
+      if (pdf && pdfReadMode === 'text' && forceText !== true) {
+        progress(`正在准备 ${name} 的提取文字…`);
+        const selected = pdfText(item);
+        metadata.push({ ...record, readMode: 'text', reason: 'user_selected_pdf_text', textAvailable: true, textCoverage: selected.boundary });
+        textAttachments.push(selected.item);
+        progress(`已准备 ${name} 的提取文字 · 不含页面图像`);
+        continue;
+      }
       if (forceText === true || !(image || pdf || (!auth && office))) {
         const reason = forceText === true ? 'user_selected_text' : auth && office ? 'auth_office_requires_text' : 'text_or_unsupported_file';
         let textItem = item;
@@ -131,15 +169,18 @@
     }
     check(signal);
     const originalFiles = metadata.filter(item => item.readMode === 'original_file').length, originalImages = metadata.filter(item => item.readMode === 'original_image').length;
+    const pdfTextBoundaries = metadata.filter(item => item.textCoverage).map(item => ({ attachmentId: item.attachmentId, name: item.name, ...item.textCoverage }));
+    const pdfTextAttachments = metadata.filter(item => item.mimeType === 'application/pdf' && item.readMode === 'text').length;
     const unavailable = metadata.filter(item => item.readMode === 'text' && !item.textAvailable).map(({ attachmentId, name }) => ({ attachmentId, name }));
     const first = metadata[0];
     let stageLabel = !first ? '本次没有附件' : metadata.length === 1
       ? `已读取 ${first.name}${first.pageCount ? ` · ${first.pageCount} 页` : ''}`
       : `已读取 ${metadata.length} 份资料${pdfPageCount ? ` · ${pdfPageCount} 页` : ''}`;
     if (unavailable.length) stageLabel = `${metadata.length === unavailable.length ? '资料待补充' : stageLabel} · ${unavailable.length} 份暂无可用文字`;
+    if (pdfTextBoundaries.length) stageLabel = metadata.length === 1 ? `已准备 ${first.name} 的提取文字 · 不含页面图像` : `${stageLabel} · ${pdfTextBoundaries.length} 份 PDF 仅含提取文字`;
     const knownOriginalBytes = metadata.reduce((sum, item) => sum + (item.originalBytes || 0), 0);
     const originalBytesComplete = metadata.every(item => item.originalBytes !== null);
-    return { blocks, metadata, textAttachments, coverage: { scope: 'prepared_representations', totalAttachments: attachments.length, nativeAttachments: metadata.length - textAttachments.length, textAttachments: textAttachments.length, originalFiles, originalImages, pdfPageImages: pdfPageCount, originalBytes: originalBytesComplete ? knownOriginalBytes : null, knownOriginalBytes, originalBytesComplete, transmittedOriginalBytes: nativeBytes, renderedImageBytes, imageBytes, textUnavailable: unavailable }, stageLabel };
+    return { blocks, metadata, textAttachments, coverage: { scope: 'prepared_representations', pdfReadMode: forceText === true ? 'text' : pdfReadMode, pdfTextAttachments, pdfTextBoundaries, totalAttachments: attachments.length, nativeAttachments: metadata.length - textAttachments.length, textAttachments: textAttachments.length, originalFiles, originalImages, pdfPageImages: pdfPageCount, originalBytes: originalBytesComplete ? knownOriginalBytes : null, knownOriginalBytes, originalBytesComplete, transmittedOriginalBytes: nativeBytes, renderedImageBytes, imageBytes, textUnavailable: unavailable }, stageLabel };
   }
   return { prepare, LIMITS, AttachmentDeliveryError };
 }));

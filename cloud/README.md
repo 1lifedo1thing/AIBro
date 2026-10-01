@@ -36,11 +36,11 @@ python3 app/cloud_server.py --data-dir /tmp/workstation-cloud-dev serve --host 1
 
 服务器需要提供 `hashlib.scrypt` 的 Python（推荐 Python 3.12）；部分 macOS 自带 Python 没有该能力，此时请使用已安装的 Python 3.12 或 Docker 镜像。桌面客户端不需要 scrypt，不受此运行时要求影响。测试运行器从当前 Python、已有 PATH 和常用 Homebrew 路径中选择支持 scrypt 的 Python，不会安装依赖或改用较弱的密码算法。
 
-这是开发用明文 loopback 服务，不应直接用于公网。数据目录通过 `--data-dir` 或 `CLOUD_DATA_DIR` 配置。独立服务文件是 `cloud_server.py`，Docker 镜像只复制这一文件，不依赖工作站或本机同步客户端模块。
+这是开发用明文 loopback 服务，不应直接用于公网。数据目录通过 `--data-dir` 或 `CLOUD_DATA_DIR` 配置。服务文件是 `cloud_server.py` 和 `cloud_web.py`，Docker 镜像只复制这两个文件，不依赖工作站或本机同步客户端模块。
 
 ## 协议
 
-除健康检查和登录外，所有接口都需要 `Authorization: Bearer <accessToken>`。登录每次创建一个设备会话；令牌由 32 个随机字节产生，默认 30 天有效，数据库仅持久化令牌 SHA-256。失效后重新登录即可，客户端应把令牌保存在设备安全存储，不能放进同步实体。没有通用跨域 CORS 授权；桌面客户端应由本地同步进程访问服务。
+除健康检查和登录外，所有接口都需要 `Authorization: Bearer <accessToken>`。登录每次创建一个设备会话；令牌由 32 个随机字节产生，默认 30 天有效，数据库仅持久化令牌 SHA-256。失效后重新登录即可，客户端应把令牌保存在设备安全存储，不能放进同步实体。默认不开放跨域访问；需要开发浏览器客户端时，通过 `CLOUD_WEB_ORIGINS` 逐个允许 HTTPS 来源，不支持通配符；桌面原生请求不受影响。Mac 客户端设置与会话存储见[自托管同步](../docs/CLOUD_SYNC.md)。
 
 - `GET /v1/health` → `{protocol:1}`，不泄露账号或存储信息。
 - `POST /v1/auth/login`，JSON `{username,password,deviceName}` → `{accessToken,account:{id,username},device:{id,name}}`。

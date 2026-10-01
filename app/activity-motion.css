@@ -1,0 +1,8 @@
+/* Only live status primitives receive this marker. Halaska's Orb animates
+   descendant spans, including inline styles; play state does not inherit. */
+[data-activity-paused],
+[data-activity-paused] *,
+[data-activity-paused]::before,
+[data-activity-paused]::after,
+[data-activity-paused] *::before,
+[data-activity-paused] *::after { animation-play-state: paused !important; }

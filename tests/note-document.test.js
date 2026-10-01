@@ -17,18 +17,22 @@ function harness(options = {}) {
     focus() { document.activeElement = this; }
     scrollIntoView() { this.scrolled = true; }
     querySelectorAll(query) { const result = []; const tags = query.toUpperCase().split(','); const walk = item => item.children.forEach(child => { if (tags.includes(child.tagName)) result.push(child); walk(child); }); walk(this); return result; }
+    querySelector(query) { return this.querySelectorAll(query)[0] || null; }
+    showModal() { this.open = true; }
+    close() { this.open = false; void this.fire('close'); }
     set innerHTML(value) { this.html = String(value); this.replaceChildren(); for (const match of this.html.matchAll(/<(h[1-6])[^>]*>([^<]*)<\/h[1-6]>/g)) { const header = new Element(match[1]); header.textContent = match[2]; this.append(header); } }
     get innerHTML() { return this.html || ''; }
   }
   const document = { createElement: tag => new Element(tag), activeElement: null };
+  document.body = new Element('body');
   const unload = [], saved = [], toasts = [], rendered = [];
-  const env = { document, addEventListener: (type, callback) => { if (type === 'beforeunload') unload.push(callback); }, setTimeout: callback => { timers.set(++timerId, callback); return timerId; }, clearTimeout: id => timers.delete(id) };
-  const api = Editor.createInlineController({ getState: () => state, save: () => { saves++; return options.save?.(); }, renderAll: () => rendered.push(true), onSaved: id => saved.push(id), toast: message => toasts.push(message) }, env);
-  const host = new Element('section');
-  const mount = (id = 'n', config = {}) => api.mount(host, id, config);
+  const env = { document, NoteEditorRecovery: options.recovery, ReadingPane: options.reader, addEventListener: (type, callback) => { if (type === 'beforeunload') unload.push(callback); }, setTimeout: callback => { timers.set(++timerId, callback); return timerId; }, clearTimeout: id => timers.delete(id) };
+  const api = Editor[options.legacy ? 'createController' : 'createInlineController']({ getState: () => state, save: () => { saves++; return options.save?.(); }, renderAll: () => rendered.push(true), onSaved: id => saved.push(id), toast: message => toasts.push(message) }, env);
+  const host = options.legacy ? document.body : new Element('section');
+  const mount = (id = 'n', config = {}) => options.legacy ? api.open(id) : api.mount(host, id, config);
   mount('n', options.config || {});
   const live = node => { for (let item = node; item; item = item.parentElement) if (item === host) return true; return false; };
-  const el = name => elements.filter(live).find(node => node.dataset.noteAction === name || node.attrs['aria-label'] === name || node.className === name);
+  const el = name => elements.filter(live).find(node => node.dataset.noteAction === name || node.attrs['aria-label'] === name || node.className === name || node.id === name);
   return { api, host, elements, document, saved, toasts, rendered, el, mount,
     get state() { return state; }, set state(value) { state = value; }, get saves() { return saves; },
     input: async (name, value) => { const input = el(name); input.value = value; await input.fire('input'); },
@@ -56,10 +60,10 @@ test('without an HTML renderer the document treats malicious Markdown as literal
   const h = harness({ state }); const pre = h.elements.find(node => node.tagName === 'PRE' && node.textContent === state.notes[0].content);
   assert.ok(pre); assert.equal(h.el('note-document-preview').innerHTML, '');
 });
-test('reading hides YAML frontmatter while source editing and saved content keep the exact metadata', async () => {
+test('reading renderer receives full YAML source while source editing and saved content keep exact metadata', async () => {
   const state = initial(); const original = '\uFEFF---\r\ntitle: 主笔记\r\nsources: [pdf]\r\n---\r\n# 正文\r\n\r\n内容'; state.notes[0].content = original;
   const received = [], h = harness({ state, config: { renderMarkdown: content => { received.push(content); return '<h1>正文</h1>'; } } });
-  assert.equal(received[0], '# 正文\r\n\r\n内容'); assert.equal(h.el('Markdown 正文').value, original);
+  assert.equal(received[0], original); assert.equal(h.el('Markdown 正文').value, original);
   await h.click('edit'); await h.input('Markdown 正文', original + '\r\n补充'); assert.equal(await h.api.save(), true);
   assert.equal(state.notes[0].content, original + '\r\n补充');
   assert.equal(Editor.markdownBody('---\nA paragraph\n---\n正文'), '---\nA paragraph\n---\n正文');
@@ -85,6 +89,15 @@ test('leave protection keeps the document on Stay, discards only explicit unsave
   const second = h.api.beforeLeave(); await h.click('discard'); assert.equal(await second, true);
   assert.equal(JSON.stringify(h.state), before); assert.equal(h.api.snapshot().dirty, false); assert.equal(h.api.getDraft('n'), null);
   assert.equal(h.saves, 0); assert.equal(h.beforeUnload().prevented, undefined);
+});
+
+test('a dirty retained document reveals its existing leave decision before focus and reuses that decision',async()=>{
+  let resumed=0;const h=harness({reader:{resume(){resumed++;}}});
+  assert.equal(h.api.beforeLeave(),true);assert.equal(resumed,0,'clean documents do not interrupt the navigation destination');
+  await h.click('edit');await h.input('Markdown 正文','保留中的编辑草稿');
+  const decision=h.api.beforeLeave();assert.equal(resumed,1);assert.equal(h.document.activeElement,h.el('stay'));
+  assert.equal(h.api.beforeLeave(),decision);assert.equal(resumed,2,'an existing decision can also have been parked by global navigation');
+  await h.click('stay');assert.equal(await decision,false);assert.equal(h.el('Markdown 正文').value,'保留中的编辑草稿');assert.equal(h.saves,0);
 });
 
 test('Save and continue resolves navigation only after persistence; pending save is single flight', async () => {
@@ -129,11 +142,16 @@ test('AI draft cannot replace an unsaved human draft and normal save preserves a
   assert.equal(await h.api.save(), true); assert.equal(state.notes[0].aiDraft.content, 'AI 候选');
 });
 
-test('same-note rerenders preserve edit state and source removal keeps a recoverable in-window draft', async () => {
+test('same-note rerenders preserve edit state and source removal keeps a recoverable in-window draft', { timeout: 1000 }, async () => {
   const h = harness(); await h.click('edit'); await h.input('Markdown 正文', '未保存内容');
   const input = h.el('Markdown 正文'); assert.equal(h.mount(), true); assert.equal(h.el('Markdown 正文'), input);
   assert.equal(h.mount('other'), false); assert.equal(h.api.snapshot().id, 'n');
-  h.state.notes = h.state.notes.filter(note => note.id !== 'n'); assert.equal(await h.api.beforeLeave(), true);
+  h.state.notes = h.state.notes.filter(note => note.id !== 'n');
+  let settled = false; const leaving = Promise.resolve(h.api.beforeLeave()).then(value => { settled = true; return value; }); await flush();
+  assert.equal(settled, false, 'a removed source does not authorize dropping the unsaved buffer');
+  assert.equal(h.el('note-document-leave').hidden, false);
+  await h.click('stay'); assert.equal(await leaving, false);
+  assert.equal(h.el('Markdown 正文'), input); assert.equal(h.api.getDraft('n').content, '未保存内容');
   h.api.unmount({ force: true }); assert.equal(h.api.getDraft('n').content, '未保存内容');
   h.state.notes.push(initial().notes[0]); h.mount(); assert.equal(h.el('Markdown 正文').value, '未保存内容');
   assert.equal(h.beforeUnload().prevented, true);
@@ -182,4 +200,86 @@ test('folder persistence failure rolls back the folder and empty legacy sessions
   const state = initial(), session = Editor.begin(state, 'n'); delete session.folderPath; delete session.originalFolderPath; session.content = '旧版session修改';
   const result = Editor.prepare(state, session); assert.equal(Object.hasOwn(result.after, 'folderPath'), false); assert.equal(Object.hasOwn(result.after.revisionHistory[0], 'folderPath'), false);
   const clean = harness(); await clean.click('edit'); await clean.input('保存目录', './'); assert.equal(await clean.api.save(), true); assert.equal(clean.api.snapshot().dirty, false); assert.equal(clean.saves, 0);
+});
+
+function recoveryFixture() {
+  let hooks, id;
+  const remembered = [], mounts = [], clears = [], discards = [];
+  const f = { remembered, mounts, clears, discards, savedResult: true, discardResult: true, flushes: 0, unmounts: 0,
+    module: { create(value) { hooks = value; return {
+      mount(host, noteId) { id = noteId; mounts.push({ host, id, session: { ...hooks.getSession() } }); hooks.onLoading(true); },
+      remember(session) { remembered.push({ ...session }); },
+      saved(noteId) { clears.push(noteId); return Promise.resolve(f.savedResult); },
+      discard(noteId) { discards.push(noteId); return Promise.resolve(f.discardResult); },
+      flushAll() { f.flushes++; return Promise.resolve(true); },
+      unmount() { f.unmounts++; hooks.onLoading(false); }
+    }; } },
+    finish(session) { if (arguments.length) hooks.onRestore(session); hooks.onLoading(false); },
+    restore(session) { hooks.onRestore(session); }, current: () => hooks.getSession(), id: () => id
+  };
+  return f;
+}
+test('recovery loading disables writes and AI while allowing clean navigation, then restores an editable note session', async () => {
+  const recovery = recoveryFixture(), state = initial(); state.notes[0].aiDraft = { content: 'AI' };
+  const h = harness({ state, recovery: recovery.module });
+  assert.equal(h.el('Markdown 正文').disabled, true); assert.equal(h.el('apply-ai').disabled, true);
+  assert.equal(await h.api.save(), false); assert.equal(h.saves, 0); assert.equal(h.api.beforeLeave(), true);
+  assert.equal(recovery.remembered.length, 0, 'initial untouched content must not replace a saved draft');
+  const restored = { ...Editor.begin(state, 'n'), content: '跨重启草稿', folderPath: '研究/草稿' }; recovery.finish(restored);
+  assert.equal(h.el('Markdown 正文').value, '跨重启草稿'); assert.equal(h.el('保存目录').value, '研究/草稿');
+  assert.equal(h.api.snapshot().mode, 'edit'); assert.equal(h.el('Markdown 正文').disabled, false);
+  assert.equal(h.state.notes[0].content, '# 动机\n\n原始分析');
+  await h.input('Markdown 正文', '继续编辑'); assert.equal(recovery.remembered.at(-1).content, '继续编辑');
+  assert.equal(await h.api.flushDrafts(), true); assert.equal(recovery.flushes, 1);
+});
+test('explicit recovery of an empty draft resets the editor without overwriting the stored note', async () => {
+  const recovery = recoveryFixture(), h = harness({ recovery: recovery.module }); recovery.finish();
+  await h.click('edit'); await h.input('Markdown 正文', '当前草稿'); recovery.restore(null);
+  assert.equal(h.el('Markdown 正文').value, '# 动机\n\n原始分析'); assert.equal(h.api.snapshot().mode, 'read');
+  assert.equal(h.api.getDraft('n'), null); assert.equal(h.saves, 0);
+});
+test('formal note save with failed draft cleanup preserves the result, cancels leave and retries only cleanup', async () => {
+  const recovery = recoveryFixture(), h = harness({ recovery: recovery.module }); recovery.finish(); recovery.savedResult = false;
+  await h.click('edit'); await h.input('Markdown 正文', '已写入正文'); const leaving = h.api.beforeLeave();
+  assert.equal(await h.api.save(), false); assert.equal(await leaving, false);
+  assert.equal(h.state.notes[0].content, '已写入正文'); assert.equal(h.api.snapshot().mounted, true);
+  assert.equal(h.api.getDraft('n').content, '已写入正文'); assert.match(h.el('note-document-status').textContent, /笔记已保存.*清理尚未确认/);
+  assert.equal(h.saves, 1); recovery.savedResult = true;
+  assert.equal(await h.api.save(), true); assert.equal(h.saves, 1); assert.deepEqual(recovery.clears, ['n', 'n']);
+  assert.equal(h.api.getDraft('n'), null);
+});
+test('discard does not erase visible input or permit leave before the draft clear succeeds', async () => {
+  const recovery = recoveryFixture(), h = harness({ recovery: recovery.module }); recovery.finish();
+  let resolve; recovery.discardResult = new Promise(done => { resolve = done; });
+  await h.click('edit'); await h.input('Markdown 正文', '未确认的放弃'); const leaving = h.api.beforeLeave();
+  const discarding = h.click('discard'); assert.equal(h.el('Markdown 正文').value, '未确认的放弃'); assert.equal(h.el('Markdown 正文').disabled, true);
+  resolve(false); await discarding; assert.equal(await leaving, false); assert.equal(h.api.getDraft('n').content, '未确认的放弃');
+  recovery.discardResult = true; const retryLeave = h.api.beforeLeave(); await h.click('discard');
+  assert.equal(await retryLeave, true); assert.equal(h.api.getDraft('n'), null); assert.equal(h.el('Markdown 正文').value, '# 动机\n\n原始分析');
+});
+test('runtime drafts are supplied on remount and forced navigation invalidates the old recovery surface', async () => {
+  const recovery = recoveryFixture(), h = harness({ recovery: recovery.module }); recovery.finish();
+  await h.click('edit'); await h.input('Markdown 正文', '同窗口草稿'); h.api.unmount({ force: true }); h.mount('other'); recovery.finish();
+  h.api.unmount(); h.mount(); assert.equal(recovery.mounts.at(-1).session.content, '同窗口草稿');
+  assert.ok(recovery.unmounts >= 3); assert.equal(h.el('Markdown 正文').value, '同窗口草稿');
+});
+test('a formal save from an earlier editor cannot clear a newer draft after a forced remount', async () => {
+  const recovery = recoveryFixture(); let resolveSave;
+  const h = harness({ recovery: recovery.module, save: () => new Promise(resolve => { resolveSave = resolve; }) }); recovery.finish();
+  await h.click('edit'); await h.input('Markdown 正文', '较早保存'); const saving = h.api.save();
+  h.api.unmount({ force: true }); h.mount(); recovery.finish(); await h.input('Markdown 正文', '重新打开后的新输入');
+  resolveSave(true); assert.equal(await saving, false);
+  assert.equal(h.el('Markdown 正文').value, '重新打开后的新输入'); assert.equal(h.api.getDraft('n').content, '重新打开后的新输入');
+  assert.deepEqual(recovery.clears, []); assert.equal(h.state.notes[0].content, '较早保存');
+});
+test('legacy dialog restores local drafts, flushes on close and keeps the dialog when cleanup fails', async () => {
+  const recovery = recoveryFixture(), h = harness({ legacy: true, recovery: recovery.module });
+  assert.equal(h.el('noteEditorTitle').disabled, true); assert.equal(await h.api.save(), false);
+  recovery.finish({ ...Editor.begin(h.state, 'n'), content: '恢复的旧式编辑器草稿' });
+  assert.equal(h.el('noteEditorContent').value, '恢复的旧式编辑器草稿');
+  h.api.close(); await flush(); assert.equal(h.el('noteEditorDialog').open, false); assert.ok(recovery.flushes >= 1);
+  h.mount(); recovery.finish(); recovery.savedResult = false;
+  assert.equal(await h.api.save(), false); assert.equal(h.el('noteEditorDialog').open, true);
+  assert.equal(h.state.notes[0].content, '恢复的旧式编辑器草稿'); assert.match(h.el('noteEditorStatus').textContent, /清理尚未确认/);
+  recovery.savedResult = true; assert.equal(await h.api.save(), true); assert.equal(h.saves, 1); assert.equal(h.el('noteEditorDialog').open, false);
 });

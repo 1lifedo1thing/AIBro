@@ -116,7 +116,13 @@
     const notes = list(state.notes).filter(record => visible(state, record) && linked(record, source.id) && meaningfulNote(state, record, source) && provenance(state, source, record, 'note'));
     const papers = list(state.papers).filter(record => visible(state, record) && linked(record, source.id) && meaningfulPaper(state, record, source) && provenance(state, source, record, 'paper'));
     const noteIds = ids(notes.map(note => note.id)), paperIds = ids(papers.map(paper => paper.id)), taskIds = ids(tasks.map(task => task.id));
-    if (!noteIds.length && !paperIds.length) return pending(taskIds);
+    if (!noteIds.length && !paperIds.length) {
+      // Embedded editor resources are already usable in their document. They
+      // do not create a research-analysis obligation; explicit analysis still
+      // flows through markCompleted and the evidence checks above.
+      if (source.importOrigin?.kind === 'document-image') return { status: 'resource', label: '文档图片', detail: '图片已保存，供文档显示和编辑使用；无需排队分析，也可按需主动交给 AI 分析。', noteIds: [], paperIds: [], taskIds };
+      return pending(taskIds);
+    }
     return { status: 'analyzed', label: '已分析 · 已关联', detail: `已关联${noteIds.length ? ` ${noteIds.length} 篇分析笔记` : ''}${noteIds.length && paperIds.length ? '、' : ''}${paperIds.length ? ` ${paperIds.length} 篇论文分析` : ''}；可打开核对与补充。`, noteIds, paperIds, taskIds };
   }
   function markCompleted(state = {}, results, run, now = Date.now()) {

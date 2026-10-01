@@ -5,7 +5,7 @@ test('mixed and context-dependent requests always retain retrieval',()=>{
 });
 test('self-contained reminders are compact but attached and skill context prevents shortcut',()=>{
  const input={goal:'明天下午两点提醒我买牛奶',now};const route=R.decide(input);assert.equal(route.mode,'reminder');assert.equal(route.reminder.reminderMinutes,0);
- for(const extra of [{attachments:[{}]},{references:[{}]},{skillId:'paper'},{localContext:'source'}])assert.equal(R.decide({...input,...extra}).mode,'full');
+ for(const extra of [{attachments:[{}]},{references:[{}]},{skillId:'paper'},{skillIds:['builtin-materials','builtin-paper']},{localContext:'source'}])assert.equal(R.decide({...input,...extra}).mode,'full');
  assert.equal(R.decide({...input,webSearch:true}).mode,'reminder','Available web tools do not imply an external-context request');
  const prompt=R.prompt(route,{goal:input.goal,now:now.toISOString()});assert.ok(prompt.length<1800);
 });

@@ -8,7 +8,7 @@ PYTHON_SOURCE=${AIBRO_PYTHON_SOURCE:-$ROOT/AI Bro.app/Contents/Resources/python}
 "$ROOT/scripts/run-native-preview.sh" --build-only
 mkdir -p "$OUT/Contents/MacOS" "$OUT/Contents/Resources/native/Resources"
 cp "$ROOT/../.aibro-native-preview.noindex/build/AIBroNative" "$OUT/Contents/MacOS/AIBroNative"
-node "$ROOT/app/app-assets.js" --copy "$OUT/Contents/Resources/app"
+node "$ROOT/scripts/copy-native-assets.js" "$OUT/Contents/Resources/app"
 ditto "$PYTHON_SOURCE" "$OUT/Contents/Resources/python"
 cp "$ROOT"/native/Resources/*.js "$ROOT"/native/Resources/*.css "$OUT/Contents/Resources/native/Resources/"
 cp "$ROOT/app/ai-bro-icon.icns" "$OUT/Contents/Resources/ai-bro-icon.icns"

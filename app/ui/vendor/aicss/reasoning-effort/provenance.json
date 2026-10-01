@@ -1,0 +1,18 @@
+{
+  "repository": "https://github.com/kvnkld/aicss",
+  "commit": "cfe5549c3931452f517471bf1ac18639d1edcedd",
+  "path": "packages/react/src/reasoning-effort",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2026 AICSS",
+  "originals": [
+    {
+      "file": "ReasoningEffort.tsx",
+      "sha256": "9f1aa5626ac3c2c4d4ecaca1d34311a617048b9ad6b30b56fc58ac4dad68de71"
+    },
+    {
+      "file": "ReasoningEffort.module.css",
+      "sha256": "20e13d834742372bcb7459df019da49d50d5e27cebf3086ffbd17cb434ac7fab"
+    }
+  ],
+  "adaptation": "app/ui/aicss-reasoning-effort.jsx; app/ui/aicss-reasoning-effort.css"
+}

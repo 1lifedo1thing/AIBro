@@ -70,8 +70,7 @@ struct SpaceDashboard:View {
                 Text(nativeUI("\(projects.count) 个项目 · \(tasks.count-completed) 项待办 · \(documents.count) 份知识与资料", "\(projects.count) \(projects.count == 1 ? "project":"projects") · \(tasks.count-completed) to do · \(documents.count) notes & sources")).font(.system(size:12)).foregroundStyle(.secondary).modifier(RowEntrance(order:2))
             }
             Spacer(minLength:16)
-            VStack(alignment:.trailing,spacing:10){Button {model.reveal(projectID==nil ? "create-task":"create-project-task",projectID ?? space)} label:{Label(nativeUI("添加事项", "Add task"),systemImage:"plus").font(.system(size:12,weight:.semibold)).padding(.horizontal,16).padding(.vertical,12)}.buttonStyle(LiftStyle()).modifier(GlassSurface())
-                Button(projectID==nil ? nativeUI("全部内容 →", "All content →"):nativeUI("文件与内容 →", "Files & content →")){model.spaceContent=true}.buttonStyle(.plain).font(.system(size:11)).foregroundStyle(.secondary)}
+            Button {model.reveal(projectID==nil ? "create-task":"create-project-task",projectID ?? space)} label:{Label(nativeUI("添加事项", "Add task"),systemImage:"plus").font(.system(size:12,weight:.semibold)).padding(.horizontal,16).padding(.vertical,12)}.buttonStyle(LiftStyle()).modifier(GlassSurface())
         }.padding(.bottom,6)
     }
     private func heading(_ title:String,_ detail:String)->some View { VStack(alignment:.leading,spacing:5){Text(title).font(.system(size:15,weight:.semibold));Text(detail).font(.system(size:10)).foregroundStyle(.secondary)} }
@@ -152,7 +151,7 @@ struct SpaceDashboard:View {
             heading(nativeUI("项目进度", "Project progress"),nativeUI("把大目标拆成可以完成的小步", "Big goals, achievable steps"))
             VStack(spacing:18){ForEach(projects){project in
                 let owned=tasks.filter{$0.projectId==project.id};let done=owned.filter{$0.status=="done"}.count
-                Button {model.selection="project:"+project.id} label:{VStack(alignment:.leading,spacing:9){HStack{Text(project.title).font(.system(size:12,weight:.medium)).lineLimit(1);Spacer();Text(owned.isEmpty ? "—":"\(Int(Double(done)/Double(owned.count)*100))%").font(.system(size:11,weight:.medium)).foregroundStyle(projectTint(project.id))};GeometryReader{g in ZStack(alignment:.leading){Capsule().fill(projectTint(project.id).opacity(0.12));Capsule().fill(projectTint(project.id).gradient).frame(width:owned.isEmpty ? 0:g.size.width*Double(done)/Double(owned.count))}}.frame(height:6);Text(nativeUI("\(done) / \(owned.count) 项已完成", "\(done) / \(owned.count) done")).font(.system(size:9)).foregroundStyle(.secondary)}.padding(.vertical,5)}.buttonStyle(LiftStyle())
+                Button {model.openProject(project.id)} label:{VStack(alignment:.leading,spacing:9){HStack{Text(project.title).font(.system(size:12,weight:.medium)).lineLimit(1);Spacer();Text(owned.isEmpty ? "—":"\(Int(Double(done)/Double(owned.count)*100))%").font(.system(size:11,weight:.medium)).foregroundStyle(projectTint(project.id))};GeometryReader{g in ZStack(alignment:.leading){Capsule().fill(projectTint(project.id).opacity(0.12));Capsule().fill(projectTint(project.id).gradient).frame(width:owned.isEmpty ? 0:g.size.width*Double(done)/Double(owned.count))}}.frame(height:6);Text(nativeUI("\(done) / \(owned.count) 项已完成", "\(done) / \(owned.count) done")).font(.system(size:9)).foregroundStyle(.secondary)}.padding(.vertical,5)}.buttonStyle(LiftStyle())
             }}.padding(.top,20)
             if projects.isEmpty{empty(nativeUI("创建项目，让每一步都有归处。", "Create a project to give each step a home."),"folder")}
         }
@@ -170,7 +169,7 @@ struct SpaceDashboard:View {
         return DashboardCard(tint:StudioPalette.jade) {
             HStack{heading(nativeUI("知识脉络", "Knowledge connections"),nativeUI("连线表示实际项目归属，不代表 AI 推断的语义关系", "Connections show saved project membership, not AI-inferred relationships."));Spacer();if projectID == nil { ProjectChoice(projects:projects,selection:$mapProject).frame(maxWidth:240) }}
             if let current {
-                HStack(spacing:0){Button {model.selection="project:"+current.id} label:{VStack(alignment:.leading,spacing:10){Image(systemName:"folder.fill").foregroundStyle(projectTint(current.id));Text(current.title).font(.system(size:13,weight:.semibold));Text(nativeUI("\(children.count) 个关联条目", "\(children.count) linked items")).font(.system(size:10)).foregroundStyle(.secondary)}.padding(20).frame(width:180,alignment:.leading).background(projectTint(current.id).opacity(0.1),in:RoundedRectangle(cornerRadius:20))}.buttonStyle(LiftStyle())
+                HStack(spacing:0){Button {model.openProject(current.id)} label:{VStack(alignment:.leading,spacing:10){Image(systemName:"folder.fill").foregroundStyle(projectTint(current.id));Text(current.title).font(.system(size:13,weight:.semibold));Text(nativeUI("\(children.count) 个关联条目", "\(children.count) linked items")).font(.system(size:10)).foregroundStyle(.secondary)}.padding(20).frame(width:180,alignment:.leading).background(projectTint(current.id).opacity(0.1),in:RoundedRectangle(cornerRadius:20))}.buttonStyle(LiftStyle())
                     Rectangle().fill(projectTint(current.id).opacity(0.35)).frame(width:26,height:1)
                     ScrollView {
                         LazyVStack(spacing:9) {

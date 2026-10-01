@@ -323,7 +323,7 @@ test('Electron main import, store construction, status and deletion do not even 
       return require(name);
     },
     __dirname: path.dirname(require.resolve('../app/electron-main')),
-    process: { env: {}, platform: 'darwin', on() {} }, console,
+    process: { env: {}, platform: 'darwin', on() {} }, console, setTimeout, clearTimeout,
     testWindow: { webContents: wc }
   });
   vm.runInContext(fs.readFileSync(require.resolve('../app/electron-main'), 'utf8'), context);

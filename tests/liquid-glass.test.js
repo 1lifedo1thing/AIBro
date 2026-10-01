@@ -134,7 +134,7 @@ function refractionFixture(options = {}) {
   const composer = node('composer'); composer.isConnected = true; let rect = { width: 480, height: 160 }; composer.getBoundingClientRect=()=>rect;
   const pane = node('pane'), list = { scrollHeight: 1400, scrollTop: options.atBottom === false ? 210 : 800, clientHeight: 600 };
   pane.querySelector=()=>list; if(options.withChat) composer.closest=()=>pane;
-  const document = {hidden:false,body:{append(item){children.push(item);},classList:{contains:name=>classes.has(name)}},querySelector:()=>composer,createElementNS:(_ns,name)=>node(name),
+  const document = {hidden:false,body:{append(item){children.push(item);item.isConnected=true;},classList:{contains:name=>classes.has(name)}},querySelector:()=>composer,createElementNS:(_ns,name)=>node(name),
     createElement:()=>({getContext:()=>({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:()=>writes++}),toDataURL:()=>`data:image/png;base64,test${writes}`}),
     addEventListener:(key,fn)=>events.set(key,fn),removeEventListener:key=>events.delete(key)};
   const env = {document,navigator:{userAgent:'Chrome/140.0.0.0'},CSS:{supports:()=>true},ResizeObserver:class{constructor(fn){resize=fn;}observe(){}disconnect(){this.disconnected=true;}},getComputedStyle:()=>({borderTopLeftRadius:'25px'}),
@@ -143,6 +143,16 @@ function refractionFixture(options = {}) {
   const controller=Glass.createRefraction(env,media),flush=()=>{const pending=[...timers.values()];timers.clear();pending.forEach(fn=>fn());};
   return {env,document,composer,pane,list,media,controller,children,events,windowEvents,timers,classes,flush,get writes(){return writes;},resize(width=480,height=160){rect={width,height};resize();}};
 }
+
+test('refraction mounts only after a real image exists, including recovery from canvas initialization failure', () => {
+  const h=refractionFixture();assert.equal(h.children.length,0,'no empty feImage resource during startup');
+  const create=h.document.createElement;h.document.createElement=()=>({getContext:()=>null});h.flush();
+  assert.equal(h.children.length,0,'failed preparation does not mount an empty resource');
+  h.document.createElement=create;h.controller.refresh();h.flush();assert.equal(h.children.length,1);
+  const image=h.children[0].children[0].children[0].children.find(n=>n.name==='feImage');
+  assert.match(image.attrs.get('href'),/^data:image\/png;base64,/);
+  h.resize(640,180);h.flush();assert.equal(h.children.length,1,'resizing updates the mounted filter');
+});
 
 test('SVG filter displaces the backdrop, corrects sRGB neutrality, and never applies filter to foreground text', () => {
   const h=refractionFixture();h.flush();assert.equal(h.writes,1);assert.equal(h.composer.attrs.get('data-glass-refracting'),'true');

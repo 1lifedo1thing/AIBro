@@ -1,102 +1,201 @@
 'use strict';
-const EN = {filmTitle:'See how one piece of work<br>leads to the next.',filmText:'From a lecture to your own understanding. From saved knowledge to the next task. See how AI Bro connects the work in 1 minute 46 seconds.',filmCaption:'Example workspace · Real UI interactions and saves · Scripted model responses, edited for pacing',filmDownload:'Download the film ↓',videoFallback:'Your browser cannot play this video. Download it to watch locally.',
- skip:'Skip to content',navLabel:'Main navigation',navWorkspace:'Workflow',navScenarios:'Use cases',navControl:'Your controls',navDownload:'Get AI Bro',heroTitle:'Your knowledge. Your next move.',heroExplore:'Watch the product film ↓',heroDownload:'Get the Mac app',heroSource:'Build from source ↗',heroMeta:'Local first · Chinese & English · Your choice of models',exploreLabel:'Explore the product',intro1:'Every conversation.',intro2:'A place to pick up from.',introText:'A lecture can become more than a summary. A paper can become more than a single answer. Connect source material, your understanding, and next steps—then keep working with AI as your knowledge grows.',flowLabel:'How sources, knowledge, and actions connect',flowInput:'What you bring',flowWeb:'Web pages & papers',flowIdeas:'Ideas & plans',flowCenter:'Converse · Organize · Act',flowOutput:'What you can build on',flowNotes:'Editable notes',flowProjects:'Projects & files',flowTasks:'Tasks & progress',flowReturn:'Saved knowledge comes back into the next conversation.',workspaceTitle:'From “take a look”<br>to “let’s keep going.”',workspaceText:'Ask AI, check the source, add your understanding, and follow up—all in one workspace. Each step leaves something you can open and change.',tabsLabel:'Explore product features',examplePrompt:'Try asking',expand:'View larger ↗',expandLabel:'Enlarge the actual app interface',scenariosTitle:'Learning. Research. Life.<br>Organized, and connected.',scenariosText:'One structure for knowledge and action, adapted to different kinds of work. Keep spaces distinct while following connections through projects, sources, and conversations.',courseTitle:'Give your course a throughline.',courseText:'Organize slides by course and chapter, keep the analysis in editable Markdown, and read it alongside the original. Link learning goals, assessment requirements, and next steps.',courseTreeRoot:'Interaction Design Methods',courseTree1:'├ Lecture 01',courseTree2:'│ ├ Lecture slides.pdf',courseTree3:'│ └ Study notes.md',courseTree4:'└ Task · Conduct an interview',courseLink:'Explore reading and editing ↗',researchTitle:'Put your papers to work.',researchText:'Start with a paper link or file. Capture methods, experiments, limitations, and your own insights. Connect originals, research notes, and citation relationships, with deduplication and updates.',topic1:'Contributions',topic2:'Methods & experiments',topic3:'Limitations',topic4:'Research insights',topic5:'Sources & citations',researchLink:'Explore the literature library ↗',dailyTitle:'Give a passing thought a next step.',dailyText:'Bring trips, personal projects, and everyday tasks to AI. Add a deadline or change a plan in a follow-up; update the original task, or edit, move, and complete it yourself.',dailyBubble:'“Move the deadline for packing<br>to tomorrow at 4 pm.”',dailyResult:'Original task updated · Checklist retained',dailyLink:'Explore task follow-ups ↗',reuseTitle:'A new conversation.<br>Not a fresh start.',reuseText:'Mention a course or project in a new chat. AI retrieves relevant saved notes and materials, with sources you can open to check the answer and add your understanding—without digging through old conversations.',reusePrompt:'“From my course notes, explain how observation differs from interviewing. Include sources. Answer only; don’t change anything.”',reuseLink:'Explore knowledge Q&A ↗',reuseExpand:'Enlarge knowledge Q&A',reuseAlt:'A new conversation using saved project knowledge and linked sources',reuseCaption:'Actual app interface · Example project and materials',progressTitle:'See the progress.<br>Return to the work.',progressText:'Task completion, activity trends, and a planning timeline together. Inspect a day and open the tasks or sources behind it, turning a chart into a way back to your work.',progressExpand:'Enlarge activity analytics',progressAlt:'D3 activity trends with real item details',progress1:'Time in context',progress1Text:'7 / 30-day activity trends and a timeline with actual dates.',progress2:'Numbers with sources',progress2Text:'Hover for details, select a date, and open the underlying items.',progress3:'Plans you can change',progress3Text:'Complete tasks, adjust priorities and dates, or move them to a project.',controlTitle:'Make it work your way.',controlText:'You don’t have to use one model for everything, or send every file to the same cloud.',privacyText:'Saved locally. Connected when you choose. Using a model sends relevant content to your provider; enabling sync sends supported data to your own server. Model credentials and local folder permissions are not synced with the workspace.',detailsTitle:'The everyday details<br>deserve attention, too.',detailsText:'A workspace you can resize, content you can recover, and status you can see. Small interactions that make complex work feel manageable.',downloadTitle:'Bring AI Bro into<br>your next project.',downloadIntro:'The v0.6.3 macOS preview is available with Python and PDF runtimes included. You can also build from source under AGPL-3.0.',downloadApp:'Download the Mac app',downloadAppText:'For Apple Silicon Macs running macOS 12 or later. Python and PDF runtimes are included; no separate installation needed.',downloadAppLink:'Open GitHub Releases ↗',downloadAppNote:'The preview is not Apple-notarized. Native glass requires macOS 26.',downloadSource:'Build from source',downloadSourceText:'Explore the source, run the local service, or build your own desktop app. The guide covers requirements, building, and version verification.',downloadSourceLink:'Read the build guide ↗',downloadSourceNote:'Development builds require Node.js and Python. See the guide for dependencies.',releaseNotes:'Release notes ↗',syncGuide:'Self-hosted sync guide ↗',repository:'GitHub repository ↗',footerText:'Knowledge grows. Work moves forward.',footerNote:'Interfaces use isolated example workspaces, with no personal data.',dialogLabel:'Enlarged product interface',dialogTitle:'AI Bro · Actual app interface',closeLabel:'Close'
-};
-const CONTROLS = {
- zh:[['01','模型连接','本机 Codex 登录或自定义 API。按会话切换模型和推理强度，润色提示词还可以另选模型。','账号登录需要单独安装官方 Codex CLI；能力取决于所选模型。'],['02','本机项目关联','在授权目录中按线索寻找本地项目，确认后保存目录关联。以后从项目继续对话，不必反复定位路径。','本机目录授权留在当前设备，不自动上传整个源码目录。'],['03','自托管增量同步','连接自己的服务器，在个人设备间同步支持的项目、知识、对话和受管资料。查看状态，处理版本冲突。','同步服务需自行部署；当前不提供端到端加密或实时多人协作。'],['04','可选择的操作权限','按会话选择审批方式。查看执行过程，核对动作与成果；需要时可以停止当前请求。','文件、联网与执行能力受当前通道及授权范围约束。']],
- en:[['01','Connect your models','Use local Codex sign-in or a compatible custom API. Change models and reasoning per chat, with a separate choice for prompt refinement.','Account sign-in requires the official Codex CLI installed separately. Capabilities depend on the model.'],['02','Connect local projects','Find a local project by clues within approved folders, then save the selected directory association. Continue from that project without finding its path again.','Local folder permissions stay on the current device. Source directories are not automatically uploaded in full.'],['03','Self-hosted incremental sync','Connect your own server to sync supported projects, knowledge, chats, and managed files across personal devices. See sync status and resolve conflicts.','Deploy and maintain your own server. End-to-end encryption and real-time team collaboration are not included.'],['04','Choose how actions are approved','Select an approval mode per conversation. Inspect execution progress, actions, and results, and stop a request when you need to.','File, network, and execution capabilities depend on the active connection and granted permissions.']]
-};
-const DETAILS={zh:[['随手拖入','对话区支持文件拖放，也支持选择文件和粘贴链接。'],['一篇主笔记','减少碎片分析，保留层次、来源和自己的编辑。'],['分区可调','拖动调节空间；文件、笔记、对话并排工作。'],['清楚的生命周期','待分析、已关联、已完成与回收记录各有状态。'],['中英双语','界面语言可切换，用户原文保持原文。'],['从第一步开始','新手引导、深浅外观、可恢复的删除与执行历史。']],en:[['Drop it in','Drag files into the conversation, browse for files, or paste a link.'],['One main note','Reduce scattered analyses while keeping structure, sources, and your edits.'],['Room to work','Resize panes and keep files, notes, and conversations side by side.'],['Visible lifecycle','See what awaits analysis, what is linked, and what is completed or deleted.'],['Chinese & English','Switch the interface language while preserving the original user content.'],['Start with guidance','First-run onboarding, light and dark appearance, recovery, and execution history.']]};
 
-Object.assign(EN,{heroTitle:'Turn a conversation into work you can continue.',heroMeta:'Native Mac workspace · Reviewable files · Durable projects',filmText:'From source material and small ideas to files, project plans, research memory and a schedule. See the work connect.',filmCaption:'Isolated example data · Actual app UI · Seeded history and edited demonstration, not a speed benchmark',workspaceTitle:'Every feature.<br>Something you can open and use.',workspaceText:'Go beyond the feature name. Watch a focused demonstration, see the result, then bring it into your own work.',downloadIntro:'v0.7.1 native macOS preview, with Python and PDF runtimes included. Build from source under AGPL-3.0.',downloadAppText:'Apple Silicon Macs, macOS 14 or later. Python and PDF runtimes are included.',downloadSourceNote:'Source builds require Xcode 26 / macOS 26 SDK, Node.js and Python.'});
-let FEATURES=[];
-Object.assign(EN,{
- iosTitle:'Away from your desk.<br>Still with your ideas.',iosText:'Capture an idea on your way to class, revisit a note before a meeting, or check tomorrow’s plans. AI Bro for iPhone brings your research, coursework and everyday life along.',
- iosDemo:'Actual iOS Simulator interface · Fictional courses, teachers and attendance states',iosCaptureTitle:'Catch the idea',iosCaptureText:'Save thoughts, links and files as they arrive. Let AI help organize them so your next conversation starts with context.',iosContextTitle:'Take your knowledge along',iosContextText:'Search notes, browse your research Wiki, and switch between Markdown source and preview. Review AI edits as a diff before accepting them.',iosCampusTitle:'Keep up with classes',iosCampusText:'The UCAS course assistant supports school sign-in, course lookup, attendance check-in and course QR codes. Add classes to your agenda.',iosSyncTitle:'Capture on iPhone. Continue on Mac.',iosSyncText:'Connect both devices to the same self-hosted service for projects, notes, tasks and conversations. Save offline and sync when connected.',iosDownload:'Download iOS 0.1.3 ↗',iosGuide:'Installation guide ↗',iosDownloadTitle:'Download the iOS app',iosDownloadText:'Capture ideas, read notes, check your agenda and use the UCAS course assistant from your iPhone or iPad.',iosInstallNote:'iPhone / iPad · iOS 16+ · The IPA requires your own signing',heroMeta:'Mac + iOS · Reviewable files · Durable projects',downloadIntro:'AI Bro for Mac 0.7.0 and iOS 0.1.3. A desktop workspace and a mobile companion, with source available under AGPL-3.0.'
-});
-const zh=new Map();document.querySelectorAll('[data-t],[data-label]').forEach(el=>{for(const [a,v]of [['data-t',el.innerHTML],['data-label',el.getAttribute('aria-label')]])if(el.hasAttribute(a))zh.set(el.getAttribute(a),v)});
-Object.assign(EN,{
- motionNote:'Explore each workflow',heroExplore:'Watch it in action ↓',filmTitle:'One task.<br>A visible step forward.',
- filmText:'Open a task, change its status, and return to the project to see progress update. A short recording of the English app, with waiting time trimmed.',
- filmCaption:'English interface · Example project · Actual screen recording, edited for pacing',
- filmDownload:'Download this recording ↓',workspaceTitle:'See the work<br>take shape.',
- workspaceText:'Follow the path from source material to reviewable files, durable projects and research memory. The workflow illustrations below explain each step; the recording above shows the English app in use.',
- demoNav:'Explore the workflows',extrasTitle:'More than a place to chat.',extrasText:'Find the right context, inspect what the agent does, and keep conversations with their work.',
- downloadIntro:'AI Bro 0.7.1 brings a native workspace, reviewable files, Research Wiki and durable projects. Bring it into your next piece of work.',
- researchLink:'Explore research memory ↗',
- footerNote:'Demonstrations use example workspaces. Workflow illustrations are labeled separately.'
-});
-let lang=new URLSearchParams(location.search).get('lang')==='en'?'en':'zh';
-const reduced=matchMedia('(prefers-reduced-motion:reduce)');
-function text(key){return lang==='en'?EN[key]:zh.get(key)}
-function make(tag,content,cls){const el=document.createElement(tag);if(content)el.textContent=content;if(cls)el.className=cls;return el;}
-let motionEnabled=!reduced.matches;
-const players=new Map();
-function updatePlayers(){players.forEach(p=>p.update())}
-const mediaObserver=new IntersectionObserver(entries=>{for(const entry of entries){const p=players.get(entry.target);if(p){p.visible=entry.isIntersecting&&entry.intersectionRatio>=.08;p.update()}}},{threshold:[0,.08]});
-const preloadObserver=new IntersectionObserver(entries=>{for(const e of entries){if(e.isIntersecting&&motionEnabled){const p=players.get(e.target);if(p)p.load();preloadObserver.unobserve(e.target)}}},{rootMargin:'240px 0px'});
-function clearPlayers(){mediaObserver.disconnect();preloadObserver.disconnect();players.forEach(p=>{p.video.pause();p.video.removeAttribute('src');p.video.load()});players.clear()}
-function updateMotionButton(){const b=document.getElementById('motion-toggle');b.hidden=false;b.textContent=lang==='en'?(motionEnabled?'Pause motion':'Enable motion'):(motionEnabled?'暂停页面动效':'启用页面动效');b.setAttribute('aria-pressed',String(motionEnabled));document.documentElement.classList.toggle('motion-off',!motionEnabled)}
-function registerPlayer(video,expanded=false){
- video.muted=true;video.defaultMuted=true;video.playsInline=true;video.loop=true;video.controls=false;video.preload='none';
- const state={video,visible:false,pending:false,load(){if(!video.hasAttribute('src')){video.preload='metadata';video.src=video.dataset.src}},allowed(){return players.has(video)&&this.visible&&!document.hidden&&motionEnabled&&(!document.querySelector('.media-dialog[open]')||expanded)},update(){
-  if(this.allowed()){this.load();if(video.paused&&!this.pending){this.pending=true;video.play().then(()=>{if(!this.allowed())video.pause()}).catch(()=>{}).finally(()=>{this.pending=false})}}
-  else video.pause();
- }};
- video.addEventListener('loadedmetadata',()=>{if(video.videoWidth&&video.videoHeight)video.style.aspectRatio=video.videoWidth+'/'+video.videoHeight});
- players.set(video,state);preloadObserver.observe(video);mediaObserver.observe(video);return state;
-}
-const revealObserver=new IntersectionObserver(entries=>{for(const e of entries){if(e.isIntersecting){e.target.classList.add('is-revealed');revealObserver.unobserve(e.target)}}},{threshold:.06});
-function prepareReveals(){revealObserver.disconnect();document.querySelectorAll('.demo-card,.section-heading,.scenario,.control-grid article,.capability-grid article,.detail-list article,.knowledge-flow,.download-grid article,.ios-gallery figure,.ios-benefits article').forEach(el=>{if(el.classList.contains('is-revealed'))return;el.classList.add('scroll-reveal');revealObserver.observe(el)})}
-function gifMedia(f,expanded=false){
- const media=make('figure',null,'demo-media'),frame=make('div',null,'gif-frame');
- const base='assets/recordings/zh/'+f.clip,video=make('video');video.poster=base+'.jpg';video.width=1200;video.height=846;video.setAttribute('aria-label',f.caption);video.dataset.src=base+'.mp4';frame.append(video);registerPlayer(video,expanded);
- const cap=make('figcaption'),actions=make('span',null,'media-actions'),link=make('a','GIF ↓');link.href=base+'.gif';link.download='AI-Bro-'+f.clip+'.gif';link.setAttribute('aria-label','下载'+f.caption+' GIF');
- if(!expanded){const expand=make('button','放大查看 ↗','media-expand');expand.type='button';expand.setAttribute('aria-label','放大'+f.caption);expand.onclick=()=>{const dlg=make('dialog',null,'media-dialog'),toolbar=make('div',null,'dialog-toolbar'),close=make('button','×');close.type='button';close.setAttribute('aria-label','关闭演示');toolbar.append(make('span',f.caption),close);dlg.setAttribute('aria-label',f.caption);dlg.append(toolbar,gifMedia(f,true));document.body.append(dlg);close.onclick=()=>dlg.close();dlg.addEventListener('close',()=>{dlg.querySelectorAll('video').forEach(v=>{v.pause();mediaObserver.unobserve(v);preloadObserver.unobserve(v);players.delete(v);v.removeAttribute('src');v.load()});dlg.remove();expand.focus();updatePlayers()},{once:true});dlg.addEventListener('click',e=>{if(e.target===dlg)dlg.close()});dlg.showModal();updatePlayers()};actions.append(expand)}
- actions.append(link);cap.append(make('span',f.caption),actions);media.append(frame,cap);return media;
-}
-function illustration(f){
- const media=make('figure',null,'demo-media workflow-figure');
- const visual=make('div',null,'workflow-visual workflow-'+f.id);
- const top=make('div',null,'workflow-top');top.append(make('span','AI BRO / '+f.id.toUpperCase()),make('span','↗'));
- const steps=make('ol',null,'workflow-steps');
- f.steps.forEach((t,i)=>{const li=make('li');li.append(make('span',String(i+1).padStart(2,'0'),'step-number'),make('strong',t));steps.append(li)});
- const result=make('div',null,'workflow-result');result.append(make('span','→'),make('p',f.result));visual.append(top,steps,result);
- media.append(visual,make('figcaption','Workflow illustration · Not a screen recording'));return media;
-}
-function render(){
- document.querySelectorAll(".media-dialog").forEach(d=>d.close());clearPlayers();
- document.documentElement.lang=lang==='en'?'en':'zh-CN';document.title=lang==='en'?'AI Bro — Work you can continue':'AI Bro — 把对话变成可以继续的工作';
- document.querySelector('meta[name="description"]').content=lang==='en'?'A local-first AI workspace for files, projects, research memory and schedules. Review changes and pick up where you left off.':'把文件、对话、项目、科研 Wiki 与日程连接起来。观看九段 ScreenCam 实录，了解 AI Bro 怎样让知识积累、工作继续。';
- document.querySelectorAll('[data-t]').forEach(el=>{const v=text(el.dataset.t);if(v!=null)el.innerHTML=v});document.querySelectorAll('[data-label]').forEach(el=>{const v=text(el.dataset.label);if(v)el.setAttribute('aria-label',v)});
- const video=document.getElementById('product-film'),src='assets/recordings/tour-'+lang+'.mp4';video.poster='assets/recordings/tour-'+lang+'.jpg';video.dataset.src=src;video.width=lang==='zh'?1532:1536;video.height=lang==='zh'?1080:1016;video.style.aspectRatio=video.width+'/'+video.height;registerPlayer(video);document.getElementById('film-download').href=src;
- // Keep the English page free of Chinese UI, including its decorative hero image.
- document.querySelector('.hero-backdrop').src='assets/recordings/tour-'+lang+'.jpg';
- const switcher=document.getElementById('language');switcher.textContent=lang==='en'?'中文':'EN';switcher.setAttribute('aria-label',lang==='en'?'切换至中文':'Switch to English');
- updateMotionButton();
- document.getElementById('demo-navigation').replaceChildren(...FEATURES.map((f,i)=>{const a=make('a',(i+1).toString().padStart(2,'0')+' '+(lang==='zh'?['总览','文件审阅','日程','随记','项目进度','阅读区','科研 Wiki','执行历史','模型'][i]:['Overview','File review','Calendar','Capture','Projects','Reader','Research Wiki','History','Models'][i]));a.href='#feature-'+f.id;return a}));
- document.getElementById('showcase').replaceChildren(...FEATURES.map(f=>{
-  const c=f[lang],a=make('article',null,'demo-card');a.id='feature-'+f.id;const copy=make('div',null,'demo-copy');copy.append(make('span',f.eyebrow,'eyebrow'),make('h3',c[0]),make('p',c[1],'demo-hook'),make('p',c[2]),make('small',c[3]));a.append(copy,lang==='zh'?gifMedia(f):illustration(f));return a;
- }));
- const extras=lang==='zh'?[
- ['找得到，也看得全','关键词检索开箱可用，向量模型可单独配置。沿来源、章节和相邻段落继续阅读，知道答案从哪里来。'],
- ['把执行过程摆出来','查看文件工具、搜索和命令的活动结果。在审批条核对关键操作，用 Skills 复用常见工作流程。'],
- ['对话放回它的项目','项目会话与资料放在一起；其他对话用文件夹归类，支持重命名、归档和恢复。']
- ]:[['Retrieval with sources','Start with keyword search and add a separately configured embedding model. Read chapters and nearby passages to understand where an answer comes from.'],['Inspectable execution','See file-tool, search and command results. Review key actions in the approval bar and reuse common workflows with Skills.'],['Conversations in context','Keep project chats with their materials. Organize other chats into folders, with renaming, archiving and recovery.']];
- document.getElementById('capability-grid').replaceChildren(...extras.map(([title,body])=>{const a=make('article');a.append(make('h3',title),make('p',body));return a}));
- document.getElementById('control-grid').replaceChildren(...CONTROLS[lang].map(([n,title,body,note])=>{const a=make('article');a.append(make('span',n,'control-number'),make('h3',title),make('p',body),make('small',note));return a}));
- document.getElementById('detail-list').replaceChildren(...DETAILS[lang].map(([title,body])=>{const a=make('article');a.append(make('h3',title),make('p',body));return a}));
- prepareReveals();
-}
-document.getElementById('language').onclick=()=>{lang=lang==='zh'?'en':'zh';const u=new URL(location.href);lang==='en'?u.searchParams.set('lang','en'):u.searchParams.delete('lang');history.replaceState(null,'',u);render()};
-document.querySelectorAll('[data-feature]').forEach(b=>b.onclick=()=>document.getElementById('feature-'+b.dataset.feature)?.scrollIntoView({behavior:reduced.matches?'instant':'smooth'}));
-document.addEventListener('visibilitychange',updatePlayers);
+// Both languages are local. The download path does not depend on a release API,
+// a feature-data request, or JavaScript being available.
+const EN = {
+  skip: 'Skip to content',
+  navLabel: 'Main navigation',
+  navWorkspace: 'How it works',
+  navScenarios: 'Your work',
+  navControl: 'Data & models',
+  navDownload: 'Get AI Bro <span aria-hidden="true">↗</span>',
+  heroEyebrow: 'A personal workspace for your Mac',
+  heroTitle1: 'From what you read.',
+  heroTitle2: 'To what you do next.',
+  heroDescription: 'Bring sources, conversations, documents and plans together. Think with AI, make your own decisions, and keep work you can edit, verify and build on.',
+  downloadAction: 'Get the Mac preview <span aria-hidden="true">↗</span>',
+  sourceAction: 'View source <span aria-hidden="true">↗</span>',
+  heroMeta: 'Local-first · Your choice of model · Open source',
+  mapHeading: 'The context around your work',
+  mapSource: 'The material you bring',
+  mapLinks: 'Links & ideas',
+  mapWork: 'Read. Discuss. Revise.',
+  mapWorkText: 'Keep the source, and your own thinking.',
+  mapDocument: 'A document you can keep editing',
+  mapDocumentDetail: 'Notes / Research / Project plans',
+  mapAction: 'A clear next step',
+  mapActionDetail: 'Tasks / Events / Follow-up questions',
+  mapCaption: 'Workflow diagram, not an app screenshot',
+  purpose: 'Made for work that builds over time.',
+  purposeLearn: 'Coursework',
+  purposeResearch: 'Research',
+  purposeDaily: 'Personal projects',
+  workflowEyebrow: '01 / Keep the work connected',
+  workflowTitle: 'The chat ends.<br>The work carries on.',
+  workflowIntro: 'Start with source material, make sense of it, and decide what comes next. Keep it in a project, with a place to return to.',
+  viewArchive: 'Watch an early recording <span aria-hidden="true">↗</span>',
+  step1Title: 'Give the work a home',
+  step1Text: 'Create a project for a course, a research question or a personal plan. Keep its conversations, sources, outputs and tasks together.',
+  step2Title: 'Bring a source. Ask the next question.',
+  step2Text: 'Add PDFs, documents and links. Move between reading and conversation, follow citations back to the source, and keep asking.',
+  step3Title: 'Make the answer your own',
+  step3Text: 'Open a note and keep editing in preview or source mode. Inspect suggested AI changes, compare the differences, then choose what to accept.',
+  step4Title: 'Keep the result. Plan the next step.',
+  step4Text: 'Save your work to a project, break it into tasks and put it on the schedule. Return to the materials, plans and discussions you already built.',
+  scenariosEyebrow: '02 / Bring it into your day',
+  scenariosTitle: 'Different work.<br>A familiar way through.',
+  scenariosIntro: 'Start with a document, a thought or something you need to do. Keep the context without starting over in another tool.',
+  learnTitle: 'Connect what you learn.',
+  learnText: 'Organize course materials, chapter notes and revision tasks around each class. Read the original, write your own understanding and follow up where you need help.',
+  learnTrail: 'Course sources <span>→</span> Your notes <span>→</span> Revision',
+  researchTitle: 'Build on what you read.',
+  researchText: 'Keep methods, experiments and open questions alongside the papers. Connect notes and sources in a Research Wiki, with evidence and your own interpretation.',
+  researchTrail: 'Sources <span>→</span> Research notes <span>→</span> Questions',
+  dailyTitle: 'Give ideas somewhere to go.',
+  dailyText: 'Capture a thought with its links and attachments. Turn the ideas worth pursuing into projects, tasks and events—one manageable step at a time.',
+  dailyTrail: 'Capture <span>→</span> Project tasks <span>→</span> A plan',
+  essentialsEyebrow: '03 / The everyday essentials',
+  essentialsTitle: 'Read it. Revise it.<br>Find it again.',
+  essentialsIntro: 'Conversation is the starting point. Sources, documents, activity and schedules are work you can open and continue.',
+  readTitle: 'Room for the source',
+  readText: 'Open PDFs and documents in a dedicated reader. Follow sources, resize the workspace and return to the project with context.',
+  editTitle: 'Changes you can inspect',
+  editText: 'Markdown preview and source, file differences and review help distinguish a suggestion from the content you have saved.',
+  historyTitle: 'A trail back to the work',
+  historyText: 'Revisit goals, activity and results in execution history. Follow source links and recover supported items from the trash.',
+  agendaTitle: 'Give the plan a time',
+  agendaText: 'See tasks and events, import an ICS timetable, and edit times, recurrence and reminders. Review AI-proposed events before saving.',
+  controlEyebrow: '04 / Keep your choices',
+  controlTitle: 'Your work.<br>On your terms.',
+  controlIntro: 'Choose a model, decide what joins the conversation, and connect your own sync server when you need one.',
+  modelsTitle: 'Change models. Keep your project.',
+  modelsText: 'Connect a compatible custom API or configure the local Codex connection, then choose a model per chat. Capabilities depend on the provider, model and local setup.',
+  localTitle: 'Your workspace starts on your Mac',
+  localText: 'When you use a remote model, the content needed for that request is sent to your chosen provider. Local-first does not mean all AI inference runs on your device.',
+  syncTitle: 'Connect a server when you need sync',
+  syncText: 'A self-hosted service pushes and pulls supported workspace content; SSH can provide the connection. Sync is not remote file management. Model credentials and local folder permissions stay on the device.',
+  syncLink: 'Read the sync guide <span aria-hidden="true">↗</span>',
+  archiveEyebrow: 'From an earlier version',
+  archiveTitle: 'See a real operation.',
+  archiveDescription: 'Recorded September 15, 2026 · Example workspace · Earlier interface',
+  archiveNote: 'This is a separate recording of task editing in the English app. The Chinese page has a two-minute product tour. These edited recordings are not model-speed benchmarks or acceptance tests of the current version.',
+  filmLabel: 'Early AI Bro recording in English',
+  videoFallback: 'Your browser cannot play this video. Use the download link below.',
+  archiveCaption: 'Earlier interface · Actual screen recording',
+  filmDownload: 'Download recording <span aria-hidden="true">↓</span>',
+  helpEyebrow: 'Before you start',
+  helpTitle: 'A few things<br>you might want to know.',
+  faq1Question: 'Which devices can I use?',
+  faq1Answer: 'Current development focuses on the Mac app. Check GitHub Releases for the available packages, system requirements and installation notes. Preview builds may not be notarized by Apple.',
+  faq2Question: 'Do I need to connect a model?',
+  faq2Answer: 'Yes. AI Bro is a workspace; it does not include a model subscription or API credits. Bring your own compatible API setup. The Codex account connection also requires installing and configuring the official CLI as described in the guide.',
+  faq3Question: 'What about the earlier iOS companion?',
+  faq3Answer: 'Installation instructions for the existing iOS companion remain in the repository. Development currently focuses on Mac. Features and versions differ by platform; consult the release notes.',
+  iosLink: 'Read the iOS installation guide <span aria-hidden="true">↗</span>',
+  faq4Question: 'Is this a team collaboration tool?',
+  faq4Answer: 'AI Bro currently focuses on personal work. Self-hosted sync pushes and pulls data between your own devices. It does not provide real-time multiplayer collaboration or end-to-end encryption.',
+  downloadEyebrow: 'Start with one piece of work',
+  downloadTitle: 'Bring your materials.<br>Take the next step.',
+  downloadText: 'Download the Mac preview or build from source. Releases list the version, system requirements and known issues.',
+  buildAction: 'Build from source <span aria-hidden="true">↗</span>',
+  changelogAction: 'Read the changelog <span aria-hidden="true">↗</span>',
+  footerDescription: 'From sources to next steps.',
+  footerNav: 'Project and support',
+  feedbackAction: 'Report an issue <span aria-hidden="true">↗</span>',
+  footerNote: 'A personal AI workspace in active development. Available features depend on the version you download.'
+};
 
-document.getElementById('motion-toggle').onclick=()=>{motionEnabled=!motionEnabled;updateMotionButton();updatePlayers()};
-reduced.addEventListener('change',()=>{motionEnabled=!reduced.matches;updateMotionButton();updatePlayers()});
-window.addEventListener('popstate',()=>{lang=new URLSearchParams(location.search).get('lang')==='en'?'en':'zh';render()});
-async function initialize(){
- try{const response=await fetch('features.json');if(!response.ok)throw new Error('Feature data unavailable');FEATURES=await response.json();render();if(location.hash.startsWith('#feature-'))document.querySelector(location.hash)?.scrollIntoView()}
- catch(error){document.getElementById('showcase').textContent=lang==='en'?'The feature guide could not load. Please refresh the page.':'功能展示暂时无法加载，请刷新重试。';console.error(error)}
+const localizedText = [...document.querySelectorAll('[data-t]')].map(element => ({ element, key: element.dataset.t, original: element.innerHTML }));
+const localizedLabels = [...document.querySelectorAll('[data-label]')].map(element => ({ element, key: element.dataset.label, original: element.getAttribute('aria-label') }));
+const languageButton = document.getElementById('language');
+const recording = document.getElementById('product-film');
+const recordingDetails = document.getElementById('recording-details');
+const recordingDownload = document.getElementById('film-download');
+const recordingStatus = document.createElement('p');
+recordingStatus.hidden = true;
+recordingStatus.setAttribute('role', 'status');
+recording.after(recordingStatus);
+let language = 'zh';
+
+function languageFromURL() {
+  return new URLSearchParams(location.search).get('lang') === 'en' ? 'en' : 'zh';
 }
-initialize();
+
+function ensureRecording() {
+  if (recordingDetails.open && recording.getAttribute('src') !== recordingDownload.getAttribute('href')) {
+    recording.src = recordingDownload.getAttribute('href');
+    recording.load();
+  }
+}
+
+function renderLanguage() {
+  language = languageFromURL();
+  const english = language === 'en';
+  document.documentElement.lang = english ? 'en' : 'zh-CN';
+  document.title = english ? 'AI Bro — From sources to next steps' : 'AI Bro — 从资料，到下一步';
+  const description = english
+    ? 'A personal AI workspace for learning, research and everyday projects on Mac. Connect sources, conversations, editable documents and plans.'
+    : 'AI Bro 是面向学习、科研与日常工作的 Mac AI 工作台。连接资料、对话、可编辑文档与日程，让工作可以接着继续。';
+  document.querySelector('meta[name="description"]').content = description;
+  document.querySelector('meta[property="og:title"]').content = document.title;
+  document.querySelector('meta[property="og:description"]').content = description;
+  for (const { element, key, original } of localizedText) element.innerHTML = english ? EN[key] : original;
+  for (const { element, key, original } of localizedLabels) element.setAttribute('aria-label', english ? EN[key] : original);
+  languageButton.textContent = english ? '中文' : 'EN';
+  languageButton.setAttribute('aria-label', english ? '切换至中文' : 'Switch to English');
+  languageButton.setAttribute('lang', english ? 'zh-CN' : 'en');
+  languageButton.hidden = false;
+
+  // No autoplay or offscreen players. Changing language also changes the real
+  // recording, so the English page never substitutes footage of Chinese UI.
+  recording.pause();
+  recording.removeAttribute('src');
+  recording.poster = `assets/recordings/tour-${language}.jpg`;
+  recording.width = english ? 1536 : 1532;
+  recording.height = english ? 1016 : 1080;
+  recordingDownload.href = `assets/recordings/tour-${language}.mp4`;
+  recordingStatus.hidden = true;
+  recording.load();
+  ensureRecording();
+}
+
+function revealAnchor(hash = location.hash) {
+  let id;
+  try { id = decodeURIComponent(hash.slice(1)); } catch { return; }
+  if (!id) return;
+  const target = document.getElementById(id);
+  if (!target) return;
+  const enclosingDetails = target.closest('details');
+  if (enclosingDetails) enclosingDetails.open = true;
+  if (id === 'film') recordingDetails.open = true;
+  if (enclosingDetails || id === 'film') {
+    target.scrollIntoView({ block: 'start', behavior: 'auto' });
+  }
+}
+
+languageButton.addEventListener('click', () => {
+  const url = new URL(location.href);
+  if (language === 'zh') url.searchParams.set('lang', 'en');
+  else url.searchParams.delete('lang');
+  history.pushState(null, '', url);
+  renderLanguage();
+});
+window.addEventListener('popstate', () => { renderLanguage(); revealAnchor(); });
+window.addEventListener('hashchange', () => revealAnchor());
+document.querySelectorAll('a[href^="#"]').forEach(link => {
+  link.addEventListener('click', () => revealAnchor(link.getAttribute('href')));
+});
+recordingDetails.addEventListener('toggle', () => {
+  if (recordingDetails.open) ensureRecording();
+  else recording.pause();
+});
+recording.addEventListener('error', () => {
+  recordingStatus.textContent = language === 'en'
+    ? 'This recording could not load. You can download it using the link below.'
+    : '录屏暂时无法加载，可以使用下方链接下载后观看。';
+  recordingStatus.hidden = false;
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden) recording.pause(); });
+
+renderLanguage();
+revealAnchor();

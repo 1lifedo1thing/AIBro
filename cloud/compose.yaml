@@ -9,6 +9,8 @@ services:
       - "8787"
     environment:
       CLOUD_DATA_DIR: /data
+      CLOUD_WEB_ORIGINS: ${CLOUD_WEB_ORIGINS:-}
+      CLOUD_MODEL_ORIGINS: ${CLOUD_MODEL_ORIGINS:-}
     volumes:
       - cloud_data:/data
     read_only: true

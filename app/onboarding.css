@@ -31,3 +31,6 @@ body.light-mode .onboarding-spotlight{box-shadow:0 0 0 4px color-mix(in srgb,var
 @media(prefers-reduced-motion:reduce){.onboarding-card{animation:none}.onboarding-spotlight,.onboarding-card button{transition:none}}
 @media(prefers-reduced-transparency:reduce){.onboarding-card,body.light-mode .onboarding-card{background:var(--panel-raised);backdrop-filter:none;-webkit-backdrop-filter:none}.onboarding-spotlight,body.light-mode .onboarding-spotlight{box-shadow:0 0 0 3px var(--accent-soft)}}
 @media(forced-colors:active){.onboarding-card,.onboarding-spotlight{border:2px solid CanvasText;box-shadow:none}.onboarding-card button{border:1px solid ButtonText}}
+
+body.reduce-motion .onboarding-card{animation:none!important}
+body.reduce-motion :is(.onboarding-spotlight,.onboarding-card button){transition:none!important}

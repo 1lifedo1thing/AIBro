@@ -9,6 +9,16 @@ const end = source.indexOf('\nfunction renderMessage(', start);
 assert.ok(start >= 0 && end > start, 'conversation renderer remains available');
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const render = vm.runInNewContext(`(${source.slice(start, end)})`, { esc, URL });
+const renderNote = vm.runInNewContext(`(${source.slice(start, end)})`, { esc, URL, window: {}, state: {} });
+
+test('document reading preserves visual editor empty paragraphs without rendering arbitrary HTML', () => {
+  assert.equal(renderNote('<br />\n\n#\n\n## Title', 'note-1'), '<p><br></p><h1></h1><h2>Title</h2>');
+  assert.equal(renderNote('before<br>after', {resolveImageUrl() { return null; }}), '<p>before<br>after</p>');
+  for (const input of ['`<br />`', '<br onclick="alert(1)">', '<br class=x>', '<script>alert(1)</script>']) {
+    assert.doesNotMatch(renderNote(input, 'note-1'), /<(?:br|script)\b/);
+  }
+  assert.equal(render('<br />'), '<p>&lt;br /&gt;</p>');
+});
 
 test('conversation Markdown renders headings, emphasis and inline code', () => {
   const html = render('# 项目计划\n**材料清单**、*时间节点*，以及 `model_name`。\n\n## 下一步\n普通文本');
@@ -28,10 +38,12 @@ test('bullets and ordered items remain separate semantic lists', () => {
 
 test('fenced code keeps blank lines, escapes HTML and ignores Markdown tokens', () => {
   const html = render('说明\n\n```html\n<div>**literal**</div>\n\n[no link](https://example.com)\n```\n\n之后');
-  assert.equal(html, '<p>说明</p><pre class="message-code"><code data-language="html">&lt;div&gt;**literal**&lt;/div&gt;\n\n[no link](https://example.com)</code></pre><p>之后</p>');
-  assert.equal(render('````txt\n```\n\nend\n````'), '<pre class="message-code"><code data-language="txt">```\n\nend</code></pre>');
-  assert.equal(render('```js\nconst x = "<safe>";\n'), '<pre class="message-code"><code data-language="js">const x = &quot;&lt;safe&gt;&quot;;\n</code></pre>');
-  assert.equal(render('~~~js\n1 + 1\n~~~'), '<pre class="message-code"><code data-language="js">1 + 1</code></pre>');
+  assert.equal(html, '<p>说明</p><pre class="message-code"><span class="message-code-lang">html</span><code data-language="html">&lt;div&gt;**literal**&lt;/div&gt;\n\n[no link](https://example.com)</code></pre><p>之后</p>');
+  assert.equal(render('````txt\n```\n\nend\n````'), '<pre class="message-code"><span class="message-code-lang">txt</span><code data-language="txt">```\n\nend</code></pre>');
+  assert.equal(render('```js\nconst x = "<safe>";\n'), '<pre class="message-code"><span class="message-code-lang">js</span><code data-language="js">const x = &quot;&lt;safe&gt;&quot;;\n</code></pre>');
+  assert.equal(render('~~~js\n1 + 1\n~~~'), '<pre class="message-code"><span class="message-code-lang">js</span><code data-language="js">1 + 1</code></pre>');
+  // 没有语言标注的围栏：不产生语言标签（也不产生空标签）
+  assert.equal(render('```\nplain\n```'), '<pre class="message-code"><code>plain</code></pre>');
 });
 
 test('inline code is escaped and never becomes a link or emphasis', () => {
@@ -67,4 +79,42 @@ test('document tables and source blockquotes render safely without losing code p
  assert.match(html,/<blockquote><p>来源：<strong>课程讲义<\/strong> 第 2 页/);
  assert.match(html,/<table>/);assert.match(html,/<code>a\|b<\/code>/);assert.match(html,/text-align:right/);assert.doesNotMatch(html,/<img/);assert.match(html,/&lt;img/);
  assert.match(render('```\n> literal\n| x | y |\n| --- | --- |\n```'),/<code>&gt; literal/);
+});
+
+test('note reading accepts the visual editor serializer short GFM table delimiters', () => {
+  const markdown = '| 项目 | 状态 | |\n| ---- | --------- | :- |\n| 表格单元 | | a |';
+  const html = renderNote(markdown, 'note-1');
+  assert.equal(html, '<div class="markdown-table-scroll"><table><thead><tr><th style="text-align:left">项目</th><th style="text-align:left">状态</th><th style="text-align:left"></th></tr></thead><tbody><tr><td style="text-align:left">表格单元</td><td style="text-align:left"></td><td style="text-align:left">a</td></tr></tbody></table></div>');
+  const aligned = renderNote('| Left | Center | Right | Plain |\r\n| :- | :-: | -: | - |\r\n| **L** | C | R | |', 'note-1');
+  assert.match(aligned, /<th style="text-align:center">Center<\/th>/);
+  assert.match(aligned, /<th style="text-align:right">Right<\/th>/);
+  assert.match(aligned, /<td style="text-align:left"><strong>L<\/strong><\/td>/);
+  for (const delimiter of ['| : | - |', '| --x | - |', '| - - | - |', '| - |', '| - | - | - |']) {
+    assert.doesNotMatch(renderNote(`| A | B |\n${delimiter}\n| value | value |`, 'note-1'), /<table>/, delimiter);
+  }
+});
+
+test('note task lists expose labeled disabled checked states without introducing write actions', () => {
+  const html = renderNote('- [ ] **待办**\n* [x] 已完成\n+ [X] 完成\n- 普通事项\n\n3. [x] 编号任务', 'note-1');
+  assert.equal((html.match(/type="checkbox" disabled/g) || []).length, 4);
+  assert.equal((html.match(/type="checkbox" disabled checked/g) || []).length, 3);
+  assert.match(html, /<label><input type="checkbox" disabled> <strong>待办<\/strong><\/label>/);
+  assert.match(html, /<li>普通事项<\/li>/);
+  assert.match(html, /<ol start="3"><li class="markdown-task-item">/);
+  assert.doesNotMatch(html, /onclick|onchange|data-(?:action|task-id)|tabindex=/);
+  assert.match(renderNote('- [x]', 'note-1'), /disabled checked aria-label="已完成"/);
+  assert.match(renderNote('- [ ]', 'note-1'), /disabled aria-label="未完成"/);
+  assert.match(renderNote('- [x]\n  下一行正文', 'note-1'), /disabled checked> 下一行正文<\/label>/);
+});
+
+test('new table and task rendering still escapes hostile HTML and keeps literal markers literal', () => {
+  const html = renderNote('| <img src=x onerror=1> | Safe |\n| :- | -: |\n| <script>alert(1)</script> | `a|b` |\n\n- [x] <svg onload=alert(1)>\n- [ ] [run](javascript:alert(1))', 'note-1');
+  assert.doesNotMatch(html, /<(?:img|svg|script)\b|<a\b/);
+  assert.match(html, /&lt;img src=x onerror=1&gt;/);
+  assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.match(html, /&lt;svg onload=alert\(1\)&gt;/);
+  assert.match(html, /<code>a\|b<\/code>/);
+  for (const markdown of ['- [z] ordinary', '- [x]no-space', '- \\[x] escaped', '- `[x]` inline', 'paragraph [x] ordinary', '```md\n- [x] code\n```']) {
+    assert.doesNotMatch(renderNote(markdown, 'note-1'), /type="checkbox"/, markdown);
+  }
 });

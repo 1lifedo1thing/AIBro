@@ -29,11 +29,15 @@ function harness(extra = {}, options = {}) {
     },
   };
   const element = id => {
-    if (!elements.has(id)) elements.set(id, { id, open: false, hidden: false, innerHTML: '', value: '', dataset: {}, close() { this.open = false; }, classList: { toggle() {}, contains() { return false; } } });
+    if (!elements.has(id)) {
+      const node={ id, open: false, hidden: false, innerHTML: '', value: '', dataset: {}, close() { this.open = false; }, replaceChildren(){this.innerHTML='';this.textContent='';}, removeAttribute(key){delete this[key];}, classList: { toggle() {}, contains() { return false; } } };
+      if(id==='#previewDialog'){node.tagName='SECTION';node.hidden=true;delete node.open;delete node.close;}
+      elements.set(id,node);
+    }
     return elements.get(id);
   };
   const context = vm.createContext({
-    state: initial(extra), ContentLifecycle: Lifecycle, Lifecycle, Core: {}, Research: {}, WorkstationTrash: trashUI, serverConflict: false,
+    taskEditorContexts: new Map(), taskEditorIntent: 0, renderDeliverableEditor() {}, state: initial(extra), ContentLifecycle: Lifecycle, Lifecycle, Core: {}, Research: {}, WorkstationTrash: trashUI, serverConflict: false,
     trashPurgeInFlight: new Set(), purgingTrashIds: new Set(), purgeInFlight: new Set(),
     uid: prefix => `${prefix}-test-${++serial}`, esc: value => String(value ?? ''), uiIcon: () => '',
     $: selector => element(selector), $$: () => [], document: { body: { dataset: { view: 'trash' } } },
@@ -45,11 +49,12 @@ function harness(extra = {}, options = {}) {
     repairRelationships() {}, normalizeStateShape(value) { if (value) this.state = value; return value; },
     fileStoreDelete: async id => calls.push({ kind: 'legacy-file-delete', id }), fileDb: async () => options.fileDb ? options.fileDb() : null,
     fetch: async (url, init) => { calls.push({ kind: 'fetch', url, init }); return options.fetch ? options.fetch(url, init) : response({ ok: true, purgedIds: JSON.parse(init.body).ids, revision: 5, removedImportIds: [], retainedImportIds: [], retainedVault: false }); },
-    previewRequestVersion: 0, pdfPreviewVersion: 0, pdfPreviewAbort: null,
+    previewRequestVersion: 0, pdfPreviewVersion: 0, pdfPreviewAbort: null, pdfReaderHandle: null, previewObjectUrl: null,
+    URL:{revokeObjectURL:url=>calls.push({kind:'revoke-url',url})},
   });
-  const names = ['commitContentState', 'ensureTrashIds', 'resolveTrashEntry', 'trashEntryFor', 'trashEntry', 'sharedImportSnapshot', 'renderTrash', 'restoreTrash', 'purgeTrash'];
+  const names = ['taskEditorTask', 'pruneTaskEditorContexts', 'clearTaskEditorContext', 'captureTaskFormDraft', 'applyTaskFormDraft', 'rebuildTaskEditor', 'suspendPreview', 'commitContentState', 'ensureTrashIds', 'resolveTrashEntry', 'trashEntryFor', 'trashEntry', 'sharedImportSnapshot', 'renderTrash', 'restoreTrash', 'purgeTrash'];
   const available = names.filter(name => new RegExp(`(?:async )?function ${name}\\(`).test(source));
-  vm.runInContext(available.map(functionSource).join('\n'), context);
+  vm.runInContext(source.match(/const taskEditorFields = \[.*?\];/)[0] + '\n' + available.map(functionSource).join('\n'), context);
   return { c: context, calls, notices, elements };
 }
 
@@ -218,7 +223,8 @@ test('content removal cancels the selected preview but preserves live conversati
   const conversation = { id: 'chat', attachments: ['pdf'], messages: [], draft: 'Unsaved conversation draft' };
   const run = { id: 'run', conversationId: 'chat', status: 'running' };
   const h = harness({ imports: [{ id: 'pdf', name: 'Original.pdf' }], conversations: [conversation], agentRuns: [run], previewRecord: { type: 'import', id: 'pdf' } });
-  h.c.$('#previewDialog').open = true;
+  h.c.$('#previewDialog').hidden = false;
+  h.c.$('#previewContent').textContent = 'Original private preview';h.c.$('#previewDownload').href='blob:deleted-preview';h.c.previewObjectUrl='blob:deleted-preview';
   let aborts = 0; h.c.pdfPreviewAbort = { abort() { aborts++; } };
   const outcome = Lifecycle.remove(h.c.state, [{ type: 'import', id: 'pdf' }], {}, { uid: () => 'removed-source' });
   h.c.commitContentState(outcome.state);
@@ -226,7 +232,11 @@ test('content removal cancels the selected preview but preserves live conversati
   assert.equal(h.c.state.agentRuns[0], run);
   assert.equal(conversation.draft, 'Unsaved conversation draft');
   assert.deepEqual(Array.from(conversation.attachments), []);
-  assert.equal(h.c.$('#previewDialog').open, false);
+  assert.equal(h.c.$('#previewDialog').hidden, true);
+  assert.equal('close' in h.c.$('#previewDialog'), false);
+  assert.equal(h.c.$('#previewContent').textContent, '');
+  assert.equal(h.c.$('#previewDownload').href, undefined);
+  assert.equal(h.calls.filter(call=>call.kind==='revoke-url'&&call.url==='blob:deleted-preview').length, 1);
   assert.equal(h.c.state.previewRecord, null);
   assert.equal(h.c.previewRequestVersion, 1); assert.equal(h.c.pdfPreviewVersion, 1);
   assert.equal(aborts, 1);
@@ -294,7 +304,8 @@ test('ordinary edits remain local while purge is in flight, then save once again
   });
   const start = source.indexOf('function persistServerSnapshot('), end = source.indexOf('\nwindow.flushWorkspace', start);
   assert.ok(start >= 0 && end > start, 'Exercise actual save scheduler and actual purge together');
-  vm.runInContext(`${source.slice(start, end)}\nglobalThis.actualSave = save;`, h.c);
+  const revisionStart = source.indexOf('function rememberCloudAppliedRevision('), revisionEnd = source.indexOf('\nfunction adoptCloudSnapshot(', revisionStart);
+  vm.runInContext(`${source.slice(revisionStart, revisionEnd)}\n${source.slice(start, end)}\nglobalThis.actualSave = save;`, h.c);
   const pending = h.c.purgeTrash('chosen'); await started.promise;
   assert.equal(snapshots.length, 1, 'Initial flush saves the starting revision before purge begins');
   assert.ok(h.calls.some(call => call.url === '/__trash/purge'), `Purge request should be waiting: ${h.notices.join(' | ')}`);

@@ -1,0 +1,43 @@
+{
+  "component": "Create",
+  "blockId": "liq-create",
+  "author": "Lorenzo Cabra",
+  "retrievedOn": "2026-09-29",
+  "componentUrl": "https://bencho.dev/blocks/liq-create",
+  "sourceUrl": "https://bencho.dev/assets/blocks-DEW-7YsA.js",
+  "sourceEntry": "BLOCKS['liq-create'].tsx and BLOCKS['liq-create'].css, the official Code pane payload",
+  "sourceAssetSha256": "4526ff45165ef0d72a9d4bff135efea4e139d075b2553a9fbb7ff838c7b14749",
+  "extraction": "Read-only parsing of literal objects and strings in the public block-data asset; no downloaded JavaScript was executed.",
+  "license": "MIT",
+  "licenseUrl": "https://bencho.dev/licence",
+  "licenseFile": "../../../../docs/licenses/BENCHO-MIT.txt",
+  "licenseScope": "Official block TSX/CSS and Copy code. Site shell, brand, and media are not copied.",
+  "upstreamFiles": {
+    "Create.upstream.tsx": "af2f8f0d6163ba41f0de4f7bd2122c1b554ff6fe3dab3c3654d4fd77070384e4",
+    "Create.upstream.css": "103c8029bfb384a060e036064af3460ef0d03aa6111a6734b045bd9fd72f9d78"
+  },
+  "upstreamNote": "The RECONSTRUCTED comment is present in the official source verbatim; it describes upstream history, not an AI Bro reconstruction.",
+  "adaptedFiles": [
+    "app/ui/bencho-add-menu.jsx",
+    "app/composer-add-menu.css",
+    "app/composer-add-menu.js"
+  ],
+  "retained": [
+    "Separate crt-blobs/crt-body shape and crt-panel/crt-menu ink layers",
+    "LIQUID spring 220/14/0.5 and LIQUID_STILL override 420/30",
+    "Simultaneous width, height, and corner-radius spread",
+    "30ms plus 22ms per-row entrance stagger",
+    "Concentric panel and row corners, isolated per-row hover wash"
+  ],
+  "adapted": [
+    "Existing 32px Halaska composer anchor replaces the upstream Create pill and 244px catalogue stage",
+    "Viewport-clamped popup replaces a fixed 212x166 panel",
+    "Real callback items replace hard-coded Document/Spreadsheet/Board/Folder demos",
+    "Accessible keyboard, async error/retry, lifecycle and reduced-motion handling added",
+    "AI Bro palette, readable descriptions, and product popover border/shadow"
+  ],
+  "dependencies": {
+    "framer-motion": "13.4.4",
+    "lucide-react": "1.48.0"
+  }
+}

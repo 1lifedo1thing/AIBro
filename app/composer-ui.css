@@ -1,0 +1,55 @@
+/* Composer content, configuration and actions share one Kit surface. */
+.pdf-read-mode-control{display:flex;align-items:center;gap:12px;min-width:0;padding:8px 0}
+.pdf-read-mode-control>.kit-select{flex:0 0 174px;min-width:0}
+.pdf-read-mode-control>div:first-child{flex:0 0 174px;min-width:0}
+.pdf-read-mode-description{font-size:11px;line-height:1.5;color:var(--muted);margin:0;min-width:0}
+.pdf-read-mode-choice>label{display:block;font-size:10px;line-height:1.4;margin-bottom:3px;color:var(--muted)}
+.composer-pdf-read-mode{padding:0 4px}
+@container workstation-main (max-width:560px){.pdf-read-mode-control{align-items:flex-start;flex-wrap:wrap;gap:5px}.pdf-read-mode-description{flex-basis:100%}}
+/* Keep the selected PDF mode visible; explanation belongs to an explicit,
+   keyboard-accessible disclosure instead of a persistent composer paragraph. */
+.pdf-read-mode-control--compact{flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:6px;padding:3px 0 5px}
+.pdf-read-mode-control.pdf-read-mode-control--compact>.pdf-read-mode-choice{display:flex;align-items:center;gap:8px;flex:0 1 auto;max-width:100%;min-width:0}
+.pdf-read-mode-control--compact .pdf-read-mode-choice>label{flex:0 0 auto;font-size:11px;line-height:1.4;margin:0;color:var(--muted)}
+.pdf-read-mode-control--compact .kit-select-wrap{width:146px;max-width:100%;min-width:0;flex:1 1 146px}
+.pdf-read-mode-help{min-width:0;max-width:100%;margin:0;padding:0;border:0;background:none;box-shadow:none;color:var(--muted)}
+.pdf-read-mode-help>summary{width:max-content;max-width:100%;padding:5px 0;font-size:11px;line-height:1.5;cursor:pointer;border-radius:4px}
+.pdf-read-mode-help>summary:hover{color:var(--text)}
+.pdf-read-mode-help>summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.pdf-read-mode-help[open]{flex-basis:100%}
+.pdf-read-mode-help .pdf-read-mode-description{max-width:64ch;margin:2px 0 3px;overflow-wrap:anywhere}
+@media(prefers-reduced-motion:reduce){.pdf-read-mode-help,.pdf-read-mode-help>*{animation:none!important;transition:none!important}}
+body.reduce-motion .pdf-read-mode-help,body.reduce-motion .pdf-read-mode-help>*{animation:none!important;transition:none!important}
+.composer-kit{border-radius:18px!important;background:var(--panel-raised,var(--panel))!important;box-shadow:0 4px 18px color-mix(in srgb,var(--text) 5%,transparent)!important;overflow:visible}
+.composer-kit:focus-within{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))!important}
+.composer-kit .composer-main{padding:12px 12px 3px!important;min-height:80px}
+.composer-kit .kit-composer-editor{width:100%;min-width:0}
+.composer-kit .kit-composer-editor textarea{font-size:14px!important;line-height:1.65!important;min-height:60px!important;max-height:min(240px,28vh)!important;padding:8px 4px!important;border:0!important;border-radius:0!important;background:transparent!important;resize:none!important;box-shadow:none!important}
+.composer-kit .kit-composer-editor textarea:focus-visible{outline:none!important}
+.composer-kit .kit-composer-editor textarea + div{display:none!important}
+.composer-kit .composer-footer{padding:4px 10px 10px!important;gap:8px!important;border-top:0!important}
+.composer-kit [data-composer-control]{display:inline-flex;min-width:0;max-width:100%;flex:0 1 auto}
+.composer-kit .kit-composer-action{display:inline-flex;min-width:0;max-width:100%}
+.composer-kit .kit-composer-action>button{max-width:100%!important;min-width:0!important;white-space:nowrap!important;flex-shrink:1!important}
+.composer-kit .kit-composer-copy{display:flex;align-items:center;gap:7px;min-width:0;overflow:hidden}
+.composer-kit .kit-composer-label{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0}
+.composer-kit .kit-composer-detail{font-size:10px;opacity:.68;flex-shrink:0;border-left:1px solid var(--line);padding-left:7px}
+.composer-kit .composer-context-row{padding-bottom:7px;border-bottom:1px solid var(--line);gap:8px}
+.composer-kit .composer-context-row>[data-composer-control="composerContext"]{max-width:48%;flex:1 1 40%}
+.composer-kit .composer-context-row>[data-composer-control="composerModel"]{margin-left:auto;max-width:60%;flex:0 1 auto}
+.composer-kit .composer-context-row :is(#composerContext,#composerModel){max-width:100%!important;margin:0!important;padding:6px 8px!important;font-size:12px}
+.composer-kit #composerModel::after,.composer-kit #composerContext::before{content:none!important;display:none!important}
+.composer-kit .composer-primary-row{gap:4px;min-height:36px}
+.composer-kit .composer-primary-row>[data-composer-control="agentSend"]{margin-left:auto;flex-shrink:0}
+.composer-kit .composer-primary-row #agentSend{margin:0!important;width:36px!important;height:36px!important;flex-basis:36px!important}
+.composer-kit .composer-primary-row [data-composer-control="composerPermission"]{max-width:150px}
+.composer-kit .composer-primary-row #composerPermission{font-size:11px;min-width:0;max-width:100%;padding-inline:7px!important}
+.composer-kit .composer-primary-row :is(#chatAttach,#composerMore){width:32px!important;height:32px!important;flex-basis:32px!important}
+.composer-kit #composerContextWorkbench button{font-size:12px;height:32px!important;padding:6px 8px!important}
+.composer-kit .composer-extra-tools [data-composer-control]{display:flex;width:100%;max-width:100%}
+.composer-kit .composer-extra-tools .kit-composer-action{width:100%}
+.composer-kit .composer-extra-tools .kit-composer-action>button{width:100%;justify-content:flex-start}
+.composer-kit .composer-extra-tools #composerLocal::after{content:none}
+.composer-kit .composer-extra-tools{bottom:52px;left:auto;right:10px;min-width:224px}
+@container workstation-main (max-width:500px){.composer-kit .kit-composer-detail{display:none}.composer-kit .composer-primary-row #composerPermission .kit-composer-copy{display:none}.composer-kit .composer-primary-row #composerPermission{width:32px;padding:7px!important}.composer-kit .composer-context-row{gap:4px}}
+@media(max-width:440px){.composer-kit .kit-composer-detail{display:none}.composer-kit .composer-primary-row #composerPermission .kit-composer-copy{display:none}.composer-kit .composer-primary-row #composerPermission{width:32px;padding:7px!important}.composer-kit .composer-main{min-height:72px}.composer-kit .composer-footer{padding-inline:8px!important}}

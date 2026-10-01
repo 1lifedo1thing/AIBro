@@ -249,9 +249,12 @@ class WikiVault:
                 continue
             digest = self.digest(raw)
             if digest == entry['hash']: continue
-            note.setdefault('revisionHistory', []).append({
+            revision = {
                 'title': note.get('title'), 'content': note.get('content'),
-                'savedAt': int(time.time() * 1000), 'reason': 'wiki-external-edit'})
+                'savedAt': int(time.time() * 1000), 'reason': 'wiki-external-edit'}
+            for key in ('provenance', 'sourceNoteIds', 'sourceAttachmentIds', 'wikiSourceLinks', 'sourceComparison'):
+                if key in note: revision[key] = copy.deepcopy(note[key])
+            note.setdefault('revisionHistory', []).append(revision)
             note.update(title=title, content=content, userEdited=True,
                         updatedAt=max(int(time.time() * 1000), (note.get('updatedAt') or 0) + 1))
             entry['hash'] = digest

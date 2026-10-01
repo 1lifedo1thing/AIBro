@@ -80,9 +80,12 @@ class ProjectJobs:
             if type(budget) is not int or not 1<=budget<=120: raise ValueError('运行时间须为1–120分钟')
             mode=payload.get('permissionMode','legacy')
             if mode not in ('legacy','request','smart'): raise ValueError('自动任务权限无效')
-            skill=payload.get('skillId') or None
-            if skill and not re.fullmatch(r'[A-Za-z0-9_-]{1,160}',skill): raise ValueError('无效 Skill')
-            job={**(prior or {}),'id':identifier or 'job_'+secrets.token_hex(10),'projectId':project['id'],'workspace':project['workspace'],'name':name,'prompt':prompt,'dueAt':due,'intervalMinutes':interval,'budgetMinutes':budget,'permissionMode':mode,'skillId':skill,'status':'active','version':(prior or {}).get('version',0)+1,'updatedAt':time.time()}
+            # An explicit array wins, including []; old clients still replace
+            # the selection through skillId. Store the ordered legacy mirror.
+            skills=payload.get('skillIds') if 'skillIds' in payload else ([payload['skillId']] if payload.get('skillId') else [])
+            if not isinstance(skills,list) or len(skills)>100 or any(not isinstance(skill,str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,160}',skill) for skill in skills): raise ValueError('无效 Skills 选择')
+            skills=list(dict.fromkeys(skills))
+            job={**(prior or {}),'id':identifier or 'job_'+secrets.token_hex(10),'projectId':project['id'],'workspace':project['workspace'],'name':name,'prompt':prompt,'dueAt':due,'intervalMinutes':interval,'budgetMinutes':budget,'permissionMode':mode,'skillIds':skills,'skillId':skills[0] if skills else None,'status':'active','version':(prior or {}).get('version',0)+1,'updatedAt':time.time()}
             if zone_name is not None:
                 job['timeZone']=zone_name
                 job['wallAnchor']=datetime.fromtimestamp(due,zone).replace(tzinfo=None).isoformat()

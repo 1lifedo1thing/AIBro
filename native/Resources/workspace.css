@@ -1,7 +1,7 @@
 /* Native preview only. Stable reading surfaces; translucent chrome above content. */
-html body.aibro-native[data-view],html body.aibro-native[data-view].light-mode {--accent:#087f70;--accent-soft:#087f7012;--green:#087f70;--orange:#aa7616;--red:#c25766;--text:#20382e;--muted:#59756a;--faint:#839c90;--bg:#f5faf8;--canvas:#f8fcfa;--panel:#ffffff;--panel-raised:#fff;--panel-hover:#ebf8f2;--glass:#fbfffded;--line:#30382d12;--line-strong:#30382d24;--surface-wash:linear-gradient(125deg,#fff8,transparent);--shadow-card:0 5px 18px #181f1805;--shadow-canvas:none;--shadow-button:0 2px 5px #181f1807;--rim:#ffffffbd;padding:0!important;background:var(--bg)!important;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,sans-serif;overflow:hidden!important;height:100dvh!important;}
-html body.aibro-native[data-view]:not(.light-mode){--accent:#65d7bb;--accent-soft:#65d7bb14;--green:#65d7bb;--orange:#e7be59;--red:#f39ca3;--text:#eef1f0;--muted:#b4bfbb;--faint:#839c90;--bg:#1b1e20;--canvas:#1d2022;--panel:#25292b;--panel-raised:#2b3032;--panel-hover:#303937;--glass:#25292bed;--line:#e1e8d812;--line-strong:#e1e8d827;--surface-wash:linear-gradient(125deg,#ffffff03,transparent);--rim:#ffffff18;--shadow-card:0 8px 24px #00000010;}
-body.aibro-native #sidebar,body.aibro-native .topbar,body.aibro-native #conversationNavigator,body.aibro-native #onboardingLayer {display:none!important}
+html body.aibro-native[data-view],html body.aibro-native[data-view].light-mode {--workbench-accent:var(--accent);--accent-solid:var(--accent);--workbench-on-accent:#fff;--accent:#087f70;--accent-soft:#087f7012;--green:#087f70;--orange:#aa7616;--red:#c25766;--text:#20382e;--muted:#59756a;--faint:#839c90;--bg:#f5faf8;--canvas:#f8fcfa;--panel:#ffffff;--panel-raised:#fff;--panel-hover:#ebf8f2;--glass:#fbfffded;--line:#30382d12;--line-strong:#30382d24;--surface-wash:linear-gradient(125deg,#fff8,transparent);--shadow-card:0 5px 18px #181f1805;--shadow-canvas:none;--shadow-button:0 2px 5px #181f1807;--rim:#ffffffbd;padding:0!important;background:var(--bg)!important;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,sans-serif;overflow:hidden!important;height:100dvh!important;}
+html body.aibro-native[data-view]:not(.light-mode){--workbench-on-accent:var(--canvas);--accent:#65d7bb;--accent-soft:#65d7bb14;--green:#65d7bb;--orange:#e7be59;--red:#f39ca3;--text:#eef1f0;--muted:#b4bfbb;--faint:#839c90;--bg:#1b1e20;--canvas:#1d2022;--panel:#25292b;--panel-raised:#2b3032;--panel-hover:#303937;--glass:#25292bed;--line:#e1e8d812;--line-strong:#e1e8d827;--surface-wash:linear-gradient(125deg,#ffffff03,transparent);--rim:#ffffff18;--shadow-card:0 8px 24px #00000010;}
+body.aibro-native #sidebar,body.aibro-native .topbar,body.aibro-native #conversationNavigator {display:none!important}
 body.aibro-native>.main {display:flex!important;width:100%!important;height:100dvh!important;min-width:0;margin:0!important;border:0!important;border-radius:0!important;background:var(--canvas)!important;box-shadow:none!important}
 body.aibro-native .chat-shell,body.aibro-native .chat-grid{grid-template-columns:minmax(0,1fr)!important}
 body.aibro-native #agent{height:100dvh!important}
@@ -32,7 +32,7 @@ body.aibro-native :is(.secondary,.text-action,.reading-control){border-radius:10
 body.aibro-native :is(.reading-toolbar,.reading-tabs,.note-editor-toolbar){background:var(--glass);backdrop-filter:blur(24px) saturate(1.12);-webkit-backdrop-filter:blur(24px) saturate(1.12);border-color:var(--line)}
 body.aibro-native .reading-toolbar{height:54px;padding:10px 16px}
 body.aibro-native .reading-tabs{gap:6px;padding:8px 10px}
-body.aibro-native .reading-tab{border-radius:10px;border:1px solid transparent;min-width:0}
+body.aibro-native .reading-tab{border-radius:10px;border:1px solid transparent;min-width:min(160px,100%)}
 body.aibro-native .reading-tab.active{border-color:var(--line-strong);background:var(--panel);box-shadow:0 2px 5px #203b2a08}
 body.aibro-native .reading-tab.active:after{display:none}
 body.aibro-native #previewContent{font-size:14px!important;line-height:1.95!important;color:var(--text)}
@@ -54,9 +54,12 @@ body.aibro-native .dialog-header{padding-bottom:18px;border-bottom:1px solid var
 body.aibro-native .dialog-actions{padding-top:16px;gap:10px}
 body.aibro-native .toast{background:var(--glass);color:var(--text);border:1px solid var(--line-strong);border-radius:14px;box-shadow:0 8px 24px #14352622;backdrop-filter:blur(24px)}
 @keyframes native-reader-in{from{opacity:0}to{opacity:1}}
-body.aibro-native.native-background-render *,body.aibro-native.native-background-render *:before,body.aibro-native.native-background-render *:after{animation:none!important;transition:none!important}
+/* Settle finite entrances while ActivityMotion pauses continuous indicators without restarting their phase. */
+body.aibro-native.native-background-render *:not(:is([data-halaska-orb],.aicss-thinking-label[data-aicss-thinking-state="running"],.progress-activity,.progress-spinner,.progress-active-mark,.activity-pulse,.progress-phase-label,.progress-signal,.live-message .message-identity),:is([data-halaska-orb],.aicss-thinking-label[data-aicss-thinking-state="running"],.progress-activity,.progress-spinner,.progress-active-mark,.activity-pulse,.progress-phase-label,.progress-signal,.live-message .message-identity) *),
+body.aibro-native.native-background-render *:not(:is([data-halaska-orb],.aicss-thinking-label[data-aicss-thinking-state="running"],.progress-activity,.progress-spinner,.progress-active-mark,.activity-pulse,.progress-phase-label,.progress-signal,.live-message .message-identity),:is([data-halaska-orb],.aicss-thinking-label[data-aicss-thinking-state="running"],.progress-activity,.progress-spinner,.progress-active-mark,.activity-pulse,.progress-phase-label,.progress-signal,.live-message .message-identity) *)::before,
+body.aibro-native.native-background-render *:not(:is([data-halaska-orb],.aicss-thinking-label[data-aicss-thinking-state="running"],.progress-activity,.progress-spinner,.progress-active-mark,.activity-pulse,.progress-phase-label,.progress-signal,.live-message .message-identity),:is([data-halaska-orb],.aicss-thinking-label[data-aicss-thinking-state="running"],.progress-activity,.progress-spinner,.progress-active-mark,.activity-pulse,.progress-phase-label,.progress-signal,.live-message .message-identity) *)::after{animation:none!important;transition:none!important}
 /* A docked document is not a second floating dialog entrance. */
-body.aibro-native .reading-pane #previewDialog[open]{animation:none;transform:none;opacity:1}
+body.aibro-native .reading-pane #previewDialog:not([hidden]){animation:none;transform:none;opacity:1}
 @media(max-width:660px){body.aibro-native.reading-open{display:block!important}body.aibro-native.reading-open>.main{display:none!important}body.aibro-native #readingBack{display:inline-grid!important}body.aibro-native #readingExpand{display:none!important}body.aibro-native .view:not(.agent-view){padding:22px}}
 @media(prefers-reduced-motion:reduce){body.aibro-native *,body.aibro-native *:before,body.aibro-native *:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 @media(prefers-reduced-transparency:reduce){body.aibro-native .reading-toolbar,body.aibro-native .reading-tabs{background:var(--canvas);backdrop-filter:none}}
@@ -144,6 +147,10 @@ html.appkit-web-glass body.aibro-native .view:not(.agent-view){background:var(--
 html.appkit-web-glass body.aibro-native #previewDialog{background:var(--canvas)!important}
 html.appkit-web-glass body.aibro-native [data-appkit-glass]{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important;border:1px solid var(--line-strong)}
 html.appkit-web-glass body.aibro-native [data-appkit-glass]::before,html.appkit-web-glass body.aibro-native [data-appkit-glass]::after{display:none!important}
+/* DOM labels do not receive AppKit's vibrant-label contrast adjustment. Keep
+   a stable palette surface above reader material, including inactive windows.
+   Only direct rows paint it: PDF tabs nested in the toolbar stay transparent. */
+html.appkit-web-glass body.aibro-native .reading-pane>:is(.reading-toolbar,.reading-tabs)[data-appkit-glass]{background:var(--canvas)!important}
 /* Docked reader chrome forms one surface. AppKit owns the material, so do not
    outline each HTML row on top of it. Only the content boundary needs a rule. */
 body.aibro-native .reading-pane :is(.reading-toolbar,.reading-tabs){border:0!important;border-radius:0!important;box-shadow:none!important}
@@ -164,7 +171,7 @@ html.appkit-web-glass body.aibro-native dialog[data-appkit-glass] .planning-form
 html.appkit-web-glass body.aibro-native #composer textarea{border:0!important;outline:0!important;box-shadow:none!important}
 
 /* Reader chrome is compact; the document itself owns one continuous scroll area. */
-body.aibro-native .reading-pane #previewDialog>form{padding:18px 20px 0;min-height:100%}
+body.aibro-native .reading-pane #previewDialog>.reader-document-frame{padding:18px 20px 0;min-height:100%}
 body.aibro-native .reading-pane .dialog-header{position:static;margin-bottom:8px;padding-bottom:0}
 body.aibro-native .reading-pane #previewContent{margin-top:12px;padding-bottom:20px}
 body.aibro-native .reading-pane .note-document-toolbar{position:static;margin-bottom:10px;padding:6px 0;box-shadow:none}
@@ -175,3 +182,27 @@ body.aibro-native .reading-pane #previewTitle[data-native-duplicate-title]{displ
 
 /* Native material belongs to one modal; hide any other open dialog underneath. */
 html.appkit-web-glass body.aibro-native:has(dialog[open][data-appkit-glass]) dialog[open]:not([data-appkit-glass]){visibility:hidden}
+
+/* The native reader toolbar is taller than the browser chrome. */
+body.aibro-native #readingPane.with-project-files>#conversationInspector{top:var(--reader-chrome-height,54px)}
+body.aibro-native #readingPane.with-project-files #previewDialog>.reader-document-frame{padding-inline:16px}
+.native-browser-entry{font-size:20px;line-height:1;min-width:28px}
+body.aibro-native .markdown-editor-toolbar .native-select-trigger{width:112px;min-height:28px;padding:5px 8px;gap:6px;font-size:11px;border-radius:7px;box-shadow:none}
+/* PDF tabs share the reader toolbar; other document types keep two rows. */
+body.aibro-native.reading-pdf .reading-pane .reading-toolbar{height:var(--reader-chrome-height);min-height:var(--reader-chrome-height);flex-basis:var(--reader-chrome-height);padding:4px 8px}
+body.aibro-native.reading-pdf .reading-toolbar>.reading-tabs{padding:0;gap:3px;border-bottom:0!important;background:transparent}
+body.aibro-native.reading-pdf #readingExpand{display:none!important}
+
+/* Keep the retained SSH/sync modal reachable in WKWebView's native AX tree.
+   Match the proven import-dialog top-layer treatment without changing other dialogs. */
+html body.aibro-native #cloudSyncDialog.cloud-sync-dialog{transform:none!important;transition:none!important;opacity:1;background:var(--canvas)!important}
+html body.aibro-native #cloudSyncDialog.cloud-sync-dialog::backdrop{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transition:none!important;background:#08151080!important}
+/* Dynamic task forms need the same top-layer AX treatment as the sync dialog.
+   WKWebView can paint a transformed dialog without exposing its descendants. */
+html body.aibro-native #planningCreateDialog.planning-dialog{transform:none!important;transition:none!important;animation:none!important;opacity:1}
+html body.aibro-native #planningCreateDialog.planning-dialog::backdrop{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transition:none!important;animation:none!important}
+/* Keep dynamic form buttons out of transform/filter compositing layers while
+   the native quit sheet transfers focus back to this WebKit modal. */
+html body.aibro-native #planningCreateDialog button{transform:none!important;filter:none!important;transition:background-color .12s,color .12s,border-color .12s,box-shadow .12s!important}
+@media(prefers-reduced-motion:reduce){html body.aibro-native #planningCreateDialog button{transition:none!important}}
+html body.aibro-native.reduce-motion #planningCreateDialog button{transition:none!important}

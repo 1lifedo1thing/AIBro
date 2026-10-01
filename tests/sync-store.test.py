@@ -7,10 +7,11 @@ import sqlite3
 import sys
 import tempfile
 import unittest
+import uuid
 from unittest.mock import patch
 
 sys.path.insert(0, str((Path(__file__).resolve().parents[1] / 'app')))
-from sync_store import COLLECTIONS, SyncStore, copy, project
+from sync_store import COLLECTIONS, SyncStore, clean, copy, project, public_key, dump, wire_id, _cached_wire_id
 
 
 def workspace(**values):
@@ -43,6 +44,77 @@ class SyncStoreTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.directory = Path(temporary.name)
         self.store = SyncStore(self.directory / 'device-a')
+
+    def test_cached_privacy_filter_keeps_nested_secrets_off_wire_after_eviction(self):
+        unsafe = ['API_Key', 'provider-access-token', 'userPassword', 'Client_Secret', '_private', 'localFolder', 'absolutePath']
+        value = {'content': 'public note', 'nested': [{key: 'private fixture' for key in unsafe} | {'title': 'keep'}]}
+        expected = {'content': 'public note', 'nested': [{'title': 'keep'}]}
+        self.assertEqual(clean(value), expected)
+        for index in range(5000):
+            clean({'untrusted-field-' + str(index): True})
+        self.assertEqual(clean(value), expected)
+        self.assertLessEqual(public_key.cache_info().currsize, 4096)
+
+    def test_wire_id_cache_is_bounded_and_keeps_existing_peer_ids_for_legacy_values(self):
+        values = [('chat', 'message'), ('chat', '中文消息😀'), ('folders', 'quoted"id'), ('chat', 7), ('chat', ['legacy']), ('chat', 'x' * 201)]
+        expected = [uuid.uuid5(uuid.NAMESPACE_URL, dump([parent, identifier])).hex for parent, identifier in values]
+        for (parent, identifier), wire in zip(values, expected): self.assertEqual(wire_id(parent, identifier), wire)
+        for index in range(32770): wire_id('bounded-fixture', str(index))
+        self.assertLessEqual(_cached_wire_id.cache_info().currsize, 32768)
+        for (parent, identifier), wire in zip(values, expected): self.assertEqual(wire_id(parent, identifier), wire)
+
+    def test_editable_source_comparison_roundtrip_keeps_evidence_and_redacts_nested_private_fields(self):
+        comparison = {'version': 1, 'language': 'en', 'title': 'Evidence comparison', 'projectId': None, 'workspace': '日常',
+            'sources': [{'key': 'note:source-a', 'kind': 'note', 'id': 'source-a', 'title': 'Evidence A',
+                'sourceVersion': 'source-version-a', 'capturedAt': 1800000000000, 'excerpt': 'Exact cited excerpt', 'excerptOffset': 1200,
+                'localPath': '/private/synthetic', 'credentials': {'token': 'private'}},
+                {'key': 'import:source-b', 'kind': 'import', 'id': 'source-b', 'title': 'Evidence B',
+                'sourceVersion': 'source-version-b', 'capturedAt': 1800000000000, 'excerpt': 'Second source', 'excerptOffset': 0}],
+            'criteria': [{'id': 'criterion-a', 'label': 'Evidence quality', 'cells': {
+                'note:source-a': {'quote': 'Exact cited excerpt', 'judgment': 'Supported', 'API_Key': 'private', '_draft': 'private'},
+                'import:source-b': {'quote': 'Second source', 'judgment': 'Limited'}}}], 'selectedKey': 'note:source-a', 'conclusion': 'Manual decision'}
+        original = {**note(), 'sourceComparison': comparison}
+        self.store.capture(workspace(notes=[original]))
+        operations = self.store.pending()
+        self.assertEqual(self.store.snapshot()['notes'][0]['sourceComparison'], comparison)
+        public = operations[0]['data']['sourceComparison']
+        expected = copy(comparison); expected['sources'][0].pop('localPath'); expected['sources'][0].pop('credentials')
+        expected['criteria'][0]['cells']['note:source-a'].pop('API_Key'); expected['criteria'][0]['cells']['note:source-a'].pop('_draft')
+        self.assertEqual(public, expected)
+        peer = SyncStore(self.directory / 'comparison-peer'); peer.capture(workspace())
+        peer.apply_changes([{**op, 'version': 1, 'seq': index + 1} for index, op in enumerate(operations)], len(operations))
+        self.assertEqual(peer.snapshot()['notes'][0]['sourceComparison'], public)
+
+    def test_publication_fields_and_exact_history_survive_snapshot_write_optimization(self):
+        self.store.capture(workspace(notes=[note('first')], _revision=1))
+        with self.store.db() as db:
+            baseline = db.execute("SELECT value FROM meta WHERE key='snapshot'").fetchone()['value']
+        def publish(snapshot):
+            snapshot['notes'][0]['wikiFileBacked'] = True
+            snapshot['_wikiMapping'] = {'shared': 'local-note.md'}
+        result = self.store.capture(workspace(notes=[note('second')], _revision=2), before_commit=publish)
+        self.assertTrue(self.store.snapshot()['notes'][0]['wikiFileBacked'])
+        self.assertEqual(self.store.snapshot()['_wikiMapping'], result['_wikiMapping'])
+        with self.store.db() as db:
+            self.assertEqual(db.execute("SELECT value FROM meta WHERE key='history:1'").fetchone()['value'], baseline)
+        self.store.capture(result)
+        self.assertEqual(self.store.snapshot_at(1)['notes'][0]['content'], 'first')
+        self.assertEqual(self.store.snapshot_at(2), result)
+
+    def test_multiple_skills_and_frozen_turn_instructions_survive_peer_sync(self):
+        snapshot = [{'id': 'builtin-materials', 'name': '资料归档', 'command': 'materials', 'description': '', 'instructions': 'Preserve original turn instructions.'}]
+        conversation = {'id': 'chat-skills', 'title': 'Multiple skills', 'skillId': 'builtin-materials',
+                        'skillIds': ['builtin-materials', 'builtin-paper'],
+                        'messages': [{'id': 'message-skills', 'role': 'user', 'text': 'Analyze this', 'skillSnapshot': snapshot}]}
+        self.store.capture(workspace(conversations=[conversation]))
+        operations = self.store.pending()
+        peer = SyncStore(self.directory / 'skills-peer')
+        peer.capture(workspace())
+        peer.apply_changes([{**op, 'version': 1, 'seq': index + 1} for index, op in enumerate(operations)], len(operations))
+        received = peer.snapshot()['conversations'][0]
+        self.assertEqual(received['skillIds'], conversation['skillIds'])
+        self.assertEqual(received['skillId'], 'builtin-materials')
+        self.assertEqual(received['messages'][0]['skillSnapshot'], snapshot)
 
     def test_task_schedule_survives_outbox_and_second_device(self):
         task = {'id': 'scheduled-task', 'title': 'Review course notes', 'workspace': '课程',
@@ -160,9 +232,9 @@ class SyncStoreTests(unittest.TestCase):
         self.store.apply_changes([change(note('remote'), 2)], 2)
         conflict = self.store.conflicts()[0]
         before = self.database_rows()
-        with self.assertRaises(OSError): self.store.resolve_conflict(conflict['id'], 'remote', before_commit=explode)
+        with self.assertRaises(OSError): self.store.resolve_conflict(conflict['id'], 'remote', revision=conflict['revision'], before_commit=explode)
         self.assertEqual(self.database_rows(), before)
-        self.store.resolve_conflict(conflict['id'], 'remote')
+        self.store.resolve_conflict(conflict['id'], 'remote', revision=conflict['revision'])
         self.assertEqual(self.store.snapshot()['notes'][0]['content'], 'remote')
         self.assertEqual(self.store.status()['conflicts'], 0)
 
@@ -313,7 +385,7 @@ class SyncStoreTests(unittest.TestCase):
         self.assertEqual(conflict['remote']['content'], 'device A')
         self.assertEqual(conflict['local']['content'], 'device B')
         self.assertEqual(second.pending(), [])
-        second.resolve_conflict(conflict['id'], 'local')
+        second.resolve_conflict(conflict['id'], 'local', revision=conflict['revision'])
         operation = second.pending()[0]
         self.assertEqual(operation['baseVersion'], 2)
         self.assertEqual(operation['data']['content'], 'device B')
@@ -351,7 +423,7 @@ class SyncStoreTests(unittest.TestCase):
         self.assertEqual(self.store.pending(), [])
         conflict = self.store.conflicts()[0]
         self.assertIsNone(conflict['remote'])
-        self.store.resolve_conflict(conflict['id'], 'remote')
+        self.store.resolve_conflict(conflict['id'], 'remote', revision=conflict['revision'])
         self.assertEqual(self.store.snapshot()['notes'], [])
         self.assertEqual(self.store.pending(), [])
         self.store.apply_changes([change(note('stale history'), 1)], 3)

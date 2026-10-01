@@ -2,7 +2,7 @@ body.workspace-layout-ready:not(.reading-expanded)>.sidebar{width:var(--workspac
 body.workspace-layout-ready:not(.reading-open)>.conversation-navigator{width:var(--workspace-navigator-width);flex-basis:var(--workspace-navigator-width)}
 @media(min-width:1001px){body.workspace-layout-ready.reading-open:not(.reading-expanded)>.reading-pane{width:var(--workspace-reader-width);flex-basis:var(--workspace-reader-width)}}
 .workspace-layout-ready .reading-pane{container-type:inline-size;container-name:workstation-reader}
-@container workstation-reader (max-width:440px){.reading-pane .pdf-document-label{display:none}.reading-pane #previewDialog>form{padding:16px 15px 0}.reading-pane .pdf-toolbar{gap:5px;padding:7px}.reading-pane .reading-caption{display:none}.reading-pane .reading-heading{margin-right:auto}}
+@container workstation-reader (max-width:440px){.reading-pane .pdf-document-label{display:none}.reading-pane #previewDialog>.reader-document-frame{padding:16px 15px 0}.reading-pane .pdf-toolbar{gap:5px;padding:7px}.reading-pane .reading-caption{display:none}.reading-pane .reading-heading{margin-right:auto}}
 .workspace-layout-ready .main{container-type:inline-size;container-name:workstation-main}
 /* Title-bar density follows the conversation's actual available width,
    including a large reader beside it, rather than the window breakpoint. */
@@ -53,11 +53,9 @@ body.light-mode.workspace-layout-ready .sidebar-theme-control,body.light-mode.wo
 .analysis-badge.analyzed{color:var(--success,var(--muted))}
 .entity-copy>.analysis-badge{margin-top:5px}.tree-node>.analysis-badge{font-size:9px;padding:1px 5px;flex:none}.tree-node>span:not(.analysis-badge){min-width:0}
 .import-row-actions{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end;flex:0 0 auto}.import-row-actions button{font-size:11px;padding:6px 8px}
-.project-pending-analysis{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 17px;margin:0 0 18px;background:var(--accent-soft);border:1px solid var(--line-strong);border-radius:12px}
-.project-pending-analysis strong{font-size:12px;font-weight:600}.project-pending-analysis p{color:var(--muted);font-size:11px;line-height:1.6;margin:4px 0 0}.project-pending-analysis button{font-size:11px;white-space:nowrap}
 .preview-analysis-status{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:11px 0 0;font-size:11px;line-height:1.7;color:var(--muted)}.preview-analysis-status>span:not(.analysis-badge){flex:1 1 170px}.preview-analysis-status button{font-size:11px}
 #projectUploadStatus{padding:9px 0 16px}
-@media(max-width:760px){.project-pending-analysis{align-items:flex-start;flex-wrap:wrap}.import-row-actions{flex-direction:column}.tree-node>.analysis-badge{max-width:94px}}
+@media(max-width:760px){.import-row-actions{flex-direction:column}.tree-node>.analysis-badge{max-width:94px}}
 .import-row-actions .text-action,.preview-analysis-status .text-action{appearance:none;border:1px solid var(--line-strong);border-radius:8px;min-height:30px;padding:6px 10px;background:var(--glass);color:var(--accent);font:inherit;font-size:11px;line-height:1.5;cursor:pointer;box-shadow:var(--shadow-button);transition:background .15s,border-color .15s}
 .import-row-actions .text-action:hover,.preview-analysis-status .text-action:hover{background:var(--accent-soft);border-color:var(--accent)}
 .import-row-actions .text-action:focus-visible,.preview-analysis-status .text-action:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
@@ -75,7 +73,6 @@ body[data-view=project] #projectTreePanel>.tree-heading{position:sticky;top:-8px
 body[data-view=project] .project-content{container:project-content / inline-size;width:auto;min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:4px}
 body[data-view=project] .project-content>.section-tabs{position:sticky;top:0;z-index:3;background:var(--canvas);overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;white-space:nowrap}
 body[data-view=project].reading-open #project{padding:20px}
-body[data-view=project] #project>.project-local-summary,body[data-view=project] #project>.project-pending-analysis{flex-shrink:0;width:100%}
 @container project-content (max-width:680px){
  .project-content .project-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
  .project-content .project-metrics>div{padding:12px}

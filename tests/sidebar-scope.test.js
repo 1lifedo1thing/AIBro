@@ -28,7 +28,8 @@ function harness(view='research') {
     set innerHTML(value) {
       this.html=value;this.buttons=[];
       for(const match of value.matchAll(/<button\b([^>]*)>/g)) {
-        const button={dataset:{},onclick:null};
+        const attributes=Object.fromEntries([...match[1].matchAll(/([\w-]+)="([^"]*)"/g)].map(item=>[item[1],item[2]]));
+        const button={dataset:{},onclick:null,getAttribute:key=>attributes[key],setAttribute:(key,value)=>{attributes[key]=value;}};
         for(const data of match[1].matchAll(/data-([a-z-]+)="([^"]*)"/g)) button.dataset[data[1].replace(/-([a-z])/g,(_,letter)=>letter.toUpperCase())]=data[2];
         this.buttons.push(button);
       }

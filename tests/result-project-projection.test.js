@@ -15,10 +15,20 @@ const fixture = () => ({
 });
 const result = (type, id, projectId = 'old') => ({type,id,projectId,operation:'created',text:'原执行记录'});
 function harness(state = fixture()) {
-  const element = () => ({children:[],dataset:{},innerHTML:'',className:'',append(...items){this.children.push(...items);},appendChild(item){this.children.push(item);}});
-  const context = vm.createContext({state,window:{},document:{createElement:element},
+  const element = () => ({children:[],dataset:{},attributes:Object.create(null),innerHTML:'',className:'',
+    setAttribute(name,value){const key=String(name).toLowerCase();this.attributes[key]=String(value);if(key.startsWith('data-'))this.dataset[key.slice(5).replace(/-([a-z])/g,(_,letter)=>letter.toUpperCase())]=String(value);},
+    getAttribute(name){return this.attributes[String(name).toLowerCase()]??null;},
+    append(...items){this.children.push(...items);},appendChild(item){this.children.push(item);return item;},
+    querySelector(selector){
+      assert.match(selector,/^(?::scope > )?\.[\w-]+$/, 'This DOM fixture supports the renderer\'s owned class selectors');
+      const direct=selector.startsWith(':scope > '),name=selector.replace(/^:scope > /,'').slice(1);
+      for(const child of this.children){if(child.className.split(/\s+/).includes(name))return child;if(!direct){const match=child.querySelector(selector);if(match)return match;}}
+      return null;
+    }});
+  const context = vm.createContext({state,Core:require('../app/workstation-core'),window:{},document:{createElement:element},
     workspaceName:value=>value||'日常',esc:value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),
-    renderRichText:value=>value,statusLabel:value=>value||'待开始',formatDate:value=>value
+    renderRichText:value=>value,statusLabel:value=>value||'待开始',formatDate:value=>value,
+    currentConversation:()=>state.conversations.find(item=>item.id===state.currentConversationId)
   });
   vm.runInContext(cut('function dedupeResultEntries(', '\nfunction groupedEntities('), context);
   vm.runInContext(cut('function renderMessage(', '\nfunction renderStagedAttachments('), context);
@@ -29,7 +39,7 @@ function harness(state = fixture()) {
     render:message=>{const box=element();context.renderMessage({role:'assistant',text:'已完成',...message},box);return box.children[0].children;},
     projectConversations:projectId=>{
       // Exercise the exact filter used for the project's tree and conversation list.
-      const line=source.split('\n').find(value=>value.startsWith('  const conversations = state.conversations.filter(conversation => conversationProjectIds('));
+      const line=cut('function renderProject(', '\nfunction updateProjectHeading(').split('\n').find(value=>value.startsWith('  const conversations = state.conversations.filter('));
       assert.ok(line);context.projectId=projectId;vm.runInContext(line.replace('const conversations =','globalThis.selectedConversations ='),context);
       return plain(context.selectedConversations).map(item=>item.id);
     }
@@ -100,11 +110,12 @@ test('moving a conversation and its outputs removes the old project link in the 
   assert.equal(JSON.stringify(h.state),before);
 });
 
-test('explicit binding stays first while genuine live outcomes retain cross-project conversations', () => {
+test('output associations remain recorded while project chat lists follow explicit conversation ownership', () => {
   const h=harness();h.state.notes.push({id:'n',projectId:'new'});h.state.tasks.push({id:'t',projectId:'third'});
   const conversation={id:'cross',projectId:'old',messages:[null,{results:'legacy'},{results:[result('note','n'),result('note','n'),result('task','t')]}]};
   assert.deepEqual(h.projects(conversation),['old','new','third']);h.state.conversations.push(conversation);
-  for(const projectId of ['old','new','third'])assert.deepEqual(h.projectConversations(projectId),['cross']);
+  assert.deepEqual(h.projectConversations('old'),['cross']);
+  for(const projectId of ['new','third'])assert.deepEqual(h.projectConversations(projectId),[], 'related outputs do not reassign a conversation to another project');
   assert.deepEqual(h.projects({messages:[{results:[result('project','new')]}]}),['new'],'an existing project result uses the project entity ID');
 });
 

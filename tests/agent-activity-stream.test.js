@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const source = fs.readFileSync(require.resolve('../app/agent-transport'), 'utf8');
+const source = fs.readFileSync(require.resolve('../app/sse-frame-scanner'), 'utf8') + '\n' + fs.readFileSync(require.resolve('../app/agent-transport'), 'utf8');
 const encode = value => new TextEncoder().encode(value);
 async function run(events, options = {}) {
   const activities = [], phases = [], deltas = [];
@@ -83,7 +83,7 @@ test('observed tools expose only bounded names and lifecycle, while function req
   assert.equal(h.latest('tool:named-mcp').name, 'read_pdf');
   assert.equal(h.latest('tool:named-mcp').status, 'completed');
   assert.equal(h.latest('tool:call').status, 'pending');
-  assert.match(h.latest('tool:call').text, /等待宿主执行/);
+  assert.match(h.latest('tool:call').text, /当前连接未执行/);
   assert.equal(h.latest('tool:failed').status, 'failed');
   assert.equal(h.latest('tool:bad-name').name, '工具调用');
   assert.doesNotMatch(JSON.stringify(h), /PRIVATE/);
@@ -102,12 +102,38 @@ test('completed JSON Responses retain public summaries and exclude reasoning con
   assert.doesNotMatch(JSON.stringify(h), /PRIVATE/);
 });
 
-test('activity history and per-item text are bounded without imposing generation timeouts', async () => {
+test('all supplied activity history and per-item text survive without imposing generation timeouts', async () => {
   const events = [{ type: 'response.reasoning_summary_text.delta', item_id: 'long', delta: '可'.repeat(9000) }];
   for (let i = 0; i < 110; i++) events.push({ type: 'response.reasoning_summary_text.delta', item_id: `r-${i}`, delta: '新摘要' });
   const h = await run([...events, answer]);
-  assert.equal(h.latest('summary:long:0').text.length, 4000);
-  assert.equal(h.activities.length, 100);
+  assert.equal(h.latest('summary:long:0').text.length, 9000);
+  assert.equal(h.activities.length, 111);
   assert.equal(h.output, answer.delta);
   assert.doesNotMatch(source, /\b(?:setTimeout|setInterval)\s*\(/);
+});
+
+test('more than 100 summary parts preserve independent identities through actual transport, progress and persistence',async()=>{
+ const Progress=require('../app/agent-progress');
+ const content='PUBLIC_BEGIN '+('可回看的执行说明。'.repeat(1500))+' PUBLIC_END';
+ const events=[
+  {type:'response.reasoning_summary_text.delta',item_id:'long',summary_index:0,delta:content.slice(0,5000)},
+  {type:'response.reasoning_summary_text.delta',item_id:'long',summary_index:0,delta:content.slice(5000)},
+  {type:'response.reasoning_summary_text.done',item_id:'long',summary_index:0,text:content},
+  {type:'response.output_item.done',item:{type:'reasoning',id:'many',summary:Array.from({length:125},(_,i)=>({type:'summary_text',text:'distinct part '+i}))}},answer
+ ];
+ const h=await run(events),message={};
+ for(const activity of h.activities)Progress.update(message,activity);
+ const roundTrip=JSON.parse(JSON.stringify({agentRuns:[{activities:message.activities}],conversations:[{messages:[message]}]}));
+ const rows=roundTrip.conversations[0].messages[0].activities;
+ assert.equal(rows.length,126);assert.equal(rows[0].text,content);
+ assert.equal(rows.find(r=>r.id==='summary:many:0').text,'distinct part 0');
+ assert.equal(rows.find(r=>r.id==='summary:many:124').text,'distinct part 124');
+ assert.deepEqual(roundTrip.agentRuns[0].activities,rows);
+ assert.match(Progress.markup(roundTrip.conversations[0].messages[0]),/PUBLIC_END/);
+});
+
+test('computer and other local host call proposals never report a completed side effect',async()=>{
+ const types=['computer_call','local_shell_call','apply_patch_call','function_call','custom_tool_call'];
+ const h=await run([...types.map(type=>({type:'response.output_item.done',item:{type,id:type,status:'completed',action:{type:'click',x:1,y:1}}})),answer]);
+ for(const type of types){assert.equal(h.latest('tool:'+type).status,'pending');assert.match(h.latest('tool:'+type).text,/未执行/);}
 });

@@ -1,0 +1,79 @@
+/* 富文本补充：代码块语法高亮（§3/§5.3）与数学公式排版（§3 的 LaTeX）。
+   代码块与行内代码的**容器**样式仍在 styles.css（.message-code），这里只加 token 与公式。 */
+
+:root {
+  /* 深色为默认主题（与 styles.css 的 :root 一致） */
+  --tok-keyword: #c9a0f0;
+  --tok-string: #8fd6a4;
+  --tok-comment: #7c8595;
+  --tok-number: #f0a878;
+  --tok-literal: #88b6f0;
+}
+
+body.light-mode {
+  --tok-keyword: #8250df;
+  --tok-string: #0a7d33;
+  --tok-comment: #6a737d;
+  --tok-number: #b45309;
+  --tok-literal: #0550ae;
+}
+
+.tok-keyword { color: var(--tok-keyword); }
+.tok-string { color: var(--tok-string); }
+.tok-comment { color: var(--tok-comment); font-style: italic; }
+.tok-number { color: var(--tok-number); }
+.tok-literal { color: var(--tok-literal); }
+
+/* 代码块右上角的语言标签：只标注，不拦截点击（pointer-events:none 让选择/滚动不受影响）。 */
+.message-code { position: relative; }
+.message-code-lang {
+  position: absolute;
+  top: 7px;
+  right: 11px;
+  font-size: 10px;
+  letter-spacing: .04em;
+  color: var(--faint);
+  text-transform: lowercase;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── 数学排版（HTML 实现，零依赖） ───────────────────────── */
+/* 变量与函数名按习惯用斜体；符号与 \text{} 为正体。 */
+.math-inline { font-style: italic; white-space: nowrap; }
+.math-block {
+  display: block;
+  margin: 14px 0;
+  text-align: center;
+  font-size: 15px;
+  line-height: 2.1;
+}
+.math-line { display: block; font-style: italic; }
+
+.math-frac {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: middle;
+  text-align: center;
+  margin: 0 .18em;
+  font-size: .96em;
+}
+.math-num { border-bottom: 1px solid currentColor; padding: 0 .3em; }
+.math-den { padding: 0 .3em; }
+
+.math-sqrt { border-top: 1px solid currentColor; padding: 0 .18em 0 .08em; }
+.math-radical { margin-right: .02em; }
+.math-root-order { font-size: .68em; margin-right: -.1em; }
+
+.math-op { font-style: normal; padding: 0 .06em; }
+.math-upright { font-style: normal; }
+.math-text { font-style: normal; }
+.math-bold { font-weight: 650; }
+.math-italic { font-style: italic; }
+.math-space { display: inline-block; }
+
+.math-inline sup, .math-block sup { font-size: .72em; }
+.math-inline sub, .math-block sub { font-size: .72em; }
+
+/* 公式前的变量名与符号之间留一点气：避免 ∑_{i}^{n} 之类的上下限贴到前一个字符上。 */
+.math-op + sup, .math-op + sub { margin-left: -.02em; }

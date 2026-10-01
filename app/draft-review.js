@@ -6,6 +6,9 @@
   'use strict';
   const list = value => Array.isArray(value) ? value : [];
   const clone = value => JSON.parse(JSON.stringify(value));
+  const canonical = value => JSON.stringify(value, (_, item) => item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
+  const same = (a, b) => canonical(a) === canonical(b);
+  const commits = new WeakMap();
   const active = value => value && !value.archived && !value.archivedAt && !value.deleted && !value.deletedAt && !['archived', 'deleted'].includes(value.status);
   const hasDraft = note => active(note) && typeof note.aiDraft?.content === 'string';
   const scope = conversation => JSON.stringify([conversation.id, conversation.projectId || null, conversation.workspace || 'auto']);
@@ -69,6 +72,87 @@
     delete after.aiDraft;
     return { changed: true, action, note, before, after };
   }
+  // Only evidence about this exact proposal can settle it. Historical snapshots
+  // are immutable; the current draft, decision history and body origin supply
+  // its present status without interpreting matching prose as an acceptance.
+  function proposalStatus(state, change, { runId, includeReview = true } = {}) {
+    const labels = { pending: ['待采纳草稿', 'Draft to review'], adopted: ['已采纳', 'Adopted'], discarded: ['已放弃', 'Discarded'], superseded: ['已被新草稿替代', 'Superseded'], unavailable: ['提案不可用', 'Proposal unavailable'] };
+    const result = (status, extra = {}) => ({ status, label: labels[status][/^en(?:-|$)/i.test(globalThis.WorkstationI18n?.getLanguage?.() || '') ? 1 : 0], ...extra });
+    const matches = list(state?.notes).filter(note => note.id === change?.id);
+    const note = matches.length === 1 ? matches[0] : null, draft = change?.after?.aiDraft;
+    if (change?.type !== 'note' || change.operation !== 'drafted' || !draft || typeof draft.content !== 'string' || !active(note) || !inScope(state, note) || list(state?.trash).some(entry => list(entry?.data?.notes).some(item => item.id === change.id))) return result('unavailable');
+    if (note.projectId && list(state.projects).filter(project => project.id === note.projectId).length !== 1) return result('unavailable');
+    const origin = draft.provenance?.origin;
+    if (runId && origin?.runId && origin.runId !== runId) return result('unavailable');
+    const saving = commits.get(state)?.get(note.id);
+    if (saving && same(JSON.parse(saving.review.expectedDraft), draft)) return result('pending', {
+      saving: true, label: /^en(?:-|$)/i.test(globalThis.WorkstationI18n?.getLanguage?.() || '') ? 'Saving decision…' : '正在保存决定…',
+      ...(includeReview ? { review: clone(saving.review) } : {})
+    });
+    if (hasDraft(note) && same(note.aiDraft, draft)) {
+      try { return result('pending', includeReview ? { review: begin(state, note.id) } : {}); } catch (_) { return result('unavailable'); }
+    }
+    const decision = [...list(note.aiDraftHistory)].reverse().find(item => ['adopt', 'discard'].includes(item.action) && same(item.draft, draft));
+    if (decision) return result(decision.action === 'adopt' ? 'adopted' : 'discarded', { reviewedAt: decision.reviewedAt });
+    const body = note.provenance, output = body?.output;
+    if (origin?.recorded === true && origin.runId && same(origin, body?.origin) && output?.type === 'note' && output.id === note.id && output.variant === 'body') return result('adopted');
+    return result(hasDraft(note) ? 'superseded' : 'unavailable');
+  }
+  function rollback(change, currentState, written) {
+    const current = list(currentState?.notes).find(note => note.id === change.note.id);
+    // A removed or replaced object belongs to its newer writer, including a
+    // restored object with the same ID. Never resurrect it on save failure.
+    if (current !== change.note) return;
+    for (const key of new Set([...Object.keys(change.before), ...Object.keys(change.after)])) {
+      if (same(change.before[key], change.after[key]) && Object.hasOwn(change.before, key) === Object.hasOwn(change.after, key)) continue;
+      if (Object.hasOwn(current, key) === Object.hasOwn(change.after, key) && same(current[key], change.after[key])) {
+        if (Object.hasOwn(change.before, key)) current[key] = clone(change.before[key]); else delete current[key];
+        continue;
+      }
+      // Concurrent history appends must survive, but our own decision/revision
+      // must not remain as false evidence that the failed write was saved.
+      if (['revisionHistory', 'aiDraftHistory'].includes(key) && Array.isArray(current[key])) {
+        const prior = list(change.before[key]), applied = list(change.after[key]);
+        const own = written.historyEntries[key] || [];
+        if (!own.some(item => current[key].includes(item.entry) && same(item.entry, item.snapshot))) continue;
+        const retained = applied.slice(0, Math.max(0, applied.length - own.length));
+        const keptPrefix = same(current[key].slice(0, retained.length), retained);
+        current[key] = current[key].filter(entry => !own.some(item => item.entry === entry && same(entry, item.snapshot)));
+        // Editor history has a bounded prefix. Restore only entries discarded
+        // by our append, before any later writer's surviving entries.
+        const dropped = prior.slice(0, Math.max(0, prior.length - retained.length));
+        if (keptPrefix) current[key].unshift(...clone(dropped));
+        if (!current[key].length && !Object.hasOwn(change.before, key)) delete current[key];
+      }
+    }
+  }
+  function commit(state, review, action, persist, { getState = () => state } = {}) {
+    if (!state || typeof state !== 'object' || typeof persist !== 'function') return Promise.reject(new Error('草稿处理缺少持久化接口。'));
+    let pending = commits.get(state); if (!pending) { pending = new Map(); commits.set(state, pending); }
+    const existing = pending.get(review?.noteId);
+    if (existing) return existing.action === action && same(existing.review, review) ? existing.promise : Promise.reject(new Error('这篇笔记正在保存草稿决定，请稍候。'));
+    let change;
+    try { if (getState() !== state) throw new Error('工作区已变化，请重新打开草稿。'); change = prepare(state, review, action); }
+    catch (error) { return Promise.reject(error); }
+    const applied = clone(change.after), written = { historyEntries: {} };
+    for (const key of ['revisionHistory', 'aiDraftHistory']) {
+      const prior = list(change.before[key]), after = list(applied[key]);
+      written[key] = after;
+      written.historyEntries[key] = after.filter(entry => !prior.some(old => same(old, entry))).map(entry => ({ entry, snapshot: clone(entry) }));
+    }
+    Object.assign(change.note, applied); delete change.note.aiDraft;
+    const entry = { action, review: clone(review), promise: null };
+    // Start after the guard is installed so even a synchronous persistence
+    // callback cannot re-enter the same note's transaction.
+    entry.promise = Promise.resolve().then(async () => {
+      try { if (await persist() === false) throw new Error('草稿决定尚未成功保存，请重试。'); }
+      catch (error) { rollback(change, getState(), written); throw error; }
+      const currentState = getState(), matches = list(currentState?.notes).filter(note => note.id === change.note.id), current = matches.length === 1 ? matches[0] : null;
+      if (currentState !== state || current !== change.note || !inScope(currentState, current)) throw new Error('保存期间笔记或工作区已变化，请查看当前文件；未覆盖后续修改。');
+      return { note: current, action, reviewedAt: change.after.updatedAt, changedAfterReview: !same(current, change.after) };
+    }).finally(() => { if (pending.get(review.noteId) === entry) pending.delete(review.noteId); });
+    pending.set(review.noteId, entry); return entry.promise;
+  }
   function command(text) {
     const value = String(text || '').trim().replace(/[。.!！]+$/, '').trim().toLowerCase();
     if (/^(?:采纳|采纳草稿|采纳这份草稿|接受草稿|accept(?: (?:the )?draft)?|adopt(?: (?:the )?draft)?)$/.test(value)) return 'adopt';
@@ -90,5 +174,5 @@
     }
     return { status: 'missing', action, candidateIds: [] };
   }
-  return { begin, prepare, resolve, command };
+  return { begin, prepare, commit, proposalStatus, resolve, command };
 }));

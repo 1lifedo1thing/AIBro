@@ -1,0 +1,54 @@
+/* 消息目录刻度导航（§2.2）：对话左侧的竖向刻度。
+   位置落在 .conversation-pane 的左内边距里（宽屏 24px、窄屏 13px），不覆盖消息正文。 */
+.message-rail {
+  position: absolute;
+  left: 5px;
+  top: 14px;
+  bottom: 34px;
+  width: 9px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  z-index: 20;
+}
+
+.message-rail[hidden] { display: none; }
+
+.message-rail-tick {
+  flex: 1 1 auto;
+  min-height: 4px;
+  max-height: 15px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--line);
+  opacity: .72;
+  cursor: pointer;
+  transition: opacity .12s ease, background .12s ease;
+}
+
+.message-rail-tick:hover,
+.message-rail-tick:focus-visible { opacity: 1; background: var(--accent); outline: none; }
+
+/* 深色刻度 = 当前屏幕正在显示的消息范围（这是这个控件存在的理由）。 */
+.message-rail-tick[data-rail-active="true"] { opacity: 1; background: var(--text); }
+
+.message-rail-preview {
+  position: absolute;
+  left: 16px;
+  width: min(320px, 52vw);
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--canvas);
+  box-shadow: var(--shadow-card);
+  z-index: 30;
+  pointer-events: none;
+}
+
+.message-rail-line { display: flex; flex-direction: column; gap: 1px; padding: 3px 0; }
+.message-rail-head { font-size: 11px; opacity: .66; }
+.message-rail-text { font-size: 12px; line-height: 1.5; }
+.message-rail-more { margin-top: 4px; font-size: 11px; opacity: .6; }

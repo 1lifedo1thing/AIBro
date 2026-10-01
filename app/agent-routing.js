@@ -4,10 +4,10 @@
   const full=reason=>({mode:'full',reason,skipRetrieval:false,compact:false});
   const dependent=/(查找|找到|搜索|检索|查询|根据|依据|按照|参照|参考|相关内容|资料|笔记|课件|文档|附件|论文|总结|整理|分析|比较|核对|读取|刚才|上面|之前|那个|这个|这些|它|顺便|然后|并且|并帮|并设|再帮|再设|如果|不要|别|取消|删除|https?:\/\/|@|\b(find|search|look\s*up|read|based\s*on|summarize|analyse|analyze|then|also|that|this|cancel|delete)\b)/i;
   const active=t=>!t.deletedAt&&!t.deleted&&!t.archivedAt&&!t.archived&&!['archived','deleted'].includes(t.status);
-  function decide({goal='',attachments=[],references=[],skillId,localContext='',tasks=[],workspace,projectId,hasAgenda=false,now=new Date()}={}){
+  function decide({goal='',attachments=[],references=[],skillId,skillIds=[],localContext='',tasks=[],workspace,projectId,hasAgenda=false,now=new Date()}={}){
     const text=String(goal).trim();
     // Provider tool availability is not evidence that this request needs external context.
-    if(attachments.length||references.length||skillId||localContext)return full('external-context');
+    if(attachments.length||references.length||skillId||(Array.isArray(skillIds)&&skillIds.length)||localContext)return full('external-context');
     if(/联网|上网|网页|浏览|\b(?:web|internet|browse|online)\b/i.test(text))return full('web-context');
     const explicitMeeting=hasAgenda&&/(?:腾讯会议|会议号)\s*[:：]\s*\d[\d -]{5,20}/.test(text);
     const checkedText=explicitMeeting?text.replace(/这个组会/g,'组会'):text;

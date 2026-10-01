@@ -2,6 +2,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
+const installRunCheckpointHost = require('./helpers/run-checkpoint-host.cjs');
 const Core=require('../app/workstation-core');
 const AttachmentAnalysis = require('../app/attachment-analysis');
 const TaskContext = require('../app/task-context');
@@ -18,15 +19,44 @@ function harness(options={}){
  const models={configuration:()=>({provider:'api',model:'fixture',effort:''}),resolve:options.resolve|| (async value=>value)};
  const c=vm.createContext({structuredClone,state,Core,ConversationWeb,fetch:options.fetch,projectIsActive:id=>!id||state.projects.some(p=>p.id===id&&!p.archived),AttachmentAnalysis,TaskContext,Research:{},$ :node,window:{ConversationModels:models,AttachmentAnalysis,TaskContext,ConversationWeb: options.web ? ConversationWeb : null},ConversationModels:models,localStorage:{getItem:()=>''},document:{createElement:()=>node('holder')},AbortController,URL,setTimeout,clearTimeout,activeRunController:null,liveRenderTimer:null,draftSaveTimer:null,
    uid:prefix=>`${prefix}-${++n}`,workspaceName:v=>['课程','科研'].includes(v)?v:'日常',classifyWorkspace:()=> '课程',currentConversation:()=>state.conversations.find(item=>item.id===state.currentConversationId),defaultModelConfiguration:()=>({provider:'api',model:'fixture',effort:''}),
-   save:()=>saved.push(clone(state)),renderAll(){},renderConversation(){},renderMessage(){},toast:message=>toasts.push(message),visiblePaper:()=>true,visibleNote:()=>true,actionSummary:()=>'',actionsNeedApproval:()=>false,executeActions:()=>[],addRunStep:(run,text,status)=>run.steps.push({text,status}),
+   save:()=>saved.push(clone(state)),renderAll(){},renderConversation(){},renderMessage(){},toast:message=>toasts.push(message),visiblePaper:()=>true,visibleNote:()=>true,actionSummary:()=>'',actionsNeedApproval:()=>false,addRunStep:(run,text,status)=>run.steps.push({text,status}),
    AttachmentContext:require('../app/attachment-context'),AttachmentDelivery:{prepare:async items=>{deliveries.push(Array.from(items,item=>item.id));return{blocks:[],metadata:options.metadata||[],textAttachments:[],coverage:{},stageLabel:'原件已准备'};}},
-   AgentTransport:{requestPlan:async request=>{requests.push(request);return options.request?options.request(request):JSON.stringify({workspace:'课程',message:'Done',actions:[]});}}
+   AgentTransport:{requestPlan:async request=>{requests.push(request);return options.request?options.request(request):JSON.stringify({workspace:'课程',message:'The attachment covers the course foundations.',actions:[]});}}
  });
  node('#agentInput').value='分析课件';node('#apiBase').value='https://example.invalid/v1';node('#apiKey').value='fixture-key';
- vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function commitAttachmentAnalysis(', '\nfunction executeActions(')+cut('function normalizeStateShape(', '\ntry { normalizeStateShape(')+cut('const currentAttachments =', '\nlet serverSaveInFlight')+cut('function assertRunActive(', '\nlet activeRunController')+cut('function apiOrigin(', '\nfunction renderSettings(')+cut('async function sendMessage(', '\n\nfunction formatBytes('),c);
+ vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function commitAttachmentAnalysis(', '\nfunction executeActions(')+cut('function executeActions(', '\nfunction fallbackWorkflow(')+cut('function normalizeStateShape(', '\ntry { normalizeStateShape(')+cut('const currentAttachments =', '\nlet serverSaveInFlight')+cut('function assertRunActive(', '\nlet activeRunController')+cut('function apiOrigin(', '\nfunction renderSettings(')+cut('async function requestAgentPlan(', '\nasync function sendMessage(')+cut('async function sendMessage(', '\n\nfunction formatBytes('),c);
+ const checkpoint = installRunCheckpointHost(c);
  c.normalizeStateShape(state);
- return{c,state,node,saved,deliveries,requests,toasts,send:options=>c.sendMessage(options),attachments:()=>vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + 'currentAttachments().map(item=>item.id)',c)};
+ return{c,state,node,saved,deliveries,requests,toasts,checkpoint,send:options=>c.sendMessage(options),attachments:()=>vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + 'currentAttachments().map(item=>item.id)',c)};
 }
+
+test('pending model persistence leaves draft, attachments, messages and runs untouched',async()=>{
+ const h=harness(),before=clone(h.state);h.c.ConversationModels.isSaving=()=>true;
+ await h.send();assert.deepEqual(clone(h.state),before);assert.equal(h.node('#agentInput').value,'分析课件');assert.equal(h.requests.length,0);assert.equal(h.saved.length,0);assert.match(h.toasts.at(-1),/模型设置正在保存/);
+});
+test('model persistence starting during async draft preflight cannot consume the draft or start a request',async()=>{
+ const gate=deferred(),h=harness(),before=clone(h.state);let saving=false;
+ h.c.ConversationModels.isSaving=()=>saving;h.c.window.DraftReview={};h.c.handleDraftCommand=()=>gate.promise;
+ const sending=h.send();await flush();saving=true;gate.resolve(false);await sending;
+ assert.deepEqual(clone(h.state),before);assert.equal(h.node('#agentInput').value,'分析课件');assert.equal(h.requests.length,0);assert.equal(h.c.sendMessage.preflight,null);
+});
+test('duplicate submit during async draft preflight starts one command and one run',async()=>{
+ const pending=deferred(),h=harness();let commands=0;
+ h.c.window.DraftReview={};h.c.handleDraftCommand=async()=>{commands++;return pending.promise;};
+ const first=h.send(),second=h.send();await flush();
+ assert.equal(commands,1);assert.equal(h.state.agentRuns.length,0);
+ pending.resolve(false);await Promise.all([first,second]);
+ assert.equal(h.state.conversations[0].messages.filter(m=>m.role==='user').length,1);
+ assert.equal(h.requests.length,1);assert.equal(h.state.agentRuns.length,1);assert.equal(h.c.sendMessage.preflight,null);
+});
+
+test('a handled draft or failed preflight releases the submit guard without a fake run',async()=>{
+ const h=harness();h.c.window.DraftReview={};h.c.handleDraftCommand=async()=>true;
+ await h.send();assert.equal(h.c.sendMessage.preflight,null);assert.equal(h.requests.length,0);
+ h.c.handleDraftCommand=async()=>{throw Error('draft validation failed');};
+ await assert.rejects(h.send(),/draft validation failed/);assert.equal(h.c.sendMessage.preflight,null);
+ h.c.handleDraftCommand=async()=>false;await h.send();assert.equal(h.requests.length,1);
+});
 
 test('send persists the user message and immutable attachment metadata before model work, clearing only this composer',async()=>{
  const pending=deferred(),h=harness({resolve:()=>pending.promise});const sending=h.send();
@@ -46,7 +76,7 @@ test('new typing and uploads during generation survive success, failure, and dup
   const pending=deferred(),h=harness({request:()=>pending.promise});const sending=h.send();await flush();assert.equal(h.requests.length,1);
   h.node('#agentInput').value='下一轮的新问题';h.state.conversations[0].draft='下一轮的新问题';h.state.imports.push({id:'new',name:'新上传.txt'});h.state.conversations[0].attachments.push('new');h.state.conversations[0].draftAttachmentIds.push('new');
   await h.send();assert.equal(h.requests.length,1);assert.equal(h.node('#agentInput').value,'下一轮的新问题');
-  if(fails)pending.reject(new Error('remote failed'));else pending.resolve(JSON.stringify({message:'done',actions:[]}));await sending;
+  if(fails)pending.reject(new Error('remote failed'));else pending.resolve(JSON.stringify({message:'The requested explanation is ready to review.',actions:[]}));await sending;
   assert.equal(h.node('#agentInput').value,'下一轮的新问题');assert.equal(h.state.conversations[0].draft,'下一轮的新问题');assert.deepEqual(Array.from(h.state.conversations[0].draftAttachmentIds),['new']);assert.deepEqual(h.deliveries,[['pdf']]);
   assert.equal(h.state.agentRuns[0].status,fails?'failed':'completed',h.state.agentRuns[0].error);
  }
@@ -91,7 +121,7 @@ test('missing retry attachments are reported without issuing an incomplete model
 test('navigation during a pending response preserves independent conversation drafts and staging',async()=>{
  const pending=deferred(),h=harness({request:()=>pending.promise});const sending=h.send();await flush();
  h.state.conversations[0].draft='回到A继续写';h.state.currentConversationId='b';h.node('#agentInput').value='B新输入';h.state.conversations[1].draft='B新输入';h.state.imports.push({id:'bfile',name:'B.txt'});h.state.conversations[1].attachments.push('bfile');h.state.conversations[1].draftAttachmentIds.push('bfile');
- pending.resolve(JSON.stringify({message:'done',actions:[]}));await sending;assert.equal(h.node('#agentInput').value,'B新输入');assert.equal(h.state.conversations[0].draft,'回到A继续写');assert.deepEqual(Array.from(h.state.conversations[1].draftAttachmentIds),['bfile']);assert.deepEqual(h.deliveries,[['pdf']]);
+ pending.resolve(JSON.stringify({message:'The requested explanation is ready to review.',actions:[]}));await sending;assert.equal(h.node('#agentInput').value,'B新输入');assert.equal(h.state.conversations[0].draft,'回到A继续写');assert.deepEqual(Array.from(h.state.conversations[1].draftAttachmentIds),['bfile']);assert.deepEqual(h.deliveries,[['pdf']]);
 });
 
 test('legacy migration separates sent materials from unsent uploads and repairs only proven stale retry text once',()=>{
@@ -105,15 +135,25 @@ test('a first unsent legacy upload stays staged, while undocumented old context 
  delete a.draftAttachmentIds;a.messages=[{id:'old',role:'user',text:'past message',at:50}];h.c.normalizeStateShape(h.state);assert.deepEqual(Array.from(a.draftAttachmentIds),[]);assert.deepEqual(Array.from(a.attachments),['pdf']);
 });
 
-test('composer remove and historical reattach handlers modify only staging and leave durable context intact',()=>{
+test('composer removal excludes future carry-over and durable reattach preserves historical records',async()=>{
  const h=harness();const a=h.state.conversations[0];let click;h.c.document.addEventListener=(_type,handler)=>{click=handler;};h.c.openImport=id=>{h.opened=id;};
  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut("document.addEventListener('click', event => {", "\n$$('button[data-view]')"),h.c);
+ h.c.contextSelection=require('../app/context-selection').create({getState:()=>h.state,getConversation:()=>a,access:()=>({available:true}),save:async()=>h.c.save()});
  const invoke=dataset=>click({target:{closest:selector=>{assert.match(selector,/data-stage-import/);return{dataset};}},stopPropagation(){},preventDefault(){}});
- invoke({removeImport:'pdf'});assert.deepEqual(Array.from(a.draftAttachmentIds),[]);assert.deepEqual(Array.from(a.attachments),['pdf']);invoke({stageImport:'pdf'});invoke({stageImport:'pdf'});assert.deepEqual(Array.from(a.draftAttachmentIds),['pdf']);assert.deepEqual(Array.from(a.attachments),['pdf']);invoke({openImport:'pdf'});assert.equal(h.opened,'pdf');
+ invoke({removeImport:'pdf'});await flush();assert.deepEqual(Array.from(a.draftAttachmentIds),[]);assert.deepEqual(Array.from(a.attachments),['pdf']);assert.ok(a.excludedFileReferenceKeys.includes('["import","pdf"]'));invoke({stageImport:'pdf'});await flush();invoke({stageImport:'pdf'});await flush();assert.equal(a.excludedFileReferenceKeys.includes('["import","pdf"]'),false);assert.deepEqual(Array.from(a.draftAttachmentIds),['pdf']);assert.deepEqual(Array.from(a.attachments),['pdf']);invoke({openImport:'pdf'});assert.equal(h.opened,'pdf');
 });
 
 test('historical message attachments retain sent names and explicit unavailable state instead of vanishing',()=>{
- const h=harness(),elements=[];h.c.document.createElement=()=>{const element={className:'',dataset:{},innerHTML:'',textContent:'',append(...items){elements.push(...items);},appendChild(item){elements.push(item);}};return element;};
+ const h=harness(),elements=[];h.c.document.createElement=()=>{const element={className:'',dataset:{},attributes:Object.create(null),innerHTML:'',textContent:'',children:[],
+  setAttribute(name,value){const key=String(name).toLowerCase();this.attributes[key]=String(value);if(key.startsWith('data-'))this.dataset[key.slice(5).replace(/-([a-z])/g,(_,letter)=>letter.toUpperCase())]=String(value);},
+  getAttribute(name){return this.attributes[String(name).toLowerCase()]??null;},
+  append(...items){this.children.push(...items);elements.push(...items);},appendChild(item){this.append(item);return item;},
+  querySelector(selector){
+    assert.match(selector,/^(?::scope > )?\.[\w-]+$/, 'This DOM fixture supports the renderer\'s owned class selectors');
+    const direct=selector.startsWith(':scope > '),name=selector.replace(/^:scope > /,'').slice(1);
+    for(const child of this.children){if(child.className.split(/\s+/).includes(name))return child;if(!direct){const match=child.querySelector(selector);if(match)return match;}}
+    return null;
+  }};return element;};
  h.c.esc=value=>String(value??'').replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;');h.c.uiIcon=()=>'';h.c.renderRichText=value=>value;
  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function renderMessage(', '\nfunction renderStagedAttachments('),h.c);
  const message={id:'m',role:'user',text:'sent',attachmentIds:['pdf','gone'],attachments:[{id:'pdf',name:'发送时原名称.pdf'},{id:'gone',name:'已删除原件.pdf'}]};h.c.renderMessage(message,{appendChild:item=>elements.push(item)});const html=elements.map(item=>item.innerHTML).join('\n');
@@ -198,7 +238,7 @@ test('compact request escalates to retrieved full context before executing any p
 
 function onDemandHarness(options={}){
  const h=harness(options);for(const [key,file] of [['AgentContext','agent-context'],['ContextWindow','context-window'],['KnowledgeAccess','knowledge-access'],['ToolScheduler','tool-scheduler']])h.c[key]=h.c.window[key]=require('../app/'+file);
- h.c.saveDocumentDurably=async()=>{};h.c.window.VectorKnowledge={retrieve:async()=>{throw Error('Unexpected eager retrieval');},searchRequest:async()=>null};
+ h.c.window.VectorKnowledge={retrieve:async()=>{throw Error('Unexpected eager retrieval');},searchRequest:async()=>null};
  const c=h.state.conversations[0];c.attachments=[];c.draftAttachmentIds=[];return h;
 }
 test('ordinary conversation does not search or send universal operation schemas',async()=>{

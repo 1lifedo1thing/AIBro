@@ -1,0 +1,23 @@
+{
+  "repository": "https://github.com/kvnkld/aicss",
+  "commit": "cfe5549c3931452f517471bf1ac18639d1edcedd",
+  "path": "packages/react/src/thinking-state",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2026 AICSS",
+  "originals": [
+    {
+      "file": "ThinkingState.tsx",
+      "sha256": "c8436e1266a7c2918a3053365a48a1dc94162223627a7bb694881091da85b118"
+    },
+    {
+      "file": "ThinkingState.module.css",
+      "sha256": "0dd3017af1eebb607fbd18b4bc90c8c191a70df49d2c07c49ab78214b766b402"
+    }
+  ],
+  "adaptation": "app/ui/aicss-thinking-state.jsx; app/ui/aicss-thinking-state.css",
+  "changes": [
+    "Dynamic label and active state from recorded application events; no timers or sample thinking",
+    "Scoped styles use the host palette and inherited local font",
+    "System and application reduced-motion disable shimmer without changing lifecycle state"
+  ]
+}

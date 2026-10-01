@@ -1,0 +1,33 @@
+/* 大回复的安全预览（§2.5）。
+   注意：这里的 max-height 是**刻意**的有界限制——它本身就是"预览"的含义
+   （与"展开的段内容不应有内部滚动"那条约束不同：那个说的是用户展开了就该看全，
+   而这里是明确的、带说明文案的预览态，用户可一键切换到完整内容）。 */
+.safe-preview {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--surface-wash);
+}
+
+.safe-preview-notice {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.55;
+  opacity: .82;
+}
+
+.safe-preview-text {
+  margin: 0 0 9px;
+  max-height: 40vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.safe-preview-actions,
+.safe-preview-restore { display: flex; gap: 8px; }
+
+.safe-preview-restore { margin-top: 8px; }

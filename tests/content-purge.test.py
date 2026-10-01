@@ -41,7 +41,7 @@ def rejected(action, kind=server.TrashPurgeError):
 
 
 def disk_snapshot(directory):
-    return {str(path.relative_to(directory)): path.read_bytes() for path in Path(directory).rglob('*') if path.is_file() and path.name != '.workspace.lock'}
+    return {str(path.relative_to(directory)): path.read_bytes() for path in Path(directory).rglob('*') if path.is_file() and path.name not in {'.workspace.lock', '.sqlite.lock'}}
 
 
 SQL_TABLES = ('meta', 'entities', 'outbox', 'sent', 'conflicts')

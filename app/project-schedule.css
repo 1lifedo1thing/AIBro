@@ -1,0 +1,2 @@
+/* The host owns sizing; the ProjectScheduleSurface Kit island owns its contents. */
+[data-project-panel="schedule"], #projectSchedule { width: 100%; min-width: 0; }

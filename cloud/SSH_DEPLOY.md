@@ -37,7 +37,7 @@ systemctl --user --version
 WORKSTATION_SSH_HOST=my-sync-host
 WORKSTATION_RELEASE=$(date -u +%Y%m%dT%H%M%SZ)
 ssh "$WORKSTATION_SSH_HOST" "mkdir -p ~/.local/share/ai-workstation-cloud/releases/$WORKSTATION_RELEASE ~/.local/share/ai-workstation-cloud/data ~/.config/systemd/user"
-scp app/cloud_server.py "$WORKSTATION_SSH_HOST:.local/share/ai-workstation-cloud/releases/$WORKSTATION_RELEASE/cloud_server.py"
+scp app/cloud_server.py app/cloud_web.py "$WORKSTATION_SSH_HOST:.local/share/ai-workstation-cloud/releases/$WORKSTATION_RELEASE/"
 scp cloud/ai-workstation-cloud.service "$WORKSTATION_SSH_HOST:.config/systemd/user/ai-workstation-cloud.service"
 ssh "$WORKSTATION_SSH_HOST" "/usr/bin/python3 -c \"import ast,pathlib; ast.parse(pathlib.Path.home().joinpath('.local/share/ai-workstation-cloud/releases/$WORKSTATION_RELEASE/cloud_server.py').read_text())\""
 ssh "$WORKSTATION_SSH_HOST" "cd ~/.local/share/ai-workstation-cloud && ln -s 'releases/$WORKSTATION_RELEASE' 'current-$WORKSTATION_RELEASE' && mv -Tf 'current-$WORKSTATION_RELEASE' current && chmod 700 data"
@@ -177,3 +177,11 @@ curl --fail --silent --show-error http://127.0.0.1:8787/v1/health
 5. 存在待上传或冲突：在工作站查看明确状态并处理冲突。待上传数量不为零时不能把它视为已经备份成功。
 
 同步范围、附件限制和当前产品边界见 [客户端云同步说明](../docs/CLOUD_SYNC.md)，协议与服务限额见 [云服务说明](README.md)。
+
+## 8. 在 Mac 中修改现有部署
+
+设置 → 账号与云同步 → **修改连接配置**：重新填写同步账号凭据或设备名称。已绑定的服务 URL 保持不变，避免将旧同步游标用于另一套数据库。
+
+**SSH 与存储目录**读取现有 `app.ai-workstation.cloud-tunnel.plist`，支持编辑 SSH 主机/别名、SSH 端口和服务端口。本机转发端口沿用原绑定。保存前核对远端账号与同步进度；启动新隧道失败时还原原配置，旧启动项另存备份。
+
+窗口自动读取 systemd 用户服务当前进程的 `--data-dir`，显示真实数据目录与数据库文件。更改数据目录需要指定已有上级目录下、尚不存在的绝对路径，并勾选说明。操作会暂停自动同步，停止远端用户服务，复制全部数据、逐文件 SHA-256 校验和 SQLite 检查，然后切换并检查服务；旧目录保留。失败时尝试恢复旧服务；结果不明确时维持暂停，请重新检查后再恢复自动同步。迁移期间请停止其他设备编辑。此操作不修改 SSH 密钥或主机指纹。
