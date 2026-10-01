@@ -1,0 +1,8 @@
+{
+  "name": "aibro-product-film",
+  "private": true,
+  "version": "1.0.0",
+  "description": "React and Remotion product film using actual fictional-workspace App captures",
+  "scripts": {"studio": "remotion studio src/index.jsx --public-dir=../dist", "render": "node render.mjs"},
+  "dependencies": {"@remotion/cli": "4.0.531", "remotion": "4.0.531", "react": "19.3.0", "react-dom": "19.3.0"}
+}

@@ -1,0 +1,53 @@
+{
+  "file": "score.wav",
+  "duration_seconds": 42.0,
+  "sample_rate": 48000,
+  "channels": 2,
+  "format": "PCM signed 16-bit little endian",
+  "seed": 20261001,
+  "tempo_bpm": 120,
+  "arrangement": "Original rounded keys, major/add-nine harmony, half-time percussion, tactile scene accents.",
+  "scene_accents_seconds": [
+    0,
+    0.6,
+    1.8,
+    3.4,
+    5,
+    6.5,
+    8.5,
+    10.5,
+    12,
+    14.2,
+    17,
+    20,
+    22.2,
+    25,
+    26.6,
+    29,
+    31.5,
+    34,
+    36,
+    36.7,
+    37.4,
+    39
+  ],
+  "normalization_gain_db": 11.1,
+  "integrated_lufs": -19.0,
+  "loudness_range_lu": 2.4,
+  "true_peak_dbfs": -4.6,
+  "sample_peak_dbfs": -4.604,
+  "rms_dbfs": -20.691,
+  "stereo_correlation": 0.9522,
+  "clipped_samples": 0,
+  "first_frame": [
+    0,
+    0
+  ],
+  "last_frame": [
+    0,
+    0
+  ],
+  "sha256": "923b1141c613e4578e759cc62da0299d3e283d477de9f8b7f409c701cea0ffa0",
+  "source": "Original deterministic mathematical synthesis; no external recordings or samples.",
+  "verification": "Numerical integrity and FFmpeg loudness analysis only; not human-listening acceptance."
+}

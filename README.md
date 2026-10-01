@@ -17,6 +17,14 @@ AI Bro 是 Mac 上的个人知识与行动工作台。把课件、论文、笔�
 
 ---
 
+## 看见工作，怎样继续。
+
+[![AI Bro 产品宣传片 — React + Remotion，42 秒](launch/dist/assets/film/poster-zh.jpg)](https://zihenghe04.github.io/AIBro/#film)
+
+[▶ 观看 42 秒产品宣传片](https://zihenghe04.github.io/AIBro/#film) · [下载 MP4](https://zihenghe04.github.io/AIBro/assets/film/promo-zh.mp4) · [动画工程源码](launch/film/)
+
+用 React + Remotion 编排文字动效、真实 App 镜头与原创配乐。全部采用虚构演示资料，不代表连续操作录屏或模型实时执行。
+
 ## 读进去。写出来。接着做。
 
 ### 01 &nbsp; 带着资料，展开思考。

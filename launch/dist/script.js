@@ -47,19 +47,26 @@ const EN={
   "footerLine": "Keep the context. Carry the idea forward.",
   "changelog": "Changelog",
   "feedback": "Feedback",
-  "filmPlay": "Play the workflow film",
+  "filmPlay": "Play the product film",
+  "filmFormat": "42 sec · 1080p · Product film",
+  "filmChapterIntro": "One idea",
+  "filmChapterWorkspace": "One workspace",
+  "filmChapterRead": "Read with context",
+  "filmChapterWrite": "Make it yours",
+  "filmChapterPlan": "Move forward",
+  "filmChapterClose": "Your choice",
   "heroStatement": "Turn a conversation into work you can continue.",
   "heroDescription": "Your materials, your thinking, and your next step. One workspace.",
-  "watchFilm": "Watch the workflow",
+  "watchFilm": "Watch the 42-second film",
   "heroMetaNative": "Local first · Your model · Apple Silicon Mac",
   "explore": "Explore the workspace",
   "workspaceTitle": "Less starting over.<br><span>More picking up where you left off.</span>",
   "workspaceDesc": "Conversations, source material, documents, and tasks.<br>A place for each, in the same project.",
   "overviewCaption": "Actual App interface · Fictional example materials",
-  "filmNativeTitle": "See the work<br><span>come together.</span>",
-  "filmNativeDesc": "From reading a source, to refining your document,<br>to the next step worth taking.",
-  "filmNativeDisclosure": "Choreographed from actual App screenshots · Fictional data · Not a speed benchmark or continuous recording",
-  "downloadFilm": "Download film ↓",
+  "filmNativeTitle": "An idea.<br><span>All the way to something real.</span>",
+  "filmNativeDesc": "Your sources, your thinking, and your next step.<br>Meet a new way of working in 42 seconds.",
+  "filmNativeDisclosure": "React + Remotion · Actual App screenshots with fictional data · Not continuous footage or a model-speed demonstration",
+  "downloadFilm": "Download product film",
   "storiesTitle": "Every idea.<br><span>A place to carry it forward.</span>",
   "storiesDesc": "A source is more than a one-time attachment.<br>Keep what you understand, and move the work forward.",
   "pauseMotion": "Pause page motion",
@@ -75,7 +82,7 @@ const EN={
   "clipNote": "Choreographed from actual App screenshots",
   "openSource": "Open source. Open to your way of working.",
   "faqNative": "Are these actual App screens?",
-  "faqNativeA": "Yes. Screens are captured from an isolated AI Bro workspace with fictional example materials. Films and animated chapters are choreographed from those screenshots, not model speed benchmarks or unedited continuous screen recordings.",
+  "faqNativeA": "Yes. Screens are captured from an isolated AI Bro workspace with fictional materials. The product film uses React + Remotion to choreograph actual screenshots, camera movement, and animated typography. The chapters below show interface steps. Neither is a model-speed benchmark or unedited continuous recording. The App screenshots are in Chinese in both versions of the film.",
   "buildSource": "Build from source ↗",
   "footerNative": "Actual isolated App interface · Fictional materials throughout · AGPL-3.0"
 };
@@ -84,6 +91,8 @@ let lang=new URLSearchParams(location.search).get('lang')==='en'?'en':'zh';
 const reduced=matchMedia('(prefers-reduced-motion:reduce)');
 let motionEnabled=!reduced.matches,opener=null,filmState='idle';
 const players=new Map(),dialog=document.getElementById('media-dialog'),film=document.getElementById('workflow-film'),filmButton=document.getElementById('film-start');
+const filmChapters=[...document.querySelectorAll('[data-film-time]')];
+let filmLanguage=null,filmGeneration=0,pendingFilmSeek=null;
 const t=(zh,en)=>lang==='en'?en:zh;
 const text=key=>lang==='en'?(EN[key]||originals.get(key)):originals.get(key);
 function updatePlayers(){players.forEach(state=>state.update());}
@@ -104,7 +113,10 @@ function localize(){
   document.querySelector('.demo-navigation').setAttribute('aria-label',t('浏览工作流程','Browse workflows'));
   document.getElementById('close-media').setAttribute('aria-label',t('关闭','Close'));
   dialog.setAttribute('aria-label',t('放大 App 界面','Enlarged App interface'));
-  film.setAttribute('aria-label',t('AI Bro 工作流演示影片','AI Bro workflow film'));
+  film.setAttribute('aria-label',t('AI Bro 产品宣传短片','AI Bro product film'));
+  document.querySelector('.film-chapters').setAttribute('aria-label',t('产品短片章节','Product film chapters'));
+  filmChapters.forEach(button=>button.setAttribute('aria-label',`${t('播放','Play')} ${button.querySelector('.film-chapter-time').textContent} · ${text(button.querySelector('[data-t]').dataset.t)}`));
+  setFilmLanguage();
   document.querySelectorAll('[data-image]').forEach(el=>el.setAttribute('aria-label',`${t('放大：','Enlarge: ')}${text(el.dataset.caption)}`));
   document.querySelector('.native-overview img').alt=t('AI Bro 实际 Mac 工作区，使用虚构示例资料','Actual AI Bro Mac workspace with fictional example materials');
   players.forEach(state=>state.updateButton());updateFilmStatus();updateMotion();
@@ -149,21 +161,55 @@ for(const video of document.querySelectorAll('.chapter-video')){
 document.getElementById('motion-toggle').addEventListener('click',()=>{motionEnabled=!motionEnabled;if(!motionEnabled){players.forEach(state=>{state.manualPlay=false;});film.pause();}updateMotion();});
 reduced.addEventListener('change',()=>{motionEnabled=!reduced.matches;if(!motionEnabled)players.forEach(state=>{state.manualPlay=false;});updateMotion();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)film.pause();updatePlayers();});
+function setFilmLanguage(){
+  if(filmLanguage===lang)return;
+  filmGeneration++;filmLanguage=lang;film.pause();pendingFilmSeek=null;filmState='idle';
+  film.preload='none';film.src=`assets/film/promo-${lang}.mp4`;film.poster=`assets/film/poster-${lang}.jpg`;
+  film.load();filmButton.hidden=false;
+  const download=document.getElementById('film-download');download.href=film.getAttribute('src');download.download=`AI-Bro-Product-Film-${lang.toUpperCase()}.mp4`;
+  updateFilmChapters();
+}
+function updateFilmChapters(){
+  const position=Number.isFinite(film.currentTime)?film.currentTime:0;
+  filmChapters.forEach((button,index)=>{
+    const start=Number(button.dataset.filmTime),end=Number(filmChapters[index+1]?.dataset.filmTime)||42;
+    const active=position>=start&&(position<end||index===filmChapters.length-1);
+    if(active)button.setAttribute('aria-current','step');else button.removeAttribute('aria-current');
+    button.style.setProperty('--chapter-progress',`${Math.max(0,Math.min(1,(position-start)/(end-start)))*100}%`);
+  });
+}
 function updateFilmStatus(){
   const status=document.getElementById('film-status');
   status.hidden=filmState!=='error'&&filmState!=='gesture';
-  status.textContent=filmState==='error'?t('影片暂时无法加载。可重新播放，或查看下方实际 App 截图。','The film could not load. Retry playback, or view the actual App screenshots below.'):filmState==='gesture'?t('请使用播放器的播放按钮。','Use the player controls to start the film.'):'';
-  filmButton.querySelector('[data-t]').textContent=filmState==='error'?t('重新加载影片','Retry loading film'):text('filmPlay');
-  if(filmState==='error')filmButton.hidden=false;
+  status.textContent=filmState==='error'?t('短片暂时无法加载。请点击重新加载；也可查看下方实际 App 界面。','The film could not load. Retry, or explore the actual App screens below.'):filmState==='gesture'?t('请使用播放器的播放按钮。','Use the player controls to start the film.'):'';
+  filmButton.querySelector('[data-t]').textContent=filmState==='error'?t('重新加载短片','Retry loading film'):filmState==='ended'?t('再看一次','Watch again'):text('filmPlay');
+  if(filmState==='error'||filmState==='ended')filmButton.hidden=false;
 }
-filmButton.addEventListener('click',()=>{
+function playFilm(time){
+  const generation=filmGeneration;
+  if(typeof time==='number')pendingFilmSeek=time;
   if(filmState==='error')film.load();
+  if(pendingFilmSeek!==null&&film.readyState>=1){film.currentTime=pendingFilmSeek;pendingFilmSeek=null;}
   filmState='idle';filmButton.hidden=true;updateFilmStatus();
-  film.play().catch(()=>{if(filmState!=='error')filmState='gesture';updateFilmStatus();});
-});
+  film.play().catch(error=>{
+    if(generation!==filmGeneration||error.name==='AbortError')return;
+    if(filmState!=='error')filmState='gesture';updateFilmStatus();
+  });
+}
+filmButton.addEventListener('click',()=>playFilm(film.ended?0:undefined));
+filmChapters.forEach(button=>button.addEventListener('click',()=>{
+  film.scrollIntoView({behavior:reduced.matches?'instant':'smooth',block:'center'});
+  playFilm(Number(button.dataset.filmTime));
+}));
 film.addEventListener('play',()=>{filmState='playing';filmButton.hidden=true;updateFilmStatus();updatePlayers();});
 film.addEventListener('pause',updatePlayers);
-film.addEventListener('loadedmetadata',()=>{if(film.videoWidth&&film.videoHeight)film.style.aspectRatio=`${film.videoWidth}/${film.videoHeight}`;if(filmState==='error'){filmState='idle';updateFilmStatus();}});
+film.addEventListener('timeupdate',updateFilmChapters);
+film.addEventListener('ended',()=>{filmState='ended';updateFilmStatus();updateFilmChapters();});
+film.addEventListener('loadedmetadata',()=>{
+  if(pendingFilmSeek!==null){film.currentTime=Math.min(pendingFilmSeek,Number.isFinite(film.duration)?film.duration:42);pendingFilmSeek=null;}
+  if(filmState==='error'){filmState='idle';updateFilmStatus();}
+  updateFilmChapters();
+});
 film.addEventListener('error',()=>{filmState='error';updateFilmStatus();});
 new IntersectionObserver(entries=>{if(!entries[0].isIntersecting)film.pause();},{threshold:.02}).observe(film);
 for(const trigger of document.querySelectorAll('[data-image]')){

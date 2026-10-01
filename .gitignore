@@ -60,3 +60,6 @@ coverage/
 # Web build and hosting credentials
 mobile/web-dist/
 .vercel/
+
+!/launch/dist/assets/film/*.mp4
+!/launch/dist/assets/film/*.wav
