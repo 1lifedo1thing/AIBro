@@ -22,7 +22,10 @@ function Head({lang,t}){return <>
  </>;}
 function Review({q,lang}){
  const accepted=q>=2.25,detail=p(q,.6,1.65),returning=p(q,2.25,3.05);
- const crop=accepted?lerp([887,835,1603,735],[887,529,1603,1102],returning):lerp([887,529,1603,1102],[887,835,1603,735],detail);
+ // Keep the full native action row in frame while focusing the diff.
+ // Both states share this crop so acceptance does not move the saved document.
+ const overview=[887,529,1603,1102],focused=[887,862,1603,769];
+ const crop=accepted?lerp(focused,overview,returning):lerp(overview,focused,detail);
  const box=accepted?lerp([674,387,1154,570],[694,264,1130,736],returning):lerp([724,316,1085,680],[674,387,1154,570],detail);
  return <>
   <SceneLead q={q} lang={lang} title={L(lang,'编辑笔记','Edit your notes')} subtitle={L(lang,'调整 AI 整理的内容，\n逐项确认修改。','Refine the AI draft.\nReview each change.')} x={90} y={178} width={555} subtitleWidth={520} size={91}/>

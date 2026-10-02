@@ -1,5 +1,5 @@
 {
-  "revision": "research-recall-registered-20261003",
+  "revision": "review-action-framing-20261003",
   "seconds": 84,
   "frames": 5040,
   "fps": 60,
@@ -16,8 +16,8 @@
   "files": [
     {
       "file": "motion-84-zh.mp4",
-      "bytes": 16324422,
-      "sha256": "3b5bb3f4e61a89386e7cbd2e17e019312da72e5bbb7e7ea7feae11369129accc"
+      "bytes": 16306391,
+      "sha256": "2867d761905c8549372d954eda0093e91cbf7ba185e27488c086b3d6158be627"
     },
     {
       "file": "motion-84-poster-zh.jpg",
@@ -26,8 +26,8 @@
     },
     {
       "file": "motion-84-en.mp4",
-      "bytes": 16396316,
-      "sha256": "cc5e1f9534e07acec2bc8b05e2f3c0486f425b412a4afdb564ae7b8b18b6c619"
+      "bytes": 16381764,
+      "sha256": "ab43f9116c0f77354a7cb1550e21c0021a5fb859340945dd5d7798865e4ea706"
     },
     {
       "file": "motion-84-poster-en.jpg",
@@ -37,8 +37,8 @@
   ],
   "productStatus": "Development preview; download release remains 0.8.0.",
   "provenance": "Actual isolated native App action captures with fictional materials. Edited across sessions; waiting condensed. No personal documents or credentials. The opening includes an actual model run; 60 fps describes film output, not native capture sampling.",
-  "visualReview": "The revised research question, attributed answer, source preview and original PDF table were reviewed in actual bilingual MP4 frames. The registered answer-to-citation cut passed targeted independent visual review. Unchanged scenes retain their earlier visual checks. This does not claim every-frame product functionality, normal-speed full playback or listening acceptance.",
-  "assembly": "The middle two 14-second segments were rerendered. The first and final 28 seconds and the selected A AAC score are reused without re-encoding. Both audio and video start at 0 and last 84 seconds.",
+  "visualReview": "The native review action row and complete difference block were checked in Chinese and English 1080p frames. The focused crop was approved before assembly. The unchanged research chain retains its targeted independent review. Frame review is not a full normal-speed viewing or listening acceptance.",
+  "assembly": "Only the 14–28 second segment was rerendered for review framing. The other five segments and selected A AAC score were copied without re-encoding. Both audio and video start at 0 and last 84 seconds.",
   "audio": "User-selected A original instrumental, copied at unity gain. Bitstream unchanged; numerical checks are recorded separately. Full listening acceptance is not claimed.",
   "source": "launch/film/motion84",
   "assetArchive": {
@@ -64,5 +64,12 @@
       "bytes": 498432,
       "sha256": "e7f5a3707dc6ddcd320332138af7be4b71e1769e4f22d249ce58cad3f9010bb8"
     }
-  ]
+  ],
+  "reviewFraming": {
+    "seconds": [
+      21.1,
+      24.9
+    ],
+    "presentation": "Keep the native accept/save control visible with the reviewed change. Original captured pixels and action-state timing are unchanged."
+  }
 }
