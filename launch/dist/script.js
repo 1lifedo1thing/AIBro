@@ -233,6 +233,7 @@ film.addEventListener('play',()=>{filmState='playing';filmButton.hidden=true;upd
 film.addEventListener('pause',updatePlayers);
 film.addEventListener('timeupdate',updateFilmChapters);
 film.addEventListener('ended',()=>{filmState='ended';updateFilmStatus();updateFilmChapters();});
+film.addEventListener('seeked',()=>{if(filmState==='ended'&&!film.ended){filmState=film.paused?'idle':'playing';filmButton.hidden=true;updateFilmStatus();}});
 film.addEventListener('loadedmetadata',()=>{
   if(pendingFilmSeek!==null){film.currentTime=Math.min(pendingFilmSeek,Number.isFinite(film.duration)?film.duration:84);pendingFilmSeek=null;}
   if(filmState==='error'){filmState='idle';updateFilmStatus();}
