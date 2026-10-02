@@ -48,25 +48,25 @@ const EN={
   "changelog": "Changelog",
   "feedback": "Feedback",
   "filmPlay": "Play the product film",
-  "filmFormat": "42 sec · 1080p · Product film",
-  "filmChapterIntro": "One idea",
-  "filmChapterWorkspace": "One workspace",
-  "filmChapterRead": "Read with context",
-  "filmChapterWrite": "Make it yours",
-  "filmChapterPlan": "Move forward",
-  "filmChapterClose": "Your choice",
+  "filmFormat": "84 sec · 1080p · Development preview",
+  "filmChapterIntro": "Course to result",
+  "filmChapterWorkspace": "Review and save",
+  "filmChapterRead": "Plan the next step",
+  "filmChapterWrite": "Recall research",
+  "filmChapterPlan": "Connect a quick note",
+  "filmChapterClose": "Continue from the Island",
   "heroStatement": "Turn a conversation into work you can continue.",
   "heroDescription": "Your materials, your thinking, and your next step. One workspace.",
-  "watchFilm": "Watch the 42-second film",
+  "watchFilm": "Watch the 84-second workflow",
   "heroMetaNative": "Local first · Your model · Apple Silicon Mac",
   "explore": "Explore the workspace",
   "workspaceTitle": "Less starting over.<br><span>More picking up where you left off.</span>",
   "workspaceDesc": "Conversations, source material, documents, and tasks.<br>A place for each, in the same project.",
   "overviewCaption": "Actual App interface · Fictional example materials",
-  "filmNativeTitle": "An idea.<br><span>All the way to something real.</span>",
-  "filmNativeDesc": "Your sources, your thinking, and your next step.<br>Meet a new way of working in 42 seconds.",
-  "filmNativeDisclosure": "React + Remotion · Actual App screenshots with fictional data · Not continuous footage or a model-speed demonstration",
-  "downloadFilm": "Download product film",
+  "filmNativeTitle": "What you read.<br><span>Part of what you do.</span>",
+  "filmNativeDesc": "From a lecture to notes, a calendar and a next step.<br>See knowledge become useful in 84 seconds.",
+  "filmNativeDisclosure": "Actual App action captures · Fictional materials · Edited across sessions; waiting condensed",
+  "downloadFilm": "Download film · About 13 MB",
   "storiesTitle": "Every idea.<br><span>A place to carry it forward.</span>",
   "storiesDesc": "A source is more than a one-time attachment.<br>Keep what you understand, and move the work forward.",
   "pauseMotion": "Pause page motion",
@@ -82,7 +82,7 @@ const EN={
   "clipNote": "Choreographed from actual App screenshots",
   "openSource": "Open source. Open to your way of working.",
   "faqNative": "Are these actual App screens?",
-  "faqNativeA": "Yes. Screens are captured from an isolated AI Bro workspace with fictional materials. The product film uses React + Remotion to choreograph actual screenshots, camera movement, and animated typography. The chapters below show interface steps. Neither is a model-speed benchmark or unedited continuous recording. The App screenshots are in Chinese in both versions of the film.",
+  "faqNativeA": "Yes. Screens come from an isolated AI Bro workspace with fictional materials. React + Remotion combines real import, model processing, draft review and acceptance captures with course, research, quick-note and Island workflows across sessions. This is a development preview; actions and waits are condensed, not a model-speed benchmark or continuous recording. Actual App screens are in Chinese in both films.",
   "buildSource": "Build from source ↗",
   "footerNative": "Actual isolated App interface · Fictional materials throughout · AGPL-3.0"
 };
@@ -164,15 +164,15 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)film.pause(
 function setFilmLanguage(){
   if(filmLanguage===lang)return;
   filmGeneration++;filmLanguage=lang;film.pause();pendingFilmSeek=null;filmState='idle';
-  film.preload='none';film.src=`assets/film/promo-${lang}.mp4`;film.poster=`assets/film/poster-${lang}.jpg`;
+  film.preload='none';film.src=`assets/film/motion-84-${lang}.mp4`;film.poster=`assets/film/motion-84-poster-${lang}.jpg`;
   film.load();filmButton.hidden=false;
-  const download=document.getElementById('film-download');download.href=film.getAttribute('src');download.download=`AI-Bro-Product-Film-${lang.toUpperCase()}.mp4`;
+  const download=document.getElementById('film-download');download.href=film.getAttribute('src');download.download=`AI-Bro-Workflow-84s-${lang.toUpperCase()}.mp4`;
   updateFilmChapters();
 }
 function updateFilmChapters(){
   const position=Number.isFinite(film.currentTime)?film.currentTime:0;
   filmChapters.forEach((button,index)=>{
-    const start=Number(button.dataset.filmTime),end=Number(filmChapters[index+1]?.dataset.filmTime)||42;
+    const start=Number(button.dataset.filmTime),end=Number(filmChapters[index+1]?.dataset.filmTime)||84;
     const active=position>=start&&(position<end||index===filmChapters.length-1);
     if(active)button.setAttribute('aria-current','step');else button.removeAttribute('aria-current');
     button.style.setProperty('--chapter-progress',`${Math.max(0,Math.min(1,(position-start)/(end-start)))*100}%`);
@@ -206,7 +206,7 @@ film.addEventListener('pause',updatePlayers);
 film.addEventListener('timeupdate',updateFilmChapters);
 film.addEventListener('ended',()=>{filmState='ended';updateFilmStatus();updateFilmChapters();});
 film.addEventListener('loadedmetadata',()=>{
-  if(pendingFilmSeek!==null){film.currentTime=Math.min(pendingFilmSeek,Number.isFinite(film.duration)?film.duration:42);pendingFilmSeek=null;}
+  if(pendingFilmSeek!==null){film.currentTime=Math.min(pendingFilmSeek,Number.isFinite(film.duration)?film.duration:84);pendingFilmSeek=null;}
   if(filmState==='error'){filmState='idle';updateFilmStatus();}
   updateFilmChapters();
 });

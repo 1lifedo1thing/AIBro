@@ -19,11 +19,11 @@ AI Bro is a personal knowledge and action workspace for Mac. Bring a handout, a 
 
 ## See AI Bro in motion
 
-[![AI Bro product film — React + Remotion, 42 seconds](launch/dist/assets/film/poster-en.jpg)](https://zihenghe04.github.io/AIBro/?lang=en#film)
+[![AI Bro product film — React + Remotion, 84 seconds](launch/dist/assets/film/motion-84-poster-en.jpg)](https://zihenghe04.github.io/AIBro/?lang=en#film)
 
-[▶ Watch the 42-second product film](https://zihenghe04.github.io/AIBro/?lang=en#film) · [Download MP4](https://zihenghe04.github.io/AIBro/assets/film/promo-en.mp4) · [Composition source](launch/film/)
+[▶ Watch the 84-second workflow](https://zihenghe04.github.io/AIBro/?lang=en#film) · [Download MP4](https://zihenghe04.github.io/AIBro/assets/film/motion-84-en.mp4)
 
-An original React + Remotion film with animated typography, camera framing of actual App screenshots, and an original soundtrack. All example materials are fictional; this is not a continuous recording or a live model run.
+A React + Remotion workflow film, from a real course import and model run to review, planning and research recall. Fictional materials throughout; edited across sessions with waits condensed. It shows development-preview capabilities; the public App download remains 0.8.0.
 
 ## Read. Make it your own. Move it forward.
 

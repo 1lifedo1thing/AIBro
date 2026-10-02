@@ -19,11 +19,11 @@ AI Bro 是 Mac 上的个人知识与行动工作台。把课件、论文、笔�
 
 ## 看见工作，怎样继续。
 
-[![AI Bro 产品宣传片 — React + Remotion，42 秒](launch/dist/assets/film/poster-zh.jpg)](https://zihenghe04.github.io/AIBro/#film)
+[![AI Bro 产品宣传片 — React + Remotion，84 秒](launch/dist/assets/film/motion-84-poster-zh.jpg)](https://zihenghe04.github.io/AIBro/#film)
 
-[▶ 观看 42 秒产品宣传片](https://zihenghe04.github.io/AIBro/#film) · [下载 MP4](https://zihenghe04.github.io/AIBro/assets/film/promo-zh.mp4) · [动画工程源码](launch/film/)
+[▶ 观看 84 秒完整工作流](https://zihenghe04.github.io/AIBro/#film) · [下载 MP4](https://zihenghe04.github.io/AIBro/assets/film/motion-84-zh.mp4)
 
-用 React + Remotion 编排文字动效、真实 App 镜头与原创配乐。全部采用虚构演示资料，不代表连续操作录屏或模型实时执行。
+从课件导入与真实 AI 处理，到审阅采纳、日程和研究回溯，用 React + Remotion 串起完整工作流。全部采用虚构资料，多会话剪辑并压缩等待；展示开发预览能力，公开下载仍为 0.8.0。
 
 ## 读进去。写出来。接着做。
 

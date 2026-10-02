@@ -1,0 +1,40 @@
+{
+  "seconds": 84,
+  "fps": 60,
+  "width": 1920,
+  "height": 1080,
+  "chaptersSeconds": [
+    0,
+    21.1,
+    28,
+    36.1,
+    54.5,
+    67.9
+  ],
+  "files": [
+    {
+      "file": "motion-84-zh.mp4",
+      "bytes": 12450804,
+      "sha256": "7d16338da2b2c7f6243fe0c45212e91cfe342cb09e7e4125fb196ad91f3713b4"
+    },
+    {
+      "file": "motion-84-poster-zh.jpg",
+      "bytes": 95217,
+      "sha256": "956341e55e6d0e97fa9407eabbc82771141326ffd433951b251956ee2c7c9bd9"
+    },
+    {
+      "file": "motion-84-en.mp4",
+      "bytes": 12495794,
+      "sha256": "aa9dcee33f0fc4d17f398f3be502c02b5f077193e079d098c7a66333aacabbe4"
+    },
+    {
+      "file": "motion-84-poster-en.jpg",
+      "bytes": 88267,
+      "sha256": "054c1b586909987959063702b97ae4d00c307ec8a08296613832be2d6c70cfa5"
+    }
+  ],
+  "productStatus": "Development preview; download release remains 0.8.0.",
+  "provenance": "Actual isolated native App action captures with fictional materials. Edited across sessions; waiting condensed. No personal documents or credentials. The new opening contains an actual model run; 60 fps describes the film output, not native capture sampling.",
+  "visualReview": "Full3 targeted new-opening and join independent PASS; retained body unchanged from reviewed Full2. Not an every-frame product functionality claim.",
+  "audio": "Original instrumental. Numerical checks passed; actual listening remains unverified."
+}
