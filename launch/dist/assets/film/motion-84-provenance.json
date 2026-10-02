@@ -1,5 +1,7 @@
 {
+  "revision": "editorial-refinement-20261002",
   "seconds": 84,
+  "frames": 5040,
   "fps": 60,
   "width": 1920,
   "height": 1080,
@@ -14,27 +16,34 @@
   "files": [
     {
       "file": "motion-84-zh.mp4",
-      "bytes": 12450804,
-      "sha256": "7d16338da2b2c7f6243fe0c45212e91cfe342cb09e7e4125fb196ad91f3713b4"
+      "bytes": 16195295,
+      "sha256": "6dca5210a9d1abbc6a92a6ec0f8bdc1a78c6415ddce16e2cd63daa2d10cf1d14"
     },
     {
       "file": "motion-84-poster-zh.jpg",
-      "bytes": 95217,
-      "sha256": "956341e55e6d0e97fa9407eabbc82771141326ffd433951b251956ee2c7c9bd9"
+      "bytes": 101753,
+      "sha256": "e82163c5026e9e250b38b508ae78f73b393b53c921bbab1e7bfea298650281cd"
     },
     {
       "file": "motion-84-en.mp4",
-      "bytes": 12495794,
-      "sha256": "aa9dcee33f0fc4d17f398f3be502c02b5f077193e079d098c7a66333aacabbe4"
+      "bytes": 16259126,
+      "sha256": "f6165202fda25c7ca40921b1955a2a74728859be8be1b4e5e4c4896316197f16"
     },
     {
       "file": "motion-84-poster-en.jpg",
-      "bytes": 88267,
-      "sha256": "054c1b586909987959063702b97ae4d00c307ec8a08296613832be2d6c70cfa5"
+      "bytes": 108058,
+      "sha256": "4a961accd4e3eb8fadd21f68b309a13e615bc106a7b6127de07d94d2c523affe"
     }
   ],
   "productStatus": "Development preview; download release remains 0.8.0.",
-  "provenance": "Actual isolated native App action captures with fictional materials. Edited across sessions; waiting condensed. No personal documents or credentials. The new opening contains an actual model run; 60 fps describes the film output, not native capture sampling.",
-  "visualReview": "Full3 targeted new-opening and join independent PASS; retained body unchanged from reviewed Full2. Not an every-frame product functionality claim.",
-  "audio": "Original instrumental. Numerical checks passed; actual listening remains unverified."
+  "provenance": "Actual isolated native App action captures with fictional materials. Edited across sessions; waiting condensed. No personal documents or credentials. The opening includes an actual model run; 60 fps describes film output, not native capture sampling.",
+  "visualReview": "The revised continuous opening title and source-check handoff passed independent review in Chinese and English actual MP4 excerpts. The prior full visual review is retained for unchanged scenes; the final 56 seconds match the previously published master frame for frame. This is not an every-frame product functionality claim.",
+  "assembly": "First two 14-second segments rerendered; four remaining segments and selected A AAC score reused without re-encoding. Both audio and video start at 0 and last 84 seconds.",
+  "audio": "User-selected A original instrumental, copied at unity gain. Bitstream unchanged; numerical checks are recorded separately. Full listening acceptance is not claimed.",
+  "source": "launch/film/motion84",
+  "assetArchive": {
+    "file": "motion84-assets-20261002.zip",
+    "release": "v0.8.0",
+    "sha256": "5a96f5ce5dbbb850328fb92db9aa3c276791aadf4f8a945c073751a794c01a55"
+  }
 }

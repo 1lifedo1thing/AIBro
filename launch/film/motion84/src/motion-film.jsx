@@ -140,7 +140,7 @@ export function MotionFilm({lang='zh',withAudio=false}){
  const frame=useCurrentFrame(),t=editorialSourceFrame(frame,FILM_FPS)/FILM_FPS;
  let scene;
  if(t<2.2)scene=<Hook t={t}/>;
- else if(t<4.5)scene=<OpenSource t={t}/>;
+ else if(t<4.5)scene=<OpenSource t={t} leadQ={t-2.2+.9}/>;
  else if(t<7.3)scene=<Assignment t={t}/>;
  else if(t<10.15)scene=<Task t={t}/>;
  else if(t<12.65)scene=<Methods t={t}/>;

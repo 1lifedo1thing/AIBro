@@ -3,7 +3,7 @@ import {AbsoluteFill,Img,staticFile,useCurrentFrame} from 'remotion';
 import actions from '../motion-v3/intro-actions.json';
 import {LANG} from './motion-language.jsx';
 import {SceneLead} from './motion-stage.jsx';
-import {C,F,p,lerp,Native,Type,Label,Rule} from './motion-study.jsx';
+import {C,F,p,lerp,Native,Type,Label,Rule,OpenSource} from './motion-study.jsx';
 import {nativeFrameAt} from './native-action-timing.mjs';
 const A=Object.fromEntries(actions.sequences.map(s=>[s.id,s]));
 const L=(lang,zh,en)=>lang==='en'?en:zh;
@@ -24,10 +24,10 @@ export function MotionIntro({lang='zh'}){
   const q=t-1.8, composing=q<1.2;
   const source=sample('course-send-process',q<.95?0:q<1.2?1400:2194+(q-1.2)*4700);
   scene=<>
-   <SceneLead q={composing?q:q-1.2} lang={lang} title={L(lang,composing?'读课件，整理重点':'AI 阅读课件',composing?'Read the lecture. Find the key points.':'AI reads your source')} subtitle={L(lang,composing?'这一讲讲什么？有哪些作业？':'检查原文，起草一页复习笔记。',composing?'What does it cover? What is the assignment?':'Read the original. Draft a page of study notes.')} size={83}/>
+   <SceneLead q={t} lang={lang} settled title={L(lang,'课件，变成复习笔记','Turn a lecture into study notes')} subtitle={L(lang,'导入原文件，整理重点和作业要求。','Import your source. Organize key points and assignments.')} size={88}/>
    <Native source={source} crop={composing?[730,1184,1618,453]:[745,322,1580,740]} box={composing?lerp([220,448,1490,418],[104,404,1712,480],p(q,.35,.9)):lerp([306,425,1330,545],[210,381,1500,610],p(q,1.45,2.35))} radius={23}/>
   </>;
-  caption=L(lang,composing?'整理一页复习笔记，列出作业要求。':'阅读课件 → 确认整理内容',composing?'A page of study notes and the assignment requirements.':'Read the lecture → review the plan');
+  caption=L(lang,composing?'向课件提问 · 整理重点和作业要求':'AI 正在阅读课件 · 起草复习笔记',composing?'Ask about the lecture · Key points and assignments':'AI reads the lecture · Drafting study notes');
  }else if(t<6.5){
   const q=t-4.8, source=sample('course-approve-delivery',q<.72?0:2000+(q-.72)*4400), delivered=q>=.72;
   scene=<>
@@ -56,11 +56,9 @@ export function MotionIntro({lang='zh'}){
   </>;
   caption=L(lang,accepted?'已采纳 · 新笔记已加入，原文保留':'审阅草稿 · 核对新增内容',accepted?'Accepted · New notes added, original text kept':'Review the draft · Check the additions');
  }else{
-  scene=<>
-   <div style={{position:'absolute',left:78,top:178,width:1764,height:702,background:C.sage,borderRadius:32}}/>
-   <Type text={L(lang,'打开课程，\n查看笔记与作业。','Open the course.\nFind notes and assignments.')} x={140} y={286} size={106} width={1600}/>
-   <Label x={148} y={680} size={29}>{L(lang,'课程里的笔记、任务和日程','Course notes, tasks, and calendar')}</Label>
-  </>;
+  // Preview the next scene's exact first capture and geometry. Its native
+  // action clock remains zero until the existing 11.2-second scene boundary.
+  scene=<OpenSource t={2.2} leadQ={t-10.3}/>;
   caption=L(lang,'以下为同一虚构项目的多会话剪辑','The following scenes are edited across this fictional project’s sessions');
  }
  return <LANG.Provider value={lang}><AbsoluteFill style={{background:C.paper,color:C.ink,fontFamily:F,WebkitFontSmoothing:'antialiased'}}>

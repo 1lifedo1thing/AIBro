@@ -50,11 +50,11 @@ function Hook({t}){
   <Rule x={94} y={800} w={190} k={p(t,.8,1.5)}/>
  </>;
 }
-function OpenSource({t}){
+function OpenSource({t,leadQ}){
  const lang=React.useContext(LANG),q=t-2.2,action=nativeFrameAt(sequences['pdf-open-real'],q*1000,{initialHoldMs:340,speed:1});
  const zoom=p(q,.6,1.7);
  return <>
-  <SceneLead q={q} lang={lang} title={lang==='en'?'Check the\noriginal source':'边读，\n边核对'} subtitle={lang==='en'?'Open the saved lecture.\nRead the assignment on page 2.':'打开保存的课件，\n核对第 2 页的作业要求。'} x={1322} y={232} width={532} size={75}/>
+  <SceneLead q={leadQ??q} lang={lang} title={lang==='en'?'Check the assignment\nin the source':'回到原文，\n核对作业'} subtitle={lang==='en'?'Open the saved lecture.\nRead the assignment on page 2.':'打开保存的课件，\n核对第 2 页的作业要求。'} x={1322} y={232} width={532} size={75}/>
   <Native source={action} crop={lerp([518,112,2035,1490],[550,245,1960,1390],zoom)} box={lerp([213,291,1002,687],[84,150,1185,862],zoom)} radius={20}/>
   <Rule x={1327} y={694} w={422} k={p(q,.85,1.5)}/>
  </>;
