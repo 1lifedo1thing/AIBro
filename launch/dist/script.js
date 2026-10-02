@@ -1,6 +1,34 @@
 (() => {
 'use strict';
 const EN={
+  "scenarioHeading": "What are you working on?",
+  "scenarioIntro": "Choose a scenario. See what you get.<br>Jump straight to the relevant part of the film.",
+  "scenarioTabCourse": "Study a course",
+  "scenarioTabResearch": "Find past research",
+  "scenarioTabCapture": "Save a quick note",
+  "scenarioInputCourse": "Import a lecture. Ask AI for its key ideas and assignments.",
+  "scenarioTitleCourse": "Course notes you can keep editing.",
+  "scenarioResultCourse": "Core ideas, a learning framework and this week’s work, saved with the course.",
+  "scenarioCaptionCourse": "Course notes · Interaction design",
+  "scenarioWatchCourse": "From lecture to notes",
+  "scenarioFromCourse": "Film from 00:00",
+  "scenarioInputResearch": "“What did that study about waiting compare?”",
+  "scenarioTitleResearch": "Find that study. Check the source.",
+  "scenarioResultResearch": "Find the original source, key figures and citations. Open the page to check.",
+  "scenarioCaptionResearch": "Source recall · Low-carbon transport",
+  "scenarioWatchResearch": "Find it and check it",
+  "scenarioFromResearch": "Film from 00:36",
+  "scenarioInputCapture": "Write down an idea about waiting time and checking a phone.",
+  "scenarioTitleCapture": "An observation, saved with its course.",
+  "scenarioResultCapture": "Link it to the design course. Keep the original note and add to it later.",
+  "scenarioCaptionCapture": "Original quick note · Linked to a course",
+  "scenarioWatchCapture": "Capture and connect",
+  "scenarioFromCapture": "Film from 00:54",
+  "scenarioMaterial": "Actual App · Fictional examples",
+  "scenarioPanHint": "Swipe across to explore, or open the full image.",
+  "scenarioLoading": "Loading the result image…",
+  "scenarioRetry": "Reload image",
+
   "skip": "Skip to content",
   "nav1": "Workspace",
   "nav2": "How it works",
@@ -118,9 +146,9 @@ function localize(){
   filmChapters.forEach(button=>button.setAttribute('aria-label',`${t('播放','Play')} ${button.querySelector('.film-chapter-time').textContent} · ${text(button.querySelector('[data-t]').dataset.t)}`));
   setFilmLanguage();
   document.querySelectorAll('[data-image]').forEach(el=>el.setAttribute('aria-label',`${t('放大：','Enlarge: ')}${text(el.dataset.caption)}`));
-  document.querySelector('.native-overview img').alt=t('AI Bro 实际 Mac 工作区，使用虚构示例资料','Actual AI Bro Mac workspace with fictional example materials');
+  localizeScenarios();
   players.forEach(state=>state.updateButton());updateFilmStatus();updateMotion();
-  if(dialog.open&&opener){document.getElementById('expanded-image').alt=text(opener.dataset.caption);document.getElementById('dialog-caption').textContent=text(opener.dataset.caption);}
+  if(dialog.open&&opener){document.getElementById('expanded-image').alt=text(opener.dataset.caption);document.getElementById('dialog-caption').textContent=text(opener.dataset.caption);updateDialogImageStatus();}
 }
 const observer=new IntersectionObserver(entries=>{
   for(const entry of entries){const state=players.get(entry.target);if(state){state.visible=entry.isIntersecting&&entry.intersectionRatio>=.08;state.update();}}
@@ -212,9 +240,70 @@ film.addEventListener('loadedmetadata',()=>{
 });
 film.addEventListener('error',()=>{filmState='error';updateFilmStatus();});
 new IntersectionObserver(entries=>{if(!entries[0].isIntersecting)film.pause();},{threshold:.02}).observe(film);
+// Result panels keep the original captures, with a crop only in the page layout.
+const scenarioTabs=[...document.querySelectorAll('[data-scenario]')];
+const scenarioPanels=[...document.querySelectorAll('[data-scenario-panel]')];
+const scenarioImages=new Map();
+const sceneNames=['course','research','capture'];
+const sceneAlt={
+  course:['课程笔记已保存，包含核心思路、四步框架和本周行动。','Saved course notes with key ideas, a four-step framework and this week’s work.'],
+  research:['研究资料的自然语言追问，回答列出原资料名称、比较方法、关键数字和引用。','A question about past research. The answer identifies the source, comparison, figures and citations.'],
+  capture:['校园候车观察随记已保存，信息栏显示归属交互设计方法课程，原始记录保留。','A saved observation note, linked to the interaction design course. The original text is retained.']
+};
+function selectScenario(key,{focus=false,remember=false}={}){
+  const selected=sceneNames.includes(key)?key:'course';
+  scenarioTabs.forEach(tab=>{const active=tab.dataset.scenario===selected;tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;if(active&&focus)tab.focus();});
+  scenarioPanels.forEach(panel=>{panel.hidden=panel.dataset.scenarioPanel!==selected;});
+  if(remember){const url=new URL(location.href);url.searchParams.set('scene',selected);history.replaceState(null,'',url);}
+}
+function updateScenarioImage(state){
+  const failed=state.status==='error',loading=state.status==='loading';
+  state.pan.hidden=failed;state.statusEl.hidden=!failed&&!loading;state.statusEl.classList.toggle('is-loading',loading);
+  state.pan.querySelector('button').disabled=failed||loading;
+  state.statusEl.querySelector('p').textContent=failed?t('图片暂时无法加载。可以重试，或观看上方对应片段。','The image could not load. Retry, or watch the linked film segment.'):text('scenarioLoading');
+  state.retry.hidden=!failed;
+}
+function localizeScenarios(){
+  document.querySelector('.scenario-tabs').setAttribute('aria-label',t('选择使用场景','Choose a scenario'));
+  scenarioImages.forEach((state,key)=>{state.image.alt=sceneAlt[key][lang==='en'?1:0];state.pan.setAttribute('aria-label',t('成果图片，可横向滚动或放大','Result image: scroll horizontally or open the full image'));updateScenarioImage(state);});
+}
+for(const panel of scenarioPanels){
+  const key=panel.dataset.scenarioPanel;
+  panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby',`scenario-tab-${key}`);
+  const image=panel.querySelector('.scenario-source');
+  const state={image,pan:panel.querySelector('.scenario-media-pan'),statusEl:panel.querySelector('.scenario-image-state'),retry:panel.querySelector('.scenario-retry'),status:image.complete?(image.naturalWidth?'loaded':'error'):'loading'};
+  scenarioImages.set(key,state);
+  image.addEventListener('load',()=>{state.status='loaded';updateScenarioImage(state);if(state.restoreFocus&&!panel.hidden&&document.activeElement===document.body)state.pan.querySelector('button').focus({preventScroll:true});state.restoreFocus=false;});
+  image.addEventListener('error',()=>{state.status='error';updateScenarioImage(state);if(state.restoreFocus&&!panel.hidden&&document.activeElement===document.body)state.retry.focus({preventScroll:true});state.restoreFocus=false;});
+  state.retry.addEventListener('click',()=>{state.restoreFocus=document.activeElement===state.retry;image.loading='eager';state.status='loading';updateScenarioImage(state);const src=new URL(panel.querySelector('[data-image]').dataset.image,location.href);src.searchParams.set('retry',Date.now());image.src=src.href;});
+  updateScenarioImage(state);
+}
+document.querySelector('.scenario-tabs').hidden=false;
+document.getElementById('workspace').classList.add('scenario-ready');
+selectScenario(new URLSearchParams(location.search).get('scene'));
+scenarioTabs.forEach((tab,index)=>{
+  tab.addEventListener('click',()=>selectScenario(tab.dataset.scenario,{remember:true}));
+  tab.addEventListener('keydown',event=>{
+    let next;if(event.key==='ArrowRight')next=(index+1)%scenarioTabs.length;else if(event.key==='ArrowLeft')next=(index-1+scenarioTabs.length)%scenarioTabs.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=scenarioTabs.length-1;else return;
+    event.preventDefault();selectScenario(scenarioTabs[next].dataset.scenario,{focus:true,remember:true});
+  });
+});
+document.querySelectorAll('[data-scene-film]').forEach(link=>link.addEventListener('click',event=>{
+  event.preventDefault();film.scrollIntoView({behavior:reduced.matches||!motionEnabled?'instant':'smooth',block:'center'});
+  film.tabIndex=-1;film.focus({preventScroll:true});playFilm(Number(link.dataset.sceneFilm));
+}));
+const expandedImage=document.getElementById('expanded-image'),dialogImageStatus=document.getElementById('dialog-image-status');
+let dialogImageFailed=false;
+function updateDialogImageStatus(){
+  dialogImageStatus.hidden=!dialogImageFailed;expandedImage.hidden=dialogImageFailed;
+  dialogImageStatus.querySelector('p').textContent=t('图片暂时无法加载，请重试。','The image could not load. Please retry.');
+}
+expandedImage.addEventListener('load',()=>{dialogImageFailed=false;updateDialogImageStatus();});
+expandedImage.addEventListener('error',()=>{dialogImageFailed=true;updateDialogImageStatus();});
+document.getElementById('dialog-image-retry').addEventListener('click',()=>{if(!opener)return;const src=new URL(opener.dataset.image,location.href);src.searchParams.set('retry',Date.now());dialogImageFailed=false;updateDialogImageStatus();expandedImage.src=src.href;});
 for(const trigger of document.querySelectorAll('[data-image]')){
   trigger.addEventListener('click',()=>{
-    opener=trigger;const image=document.getElementById('expanded-image');image.src=trigger.dataset.image;image.alt=text(trigger.dataset.caption);
+    opener=trigger;dialogImageFailed=false;updateDialogImageStatus();expandedImage.src=trigger.dataset.image;expandedImage.alt=text(trigger.dataset.caption);
     document.getElementById('dialog-caption').textContent=text(trigger.dataset.caption);film.pause();dialog.showModal();updatePlayers();
   });
 }
@@ -223,7 +312,7 @@ document.getElementById('close-media').addEventListener('click',closeDialog);
 dialog.addEventListener('cancel',event=>{event.preventDefault();closeDialog();});
 dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeDialog();}});
 document.getElementById('language').addEventListener('click',()=>{lang=lang==='zh'?'en':'zh';const url=new URL(location.href);if(lang==='en')url.searchParams.set('lang','en');else url.searchParams.delete('lang');history.pushState(null,'',url);localize();});
-window.addEventListener('popstate',()=>{lang=new URLSearchParams(location.search).get('lang')==='en'?'en':'zh';localize();});
+window.addEventListener('popstate',()=>{const params=new URLSearchParams(location.search);lang=params.get('lang')==='en'?'en':'zh';selectScenario(params.get('scene'));localize();});
 const reveals=new IntersectionObserver(entries=>{for(const entry of entries){if(entry.isIntersecting){entry.target.classList.add('is-revealed');reveals.unobserve(entry.target);}}},{threshold:.06});
 if(!reduced.matches){document.querySelectorAll('.section-heading,.native-overview,.story-copy,.story-media,.use-cases article,.control>div,.faq>h2,.faq-list').forEach(el=>{if(el.getBoundingClientRect().top>window.innerHeight){el.classList.add('reveal-in');reveals.observe(el);}});}
 const chapterObserver=new IntersectionObserver(entries=>{for(const entry of entries){if(entry.isIntersecting){document.querySelectorAll('.demo-navigation a').forEach(a=>a.classList.toggle('is-current',a.hash===`#${entry.target.id}`));}}},{rootMargin:'-15% 0px -45% 0px',threshold:0});

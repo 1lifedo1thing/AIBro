@@ -9,7 +9,7 @@
   <meta property="og:title" content="AI Bro — Mac 上的 AI 学习与研究助手">
   <meta property="og:description" content="读课件和论文，整理可编辑的笔记，安排待办与日程。">
   <meta property="og:type" content="website"><meta property="og:image" content="https://zihenghe04.github.io/AIBro/assets/demo/native-overview.png">
-  <link rel="stylesheet" href="style.css?v=copy-20261002"><script src="script.js?v=motion5-20261002" defer></script>
+  <link rel="stylesheet" href="style.css?v=results-20261003"><script src="script.js?v=results-20261003" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#main" data-t="skip">跳至内容</a>
@@ -49,12 +49,50 @@
     <div class="media-caption film-caption"><p data-t="filmNativeDisclosure">真实 App 操作素材 · 虚构资料 · 多会话剪辑，等待已压缩</p><a id="film-download" href="assets/film/motion-84-zh.mp4?v=motion5-20261002" download="AI-Bro-Workflow-84s-ZH.mp4"><span data-t="downloadFilm">下载短片 · 约 16 MB</span><span aria-hidden="true"> ↓</span></a></div><p id="film-status" class="media-status" role="status" hidden></p>
   </section>
 
-  <section class="workspace-section page-width" id="workspace">
-    <div class="section-heading workspace-heading"><div><p class="eyebrow">YOUR PERSONAL AI WORKSPACE</p><h2 data-t="workspaceTitle">一门课，一个项目。<br><span>资料和笔记放在一起。</span></h2></div><p data-t="workspaceDesc">按课程或研究主题组织文件、对话和笔记。<br>任务与日程也在项目中，复习和写汇报时方便查找。</p></div>
-    <figure class="native-overview"><button class="image-expand" data-image="assets/demo/native-overview.png" data-caption="overviewCaption" aria-label="放大工作区截图"><img src="assets/demo/native-overview.png" width="2560" height="1700" alt="AI Bro 实际 Mac 工作区，使用虚构示例资料" fetchpriority="high"><span class="expand-badge"><span aria-hidden="true">⤢</span><span data-t="expand">放大查看</span></span></button><figcaption><span data-t="overviewCaption">App 实际界面 · 虚构示例资料</span><span class="media-index">01 / WORKSPACE</span></figcaption></figure>
+  <section class="workspace-section page-width" id="workspace" aria-labelledby="scenario-heading">
+    <div class="section-heading workspace-heading"><div><p class="eyebrow">STUDY · RESEARCH · EVERYDAY</p><h2 id="scenario-heading" data-t="scenarioHeading">你要整理什么？</h2></div><p data-t="scenarioIntro">选一个场景，看看资料会变成什么。<br>也可以直接观看对应的操作。</p></div>
+    <div class="scenario-tabs" role="tablist" aria-label="选择使用场景" hidden>
+      <button type="button" role="tab" id="scenario-tab-course" aria-controls="scenario-course" aria-selected="true" tabindex="0" data-scenario="course"><span class="scenario-number" aria-hidden="true">01</span><span data-t="scenarioTabCourse">整理课程</span><span class="scenario-arrow" aria-hidden="true">↗</span></button>
+      <button type="button" role="tab" id="scenario-tab-research" aria-controls="scenario-research" aria-selected="false" tabindex="-1" data-scenario="research"><span class="scenario-number" aria-hidden="true">02</span><span data-t="scenarioTabResearch">找回研究</span><span class="scenario-arrow" aria-hidden="true">↗</span></button>
+      <button type="button" role="tab" id="scenario-tab-capture" aria-controls="scenario-capture" aria-selected="false" tabindex="-1" data-scenario="capture"><span class="scenario-number" aria-hidden="true">03</span><span data-t="scenarioTabCapture">保存随记</span><span class="scenario-arrow" aria-hidden="true">↗</span></button>
+    </div>
+    <div class="scenario-stage">
+      <article class="scenario-panel" id="scenario-course" data-scenario-panel="course">
+        <div class="scenario-summary"><div><p class="scenario-input" data-t="scenarioInputCourse">导入课件，请 AI 整理这一讲的重点和作业。</p><h3 data-t="scenarioTitleCourse">一份可以继续修改的课程笔记。</h3><p class="scenario-result" data-t="scenarioResultCourse">核心概念、学习框架和本周行动，保存到同一门课。</p></div><a class="scenario-watch" href="#film" data-scene-film="0"><span class="scenario-play" aria-hidden="true">▶</span><span><span data-t="scenarioWatchCourse">从课件到笔记</span><small data-t="scenarioFromCourse">影片 00:00 起</small></span><span aria-hidden="true">↗</span></a></div>
+        <figure class="scenario-figure" style="--crop-w:1960;--crop-h:1030;--image-w:2560;--image-h:1686;--crop-x:548;--crop-y:385">
+          <div class="scenario-media-pan" tabindex="0" role="group" aria-label="成果图片，可横向滚动或放大">
+            <button type="button" class="image-expand scenario-image" data-image="assets/demo/result-course.jpg" data-caption="scenarioCaptionCourse" aria-label="放大：课程笔记 · 交互设计方法"><span class="scenario-crop"><img class="scenario-source" src="assets/demo/result-course.jpg" width="2560" height="1686" alt="课程笔记已保存，包含核心思路、四步框架和本周行动。" loading="lazy" decoding="async"></span><span class="expand-badge"><span aria-hidden="true">⤢</span><span data-t="expand">放大查看</span></span></button>
+          </div>
+          <div class="scenario-image-state" role="status" hidden><p data-t="scenarioLoading">正在加载成果图片…</p><button type="button" class="scenario-retry" hidden data-t="scenarioRetry">重新加载图片</button></div>
+          <figcaption><span data-t="scenarioCaptionCourse">课程笔记 · 交互设计方法</span><span data-t="scenarioMaterial">实际 App · 虚构示例</span></figcaption>
+          <p class="scenario-pan-hint" data-t="scenarioPanHint">左右滑动查看，或点开大图。</p>
+        </figure>
+      </article>
+      <article class="scenario-panel" id="scenario-research" data-scenario-panel="research">
+        <div class="scenario-summary"><div><p class="scenario-input" data-t="scenarioInputResearch">“之前那份讲等待感受的资料，比较了什么？”</p><h3 data-t="scenarioTitleResearch">查回这份研究，再核对原文。</h3><p class="scenario-result" data-t="scenarioResultResearch">查回原资料、关键数字与引用页码，再打开原文核对。</p></div><a class="scenario-watch" href="#film" data-scene-film="36.1"><span class="scenario-play" aria-hidden="true">▶</span><span><span data-t="scenarioWatchResearch">看查找与核对</span><small data-t="scenarioFromResearch">影片 00:36 起</small></span><span aria-hidden="true">↗</span></a></div>
+        <figure class="scenario-figure" style="--crop-w:1595;--crop-h:526;--image-w:2560;--image-h:1678;--crop-x:735;--crop-y:738">
+          <div class="scenario-media-pan" tabindex="0" role="group" aria-label="成果图片，可横向滚动或放大">
+            <button type="button" class="image-expand scenario-image" data-image="assets/demo/result-research.jpg" data-caption="scenarioCaptionResearch" aria-label="放大：资料追问 · 城市低碳交通"><span class="scenario-crop"><img class="scenario-source" src="assets/demo/result-research.jpg" width="2560" height="1678" alt="研究资料的自然语言追问，回答列出原资料名称、比较方法、关键数字和引用。" loading="lazy" decoding="async"></span><span class="expand-badge"><span aria-hidden="true">⤢</span><span data-t="expand">放大查看</span></span></button>
+          </div>
+          <div class="scenario-image-state" role="status" hidden><p data-t="scenarioLoading">正在加载成果图片…</p><button type="button" class="scenario-retry" hidden data-t="scenarioRetry">重新加载图片</button></div>
+          <figcaption><span data-t="scenarioCaptionResearch">资料追问 · 城市低碳交通</span><span data-t="scenarioMaterial">实际 App · 虚构示例</span></figcaption>
+          <p class="scenario-pan-hint" data-t="scenarioPanHint">左右滑动查看，或点开大图。</p>
+        </figure>
+      </article>
+      <article class="scenario-panel" id="scenario-capture" data-scenario-panel="capture">
+        <div class="scenario-summary"><div><p class="scenario-input" data-t="scenarioInputCapture">先记下候车时间和查看手机次数的观察想法。</p><h3 data-t="scenarioTitleCapture">一条观察，放回相关课程。</h3><p class="scenario-result" data-t="scenarioResultCapture">关联到交互设计课程，保留原始记录，以后还能补充。</p></div><a class="scenario-watch" href="#film" data-scene-film="54.5"><span class="scenario-play" aria-hidden="true">▶</span><span><span data-t="scenarioWatchCapture">看记录与关联</span><small data-t="scenarioFromCapture">影片 00:54 起</small></span><span aria-hidden="true">↗</span></a></div>
+        <figure class="scenario-figure" style="--crop-w:2012;--crop-h:765;--image-w:2560;--image-h:1678;--crop-x:548;--crop-y:325">
+          <div class="scenario-media-pan" tabindex="0" role="group" aria-label="成果图片，可横向滚动或放大">
+            <button type="button" class="image-expand scenario-image" data-image="assets/demo/result-capture.jpg" data-caption="scenarioCaptionCapture" aria-label="放大：原始随记 · 已关联课程"><span class="scenario-crop"><img class="scenario-source" src="assets/demo/result-capture.jpg" width="2560" height="1678" alt="校园候车观察随记已保存，信息栏显示归属交互设计方法课程，原始记录保留。" loading="lazy" decoding="async"></span><span class="expand-badge"><span aria-hidden="true">⤢</span><span data-t="expand">放大查看</span></span></button>
+          </div>
+          <div class="scenario-image-state" role="status" hidden><p data-t="scenarioLoading">正在加载成果图片…</p><button type="button" class="scenario-retry" hidden data-t="scenarioRetry">重新加载图片</button></div>
+          <figcaption><span data-t="scenarioCaptionCapture">原始随记 · 已关联课程</span><span data-t="scenarioMaterial">实际 App · 虚构示例</span></figcaption>
+          <p class="scenario-pan-hint" data-t="scenarioPanHint">左右滑动查看，或点开大图。</p>
+        </figure>
+      </article>
+    </div>
     <div class="workspace-rail"><span data-t="value1">从回答打开引用的原文</span><i></i><span data-t="value2">确认 AI 的修改后再保存</span><i></i><span data-t="value3">在新对话中查询已有资料</span></div>
   </section>
-
 
   <section class="showcase page-width" id="stories">
     <div class="section-heading"><div><p class="eyebrow">THE ACTUAL APP. A CLOSER LOOK.</p><h2 data-t="storiesTitle">读资料、写笔记，<br><span>再安排要做的事。</span></h2></div><p data-t="storiesDesc">从一个问题开始，得到能保存、修改和查找的笔记。<br>需要落实的事，记进任务或日程。</p></div>
@@ -67,12 +105,10 @@
     <article class="story" id="feature-agenda"><div class="story-copy"><span class="section-number">03 / PLAN & CONTINUE</span><h3 data-t="planTitle">作业和日程，<br>用一句话记下来。</h3><p class="story-hook" data-t="planHook">“明天下午三点，安排二十分钟校园观察。”</p><p data-t="planDesc">用自然语言提出安排，核对时间与项目后保存。也可以手动创建任务、设置截止日期，或导入 ICS 课表。</p><div class="feature-line" data-t="planDetails">项目任务 / 日程安排 / ICS 课表</div></div><figure class="story-media"><div class="clip-frame"><video class="chapter-video" muted playsinline loop preload="none" width="1600" height="1062" poster="assets/demo/native-agenda.png" data-src="assets/demo/plan-to-agenda.mp4" aria-label="任务与日程工作流，实际界面截图编排"></video><button class="clip-play" aria-label="播放任务与日程演示"><span aria-hidden="true">▶</span></button><button class="media-expand" data-image="assets/demo/native-agenda.png" data-caption="agendaCaption" aria-label="放大日程截图">⤢</button></div><figcaption><span data-t="agendaCaption">实际日程界面 · 虚构安排</span><a href="assets/demo/plan-to-agenda.gif" download>GIF ↓</a></figcaption><p class="clip-note" data-t="clipNote">实际界面截图编排展示</p></figure></article>
   </section>
 
-  <section class="use-section"><div class="page-width"><p class="eyebrow">STUDY · RESEARCH · EVERYDAY</p><h2 data-t="possTitle">你可以这样用。</h2><div class="use-cases"><article><span class="section-number">LEARN</span><h3 data-t="learnTitle">整理一门课</h3><p data-t="learnDesc">把课件放进课程项目，整理章节笔记和作业要求。复习时，围绕原来的资料继续提问。</p></article><article><span class="section-number">RESEARCH</span><h3 data-t="researchTitle">写一份研究汇报</h3><p data-t="researchDesc">先阅读论文、提取方法和关键结果。写汇报时，用自己的话查找读过的资料，再打开引用核对。</p></article><article><span class="section-number">EVERYDAY</span><h3 data-t="dailyTitle">记下临时想到的事</h3><p data-t="dailyDesc">先保存一条随记，稍后补充内容、关联到已有项目，或整理成待办。</p></article></div></div></section>
-
   <section class="control page-width" id="control"><div><p class="eyebrow">LOCAL STORAGE · MODEL CHOICE</p><h2 data-t="controlTitle">资料保存在 Mac。<br><span>模型由你选择。</span></h2><a class="source-link" href="https://github.com/zihenghe04/AIBro"><span data-t="openSource">查看开源代码与构建说明</span><span aria-hidden="true">↗</span></a></div><div class="control-points"><article><span>01</span><div><h3 data-t="localTitle">本地优先</h3><p data-t="localText">资料、对话和笔记保存在 Mac。使用远程模型时，所需内容会发送给你选择的服务。</p></div></article><article><span>02</span><div><h3 data-t="modelTitle">自选模型</h3><p data-t="modelText">连接兼容 API，或使用本机官方 Codex CLI 通道。模型订阅与额度需自行准备。</p></div></article><article><span>03</span><div><h3 data-t="syncTitle">按需同步</h3><p data-t="syncText">连接自托管服务，推送和拉取工作区内容。SSH 用于同步连接，不提供远端文件管理。</p></div></article></div></section>
   <section class="faq page-width"><h2 data-t="faqTitle">常见问题</h2><div class="faq-list"><details><summary data-t="faq1">支持什么设备？</summary><p data-t="faq1A">0.8.0 预览版面向 Apple Silicon Mac，要求 macOS 14 或以上。安装包包含 Python 与 PDF 运行时。当前采用 ad-hoc 签名，尚未经过 Apple 公证；首次安装请阅读发布页说明。</p></details><details><summary data-t="faqNative">这些画面来自实际 App 吗？</summary><p data-t="faqNativeA">是，画面来自 AI Bro App，使用虚构的课件、论文和项目。短片经过剪辑，缩短了操作和等待时间，不代表模型的实际响应速度。片中的部分功能属于开发预览，公开下载版目前为 0.8.0。</p></details><details><summary data-t="faq3">可以自行构建或部署同步服务吗？</summary><p><span data-t="faq3A">可以。AI Bro 以 AGPL-3.0 开源，提供源码构建与自托管同步说明。同步是个人设备间的推送和拉取，当前不提供端到端加密；模型凭据与本机目录授权不会同步。</span> <a href="https://github.com/zihenghe04/AIBro/blob/main/docs/DISTRIBUTION.md" data-t="guide">阅读指南 ↗</a></p></details></div></section>
   <section class="download-section" id="download"><div class="download-glow" aria-hidden="true"></div><div class="page-width download-content"><img src="assets/mark.png" width="56" height="56" alt=""><p class="eyebrow">GET STARTED WITH AI BRO</p><h2 data-t="downloadTitle">带上一份课件，<br>问你想弄懂的问题。</h2><p data-t="downloadDesc">下载 AI Bro，连接模型，再把资料加入你的第一个项目。</p><div class="download-actions"><a class="button primary" href="https://github.com/zihenghe04/AIBro/releases/tag/v0.8.0"><span data-t="download">下载 Mac 预览版</span><span aria-hidden="true">↗</span></a><a class="button secondary" href="https://github.com/zihenghe04/AIBro/blob/main/docs/DISTRIBUTION.md" data-t="buildSource">从源码构建 ↗</a></div><span class="download-meta" data-t="downloadMeta">Apple Silicon · macOS 14+ · 开源预览版</span></div></section>
 </main>
 <footer class="page-width"><a class="brand" href="#top"><img src="assets/mark.png" width="27" height="27" alt="">AI Bro</a><p data-t="footerLine">Mac 上的 AI 学习与研究助手</p><div><a href="https://github.com/zihenghe04/AIBro">GitHub ↗</a><a href="https://github.com/zihenghe04/AIBro/blob/main/CHANGELOG.md" data-t="changelog">更新日志</a><a href="https://github.com/zihenghe04/AIBro/issues" data-t="feedback">反馈</a></div><small data-t="footerNative">隔离 App 实际界面 · 全部使用虚构资料 · AGPL-3.0</small></footer>
-<dialog id="media-dialog" aria-label="放大 App 界面"><div class="dialog-bar"><span id="dialog-caption"></span><button id="close-media" aria-label="关闭">✕</button></div><img id="expanded-image" alt=""><div class="dialog-note" data-t="overviewCaption">App 实际界面 · 虚构示例资料</div></dialog>
+<dialog id="media-dialog" aria-label="放大 App 界面"><div class="dialog-bar"><span id="dialog-caption"></span><button id="close-media" aria-label="关闭">✕</button></div><img id="expanded-image" alt=""><div id="dialog-image-status" role="status" hidden><p></p><button id="dialog-image-retry" type="button" data-t="scenarioRetry">重新加载图片</button></div><div class="dialog-note" data-t="overviewCaption">App 实际界面 · 虚构示例资料</div></dialog>
 </body></html>
