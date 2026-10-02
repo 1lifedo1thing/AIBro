@@ -1,5 +1,5 @@
 {
-  "revision": "capture-current-and-english-context-20261003",
+  "revision": "motion9-course-task-handoff-20261003",
   "seconds": 84,
   "frames": 5040,
   "fps": 60,
@@ -16,8 +16,8 @@
   "files": [
     {
       "file": "motion-84-zh.mp4",
-      "bytes": 16699508,
-      "sha256": "31d4acd3b8dc3c5b521e4267b4e4bb5577548c72436c79afa584b470662e05c4"
+      "bytes": 16329517,
+      "sha256": "4bafce6811a0408a06c69bfffbc1394d37bba85fd66cc7ff2bd6a2ef4109490a"
     },
     {
       "file": "motion-84-poster-zh.jpg",
@@ -26,8 +26,8 @@
     },
     {
       "file": "motion-84-en.mp4",
-      "bytes": 16799828,
-      "sha256": "36555e280b2a18f4c8623f6eb5ed080a795d98f29250964c312a0fb840f94b07"
+      "bytes": 16420810,
+      "sha256": "a86321680a0afd24730af0a02398ac322f39e81e21d57af343bb2fd654c54ef7"
     },
     {
       "file": "motion-84-poster-en.jpg",
@@ -37,8 +37,8 @@
   ],
   "productStatus": "Development preview; download release remains 0.8.0.",
   "provenance": "Actual isolated native App action captures with fictional materials. Edited across sessions; waiting condensed. No personal documents or credentials. The opening includes an actual model run; 60 fps describes film output, not native capture sampling.",
-  "visualReview": "Current native editor and saved-note result were checked in bilingual actual master frames. Purpose, operations and retrospective association wording were reviewed. Frame review is not full normal-speed playback or soundtrack listening acceptance.",
-  "assembly": "Five 14-second language segments were rerendered: Chinese 42\u201370 seconds and English 28\u201370 seconds. Other encoded segments and the A AAC score were copied unchanged. Both streams start at 0 and last 84 seconds.",
+  "visualReview": "Bilingual actual final frames and chapter boundaries were reviewed. The Chinese changed chapter was played through the ending without a media error. This does not claim full soundtrack listening or native capture frame-rate acceptance.",
+  "assembly": "Only the final 70–84-second segment was rerendered per language. The first five 14-second encoded segments and original A AAC score were copied unchanged. Both streams start at 0 and last 84 seconds.",
   "audio": "User-selected A original instrumental, copied at unity gain. Bitstream unchanged; numerical checks are recorded separately. Full listening acceptance is not claimed.",
   "source": "launch/film/motion84",
   "assetArchive": {
@@ -79,6 +79,11 @@
       "path": "launch/dist/assets/film/capture-current-20261003/capture-current-saved.png",
       "sha256": "e5a00a6f2364c51b729a4c00f4032c7d006843cf10b6d7170536c522a2df9a4c",
       "bytes": 174043
+    },
+    {
+      "path": "launch/dist/assets/film/task-current-20261003/project-next-task-current.png",
+      "bytes": 272288,
+      "sha256": "8ce802a2b172427edec0591568a785f3f3c781c16637be20324c30462245ec08"
     }
   ],
   "reviewFraming": {
@@ -101,5 +106,12 @@
       67.9
     ],
     "presentation": "Review of the earlier course association and organized notes. These outcomes existed before the new manual note edit."
+  },
+  "taskHandoff": {
+    "seconds": [
+      73.6,
+      80.4
+    ],
+    "presentation": "A persistent title connects the island task list to its course overview, then the complete task detail and five unchecked steps. The actual task capture was saved and reopened after a manual description edit in the fictional Demo; it is not new AI work, task creation, or task completion. Camera movement and scene changes are editorial framing, not a fabricated recorded island click."
   }
 }

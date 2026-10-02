@@ -125,6 +125,11 @@
       "src": "assets/film/workflow/project-next-task.jpg",
       "width": 2560,
       "height": 1678
+    },
+    {
+      "src": "assets/film/task-current-20261003/project-next-task-current.png",
+      "width": 2560,
+      "height": 1678
     }
   ]
 }

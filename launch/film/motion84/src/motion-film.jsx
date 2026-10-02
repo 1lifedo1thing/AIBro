@@ -12,7 +12,7 @@ import {editorialSourceFrame} from './motion-edit-timeline.mjs';
 import {C,F,p,mix,lerp,Native,Type,Label,Rule,Hook,OpenSource,Assignment,Task,Methods,Save} from './motion-study.jsx';
 
 export const FILM_FPS=60,FILM_SECONDS=75;
-const index=Object.fromEntries(manifest.shots.flatMap(s=>[s,...(s.actualFrames||[])]).map(s=>[s.src.split('/').at(-1).replace(/\.jpg$/, ''),{src:s.src,w:s.width,h:s.height}]));
+const index=Object.fromEntries(manifest.shots.flatMap(s=>[s,...(s.actualFrames||[])]).map(s=>[s.src.split('/').at(-1).replace(/\.(?:jpg|png)$/, ''),{src:s.src,w:s.width,h:s.height}]));
 const img=(id)=>index[id]||{src:`assets/film/workflow/${id}.jpg`,w:id.startsWith('island-')?840:2560,h:id.startsWith('island-')?1126:1678};
 const L=(lang,zh,en)=>lang==='en'?en:zh;
 const MAIN=[524,105,1990,1450];
@@ -115,16 +115,20 @@ function Connect({q,lang}){
   <Native source={img('capture-integrated')} crop={lerp([626,424,1828,876],[644,618,1770,255],k)} box={lerp([282,389,1356,583],[105,501,1710,338],k)} radius={18}/>
  </>;
 }
-function Island({q,lang}){
+// The saved task gives semantic continuity while its surrounding UI stays readable.
+// This remains an editorial return to the course, not a fabricated island click.
+function TaskReturnLead({lang,q=0,settled=false}){return <SceneLead q={q} settled={settled} lang={lang} title={L(lang,'回到课程，查看任务','Return to your course tasks')} subtitle={L(lang,'笔记与待办，保存在同一个课程中。','Your notes and tasks, saved in the same course.')} size={81}/>;}
+function Island({q,clock,lang}){
  const compact=ACTIONS['island-compact-tasks'];
  const collapsed=q<1.1;
  // One disclosed editorial cut into the captured task panel, not fabricated expansion.
  const source=collapsed?nativeFrameAt(ACTIONS['island-compact-collapsed'],0):nativeFrameAt(compact,Math.max(550,(q-.65)*1000),{initialHoldMs:550});
- const focus=p(q,2.15,4.45);
- const crop=collapsed?[0,0,source.w,source.h]:lerp([0,0,1520,1040],[32,548,1448,373],focus);
- const box=collapsed?[835.5,371,249,39]:lerp([580,371,760,520],[244,490,1432,369],focus);
+ const focus=p(q,2.15,4.45),returnLead=clock>=5.7;
+ const baseCrop=lerp([0,0,1520,1040],[32,548,1448,373],focus),baseBox=lerp([580,371,760,520],[244,490,1432,369],focus);
+ const crop=collapsed?[0,0,source.w,source.h]:baseCrop;
+ const box=collapsed?[835.5,371,249,39]:baseBox;
  return <>
-  <SceneLead q={q} lang={lang} title={L(lang,'待办，就在屏幕顶部','Your tasks, at the top of your screen')} subtitle={L(lang,'查看课程任务，不用先找主窗口。','Check course tasks without finding the main window.')} size={81}/>
+  {returnLead?<TaskReturnLead lang={lang} q={clock-5.7}/>:<SceneLead q={q} lang={lang} title={L(lang,'待办，就在屏幕顶部','Your tasks, at the top of your screen')} subtitle={L(lang,'查看课程任务，不用先找主窗口。','Check course tasks without finding the main window.')} size={81}/>}
   {/* The border explains position. It is not a simulated desktop recording. */}
   <div style={{position:'absolute',left:124,top:370,width:1672,height:558,border:'2px solid #bdc7c0',borderRadius:24,background:'rgba(255,255,255,.22)',opacity:1-focus*.78}}/>
   <div style={{position:'absolute',left:835.5,top:369,width:249,height:4,background:C.ink,borderRadius:3,opacity:1-focus}}/>
@@ -133,10 +137,15 @@ function Island({q,lang}){
  </>;
 }
 function Project({q,lang}){
- const detail=q>=3.05,k=p(q,detail?3.05:.4,detail?4.7:2.1);
+ const detail=q>=3.05-1e-6,focus=p(q,.7,1.55),checklist=p(q,3.65,4.65);
+ // Hold the whole course context before one short move toward its task list.
+ // The detail enters complete, then the camera lands on all five checklist rows.
+ const crop=detail?lerp([797,139,1480,1500],[824,1048,1438,447],checklist):lerp([549,599,1950,562],[1620,599,890,562],focus);
+ const box=detail?lerp([621,319,678,682],[238,440,1460,456.9],checklist):lerp([96,407,1730,498.6],[482,398,1284,600],focus);
  return <>
-  <Type text={L(lang,detail?'打开任务，查看具体要求。':'打开课程，\n查看笔记和待办。',detail?'Open a task. Check the requirements.':'Open the course.\nFind your notes and tasks.')} x={85} y={153} size={87} width={1740} reveal={p(q,detail?3.05:0,detail?3.4:.4)}/>
-  <Native source={img(detail?'project-next-task':'project-next')} crop={detail?lerp([824,156,1438,1364],[824,887,1438,470],k):lerp([540,266,1970,950],[549,599,1950,562],k)} box={detail?lerp([693,318,1070,672],[238,404,1460,575],k):lerp([96,430,1730,581],[96,434,1730,532],k)} radius={22}/>
+  {detail?<SceneLead settled lang={lang} title={L(lang,'打开观察任务，查看清单','Open the task. Review the checklist.')} subtitle={L(lang,'候车时间、手机次数、主观感受——逐项记录。','Record waiting time, phone checks, and how the wait felt.')} size={81}/>:<TaskReturnLead lang={lang} settled/>}
+  <Native source={img(detail?'project-next-task-current':'project-next')} crop={crop} box={box} radius={22}/>
+  <Label x={105} y={975} size={22}>{L(lang,detail?'既有任务 · 五项待完成检查':'回到课程总览 · 查看已保存的成果与任务',detail?'Existing task · Five unchecked steps':'Course overview · Saved notes and tasks')}</Label>
  </>;
 }
 
@@ -162,7 +171,7 @@ export function MotionFilm({lang='zh',withAudio=false}){
  else if(t<50)scene=<ResearchScene q={(frame-1626)/FILM_FPS} lang={lang}/>;
  else if(t<57)scene=<Capture q={t-50} lang={lang}/>;
  else if(t<65)scene=<Connect q={t-57} lang={lang}/>;
- else if(t<72)scene=<Island q={t-65} lang={lang}/>;
+ else if(t<72)scene=<Island q={t-65} clock={(frame-3534)/FILM_FPS} lang={lang}/>;
  else if(t<78)scene=<Project q={t-72} lang={lang}/>;
  else scene=<Finish q={t-78} lang={lang}/>;
  return <LANG.Provider value={lang}><AbsoluteFill style={{background:C.paper,color:C.ink,fontFamily:F,WebkitFontSmoothing:'antialiased'}}>

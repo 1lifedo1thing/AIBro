@@ -6,7 +6,7 @@ The film uses actual captures of a fictional workspace, with editorial framing a
 
 ## Render
 
-Install the pinned dependencies in the parent `launch/film` directory with `npm ci`, and have FFmpeg available. Extract the matching [motion84-assets-20261002.zip](https://github.com/zihenghe04/AIBro/releases/download/v0.8.0/motion84-assets-20261002.zip) into `launch/dist`; keep the two `citation-open-real-031.jpg` / `032.jpg` supplements and the three PNGs in `assets/film/capture-current-20261003/` supplied in the repository. All image and music files are checked against `asset-manifest.json`. The existing `assets/mark.png` is reused from the repository and is not duplicated in the archive.
+Install the pinned dependencies in the parent `launch/film` directory with `npm ci`, and have FFmpeg available. Extract the matching [motion84-assets-20261002.zip](https://github.com/zihenghe04/AIBro/releases/download/v0.8.0/motion84-assets-20261002.zip) into `launch/dist`; keep the two `citation-open-real-031.jpg` / `032.jpg` supplements, the three PNGs in `assets/film/capture-current-20261003/`, and `assets/film/task-current-20261003/project-next-task-current.png` supplied in the repository. All image and music files are checked against `asset-manifest.json`. The existing `assets/mark.png` is reused from the repository and is not duplicated in the archive.
 
 From the repository root:
 
@@ -32,3 +32,7 @@ The 36.1–54.5 second chapter now follows one remembered question through its a
 ## Saved-note revision
 
 At 54.5–60.7 seconds, the current native panel shows a manual edit to an existing observation and its saved result. `motion-v3/capture-current.json` maps the three unchanged native captures. The following 60.7–67.9-second segment reviews the earlier course association and organized notes; it does not claim a new association or AI synthesis during that edit. English research labels translate the remembered question and explain the waiting-time comparison. All scene times and the selected A soundtrack remain unchanged.
+
+## Course-task handoff revision
+
+The island task list leads into the course overview, then the same existing task and its five unchecked steps. The current task-detail capture was saved and reopened after a manual description edit in the fictional workspace. It is not new AI work or a completed task. The title holds across the course transition; the full task dialog appears before the camera moves to its checklist. Duration, earlier chapters and the A soundtrack are unchanged.

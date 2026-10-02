@@ -94,7 +94,7 @@ const EN={
   "filmNativeTitle": "Turn a lecture<br><span>into notes and a study plan.</span>",
   "filmNativeDesc": "Watch AI read a source, save notes and schedule an event.<br>Then find earlier research from a new conversation.",
   "filmNativeDisclosure": "Actual App action captures · Fictional materials · Edited across sessions; waiting condensed",
-  "downloadFilm": "Download film · About 17 MB",
+  "downloadFilm": "Download film · About 16 MB",
   "storiesTitle": "Read sources. Write notes.<br><span>Plan what you need to do.</span>",
   "storiesDesc": "Ask a question and keep the answer as a document you can edit.<br>Add the work you need to do as a task or event.",
   "pauseMotion": "Pause page motion",
@@ -192,7 +192,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)film.pause(
 function setFilmLanguage(){
   if(filmLanguage===lang)return;
   filmGeneration++;filmLanguage=lang;film.pause();pendingFilmSeek=null;filmState='idle';
-  film.preload='none';film.src=`assets/film/motion-84-${lang}.mp4?v=motion8-20261003`;film.poster=`assets/film/motion-84-poster-${lang}.jpg?v=motion8-20261003`;
+  film.preload='none';film.src=`assets/film/motion-84-${lang}.mp4?v=motion9-20261003`;film.poster=`assets/film/motion-84-poster-${lang}.jpg?v=motion9-20261003`;
   film.load();filmButton.hidden=false;
   const download=document.getElementById('film-download');download.href=film.getAttribute('src');download.download=`AI-Bro-Workflow-84s-${lang.toUpperCase()}.mp4`;
   updateFilmChapters();

@@ -3106,11 +3106,19 @@
       "kind": "fictional-demo-native-capture",
       "sequence": "capture-current-20261003",
       "providedWithSource": true
+    },
+    {
+      "path": "assets/film/task-current-20261003/project-next-task-current.png",
+      "bytes": 272288,
+      "sha256": "8ce802a2b172427edec0591568a785f3f3c781c16637be20324c30462245ec08",
+      "reuseExistingPublic": false,
+      "kind": "fictional-demo-native-task-saved-reopened",
+      "providedWithSource": true
     }
   ],
-  "count": 391,
-  "bytes": 122609856,
+  "count": 392,
+  "bytes": 122882144,
   "existingPublicIdentical": 1,
-  "selectionProof": "Existing approved archive, two source-preview endpoints and three current saved-note captures supplied in the repository.",
+  "selectionProof": "Existing approved archive, two source-preview endpoints, three current saved-note captures and one saved/reopened task capture supplied in the repository.",
   "audioGain": 1
 }
