@@ -1,5 +1,5 @@
 {
-  "revision": "review-action-framing-20261003",
+  "revision": "capture-current-and-english-context-20261003",
   "seconds": 84,
   "frames": 5040,
   "fps": 60,
@@ -16,8 +16,8 @@
   "files": [
     {
       "file": "motion-84-zh.mp4",
-      "bytes": 16306391,
-      "sha256": "2867d761905c8549372d954eda0093e91cbf7ba185e27488c086b3d6158be627"
+      "bytes": 16699508,
+      "sha256": "31d4acd3b8dc3c5b521e4267b4e4bb5577548c72436c79afa584b470662e05c4"
     },
     {
       "file": "motion-84-poster-zh.jpg",
@@ -26,8 +26,8 @@
     },
     {
       "file": "motion-84-en.mp4",
-      "bytes": 16381764,
-      "sha256": "ab43f9116c0f77354a7cb1550e21c0021a5fb859340945dd5d7798865e4ea706"
+      "bytes": 16799828,
+      "sha256": "36555e280b2a18f4c8623f6eb5ed080a795d98f29250964c312a0fb840f94b07"
     },
     {
       "file": "motion-84-poster-en.jpg",
@@ -37,8 +37,8 @@
   ],
   "productStatus": "Development preview; download release remains 0.8.0.",
   "provenance": "Actual isolated native App action captures with fictional materials. Edited across sessions; waiting condensed. No personal documents or credentials. The opening includes an actual model run; 60 fps describes film output, not native capture sampling.",
-  "visualReview": "The native review action row and complete difference block were checked in Chinese and English 1080p frames. The focused crop was approved before assembly. The unchanged research chain retains its targeted independent review. Frame review is not a full normal-speed viewing or listening acceptance.",
-  "assembly": "Only the 14–28 second segment was rerendered for review framing. The other five segments and selected A AAC score were copied without re-encoding. Both audio and video start at 0 and last 84 seconds.",
+  "visualReview": "Current native editor and saved-note result were checked in bilingual actual master frames. Purpose, operations and retrospective association wording were reviewed. Frame review is not full normal-speed playback or soundtrack listening acceptance.",
+  "assembly": "Five 14-second language segments were rerendered: Chinese 42\u201370 seconds and English 28\u201370 seconds. Other encoded segments and the A AAC score were copied unchanged. Both streams start at 0 and last 84 seconds.",
   "audio": "User-selected A original instrumental, copied at unity gain. Bitstream unchanged; numerical checks are recorded separately. Full listening acceptance is not claimed.",
   "source": "launch/film/motion84",
   "assetArchive": {
@@ -51,7 +51,8 @@
       36.1,
       54.5
     ],
-    "presentation": "Remembered question, attributed answer, citation preview, then original PDF table. Camera movement and local registered capture transition are editorial framing over actual fictional native App pixels, not generated application scrolling."
+    "presentation": "Remembered question, attributed answer, citation preview, then original PDF table. Camera movement and local registered capture transition are editorial framing over actual fictional native App pixels, not generated application scrolling.",
+    "englishLabels": "The remembered question is translated, and 4.8/7.1 minutes are explained as perceived waiting with clear/vague arrival information. The synthetic-data qualifier remains."
   },
   "assetSupplements": [
     {
@@ -63,6 +64,21 @@
       "path": "launch/dist/assets/film/motion-v3/citation-open-real-032.jpg",
       "bytes": 498432,
       "sha256": "e7f5a3707dc6ddcd320332138af7be4b71e1769e4f22d249ce58cad3f9010bb8"
+    },
+    {
+      "path": "launch/dist/assets/film/capture-current-20261003/capture-current-context.png",
+      "sha256": "b55754b5cf99933630ebe2d93b567b82f77b87210956b9b7f10985185e776b4d",
+      "bytes": 175909
+    },
+    {
+      "path": "launch/dist/assets/film/capture-current-20261003/capture-current-edit.png",
+      "sha256": "afe672c806c9c6660a092fbba958abbea0002f1646a00f61f3ee02e3ea228f71",
+      "bytes": 168035
+    },
+    {
+      "path": "launch/dist/assets/film/capture-current-20261003/capture-current-saved.png",
+      "sha256": "e5a00a6f2364c51b729a4c00f4032c7d006843cf10b6d7170536c522a2df9a4c",
+      "bytes": 174043
     }
   ],
   "reviewFraming": {
@@ -71,5 +87,19 @@
       24.9
     ],
     "presentation": "Keep the native accept/save control visible with the reviewed change. Original captured pixels and action-state timing are unchanged."
+  },
+  "captureChapter": {
+    "seconds": [
+      54.5,
+      60.7
+    ],
+    "presentation": "Current native panel: open an existing fictional observation, manually add detail, and save. The original title, note text and course membership remain. Three real endpoint captures are edited, not presented as continuous native footage."
+  },
+  "associationReview": {
+    "seconds": [
+      60.7,
+      67.9
+    ],
+    "presentation": "Review of the earlier course association and organized notes. These outcomes existed before the new manual note edit."
   }
 }

@@ -58,8 +58,8 @@ export function ResearchScene({q,lang='zh'}){
  const frame=researchFrame(q),sourceMode=q>=10.8;
  const enter=p(q,0,.5),compact=p(q,.9,1.6),headingIn=sourceMode?p(q,10.8,11.15):enter;
  const title=L(lang,sourceMode?'回到原文，核对数字':'找回读过的资料',sourceMode?'Check the figures in the source':'Find a source you read before');
- const subtitle=L(lang,sourceMode?'打开引用页，核对回答中的数据和适用范围。':'描述记得的内容，查回结论和出处。',sourceMode?'Open the cited page. Check the data and its limits.':'Describe what you remember. Find the answer and its source.');
- const caption=q<5.8?L(lang,'研究资料查询 · 问题与回答','Research recall · Question and answer'):q<9.4?L(lang,'点击引用 → 查看来源预览','Citation → Source preview'):q<12.8?L(lang,'打开原文 → 第 2 页','Open original → Page 2'):L(lang,'4.8 / 7.1 分钟 · 与回答逐项核对','4.8 / 7.1 minutes · Check against the answer');
+ const subtitle=L(lang,sourceMode?'打开引用页，核对回答中的数据和适用范围。':'描述记得的内容，查回结论和出处。',sourceMode?'Open the cited page. Check the data and its limits.':q<5.8?'Which source said uncertain waits feel longer?':'Describe what you remember. Find the answer and its source.');
+ const caption=q<5.8?L(lang,'研究资料查询 · 问题与回答','Find its figures and original page.'):q<9.4?L(lang,'点击引用 → 查看来源预览','Citation → Source preview'):q<12.8?L(lang,'打开原文 → 第 2 页','Open original → Page 2'):L(lang,'4.8 / 7.1 分钟 · 与回答逐项核对','Perceived wait: 4.8 vs 7.1 min · clear vs vague arrival times');
  return <>
   <div style={{position:'absolute',left:94,top:mix(141,131,compact),fontSize:lang==='en'?67:82,fontWeight:570,letterSpacing:-2.5,lineHeight:1.13,width:1740,opacity:headingIn,transform:`translateY(${(1-headingIn)*14}px)`}}>{title}</div>
   <div style={{position:'absolute',left:98,top:234,width:1660,fontSize:27,lineHeight:1.4,color:C.muted,opacity:enter,transform:`translateY(${(1-enter)*10}px)`}}>{subtitle}</div>

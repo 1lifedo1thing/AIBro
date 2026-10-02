@@ -7,6 +7,7 @@ const ACTIONS=Object.fromEntries(nativeActions.sequences.map(s=>[s.id,s]));
 import {LANG} from './motion-language.jsx';
 import {SceneLead} from './motion-stage.jsx';
 import {ResearchScene} from './motion-research.jsx';
+import currentCaptures from '../motion-v3/capture-current.json';
 import {editorialSourceFrame} from './motion-edit-timeline.mjs';
 import {C,F,p,mix,lerp,Native,Type,Label,Rule,Hook,OpenSource,Assignment,Task,Methods,Save} from './motion-study.jsx';
 
@@ -85,27 +86,32 @@ function Recall({q,lang}){
  </>;
 }
 function Capture({q,lang}){
- const source=img(q<1.1?'quick-entry':q<2.2?'quick-note-input':q<4.65?'quick-note':'quick-saved');
- const focus=p(q,2.35,3.35),saved=p(q,4.65,5.55);
+ const editing=q>=1.4,saved=q>=4.65;
+ const source=currentCaptures.sources[saved?'saved':editing?'edit':'context'];
+ // One real record keeps its position when the captured App changes mode.
+ // Move the editorial camera only after that cut; never invent intermediate UI.
+ const overview=[18,78,1484,884],detail=[536,326,966,636],result=[536,326,966,482];
+ const overviewBox=[698,265,1130,706],detailBox=[674,285,1150,735],resultBox=[674,340,1150,598];
+ const focus=p(q,1.65,2.7),land=p(q,4.85,5.6);
+ const crop=saved?lerp(detail,result,land):editing?lerp(overview,detail,focus):overview;
+ const box=saved?lerp(detailBox,resultBox,land):editing?lerp(overviewBox,detailBox,focus):overviewBox;
  return <>
-  <SceneLead q={q} lang={lang} title={L(lang,'随手记下观察','Capture an observation')} subtitle={L(lang,'先记下想法，再决定放进哪门课。','Write it down. Organize it into a course later.')} x={90} y={183} width={1570} size={86}/>
-  {q<2.2?<Native source={source} crop={[25,80,790,380]} box={lerp([978,482,835,402],[840,400,970,467],p(q,.6,1.45))} radius={18}/>:q<4.65?<>
-   <Native source={source} crop={[25,290,790,126]} box={lerp([790,448,1030,164],[750,411,1070,171],focus)} radius={15}/>
-   <Native source={source} crop={[25,808,790,226]} box={lerp([880,1070,940,269],[750,651,1070,306],p(q,2.7,3.65))} radius={18}/>
-  </>:<Native source={source} crop={[25,476,790,551]} box={lerp([1010,404,815,568],[895,367,875,610],saved)} radius={20}/>}
-  <Type text={L(lang,q>=4.65?'随记已保存':'候车时间、\n查看手机的次数……',q>=4.65?'Quick note saved':'Waiting time.\nChecking a phone…')} x={101} y={550} size={48} width={600} reveal={q>=4.65?p(q,4.65,5.15):p(q,.6,1.1)}/>
-  <Rule x={101} y={764} w={468} k={p(q,1.15,1.9)}/>
+  <SceneLead q={q} lang={lang} title={L(lang,'补充现场观察','Add to your\nobservations')} subtitle={L(lang,'打开原随记，补记细节，\n保留已有内容。','Open your saved note.\nAdd detail. Keep the original.')} x={90} y={166} width={580} subtitleWidth={535} size={81}/>
+  <Native source={source} crop={crop} box={box} radius={20}/>
+  <Type text={L(lang,saved?'观察已更新':'先记事实，\n再写感受。',saved?'Observation updated':'Record facts.\nThen impressions.')} x={98} y={581} size={49} width={527} reveal={saved?p(q,4.65,5):p(q,.55,1.05)}/>
+  <Rule x={101} y={755} w={430} k={p(q,1.05,1.7)}/>
+  <Label x={101} y={798} size={21} style={{width:500}}>{L(lang,saved?'原文与已有成果保留':'编辑已保存的原始随记',saved?'Original text and linked work kept':'Edit the original saved note')}</Label>
  </>;
 }
 function Connect({q,lang}){
  if(q<3.7){const k=p(q,.6,1.8);return <>
-  <SceneLead q={q} lang={lang} title={L(lang,'把随记放回课程','Add it to your course')} subtitle={L(lang,'关联已有项目，保留原始记录。','Link an existing project. Keep the original note.')} x={87} y={180} width={925} size={86}/>
+  <SceneLead q={q} lang={lang} title={L(lang,'让随记接上课程','Connect notes\nto your course')} subtitle={L(lang,'回看之前的关联与整理，原始记录仍保留。','Review the earlier association.\nThe original note is preserved.')} x={87} y={180} width={840} subtitleWidth={785} size={86}/>
   <Native source={img(q<2.1?'capture-project-review':'capture-project-saved')} crop={q<2.1?[753,336,1178,806]:[555,387,1890,740]} box={lerp([990,400,830,570],[820,345,1005,645],k)} radius={20}/>
   <Rule x={99} y={625} w={516} k={p(q,.8,1.55)}/>
-  <Label x={100} y={738} size={24}>{L(lang,q<2.1?'待审阅的关联':'已采纳',q<2.1?'Review the association':'Accepted')}</Label>
+  <Label x={100} y={738} size={24}>{L(lang,q<2.1?'此前的关联审阅':'此前已采纳',q<2.1?'Earlier association review':'Previously accepted')}</Label>
  </>;}
  const k=p(q,4.25,6.85);return <>
-  <SceneLead q={q-3.7} lang={lang} title={L(lang,'观察问题，补进课程笔记','Add your questions to the course notes')} subtitle={L(lang,'保留已有内容，把这次观察也整理进去。','Keep your notes and add the new observations.')} size={81}/>
+  <SceneLead q={q-3.7} lang={lang} title={L(lang,'整理好的课程笔记','Your organized course notes')} subtitle={L(lang,'此前整理的观察问题，已保存在课程笔记中。','The earlier synthesis is saved in the course notes.')} size={81}/>
   <Native source={img('capture-integrated')} crop={lerp([626,424,1828,876],[644,618,1770,255],k)} box={lerp([282,389,1356,583],[105,501,1710,338],k)} radius={18}/>
  </>;
 }

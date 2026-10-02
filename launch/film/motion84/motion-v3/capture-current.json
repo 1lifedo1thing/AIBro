@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "surface": "current native capture library",
+  "fictionalMaterials": true,
+  "operation": "Edit and save an existing observation. Project association and derived results predate this edit.",
+  "sources": {
+    "context": {
+      "src": "assets/film/capture-current-20261003/capture-current-context.png",
+      "w": 1520,
+      "h": 1040,
+      "sha256": "b55754b5cf99933630ebe2d93b567b82f77b87210956b9b7f10985185e776b4d"
+    },
+    "edit": {
+      "src": "assets/film/capture-current-20261003/capture-current-edit.png",
+      "w": 1520,
+      "h": 1040,
+      "sha256": "afe672c806c9c6660a092fbba958abbea0002f1646a00f61f3ee02e3ea228f71"
+    },
+    "saved": {
+      "src": "assets/film/capture-current-20261003/capture-current-saved.png",
+      "w": 1520,
+      "h": 1040,
+      "sha256": "e5a00a6f2364c51b729a4c00f4032c7d006843cf10b6d7170536c522a2df9a4c"
+    }
+  }
+}

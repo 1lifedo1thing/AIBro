@@ -3079,11 +3079,38 @@
       "kind": "fictional-demo-native-sample",
       "sequence": "citation-open-real",
       "providedWithSource": true
+    },
+    {
+      "path": "assets/film/capture-current-20261003/capture-current-context.png",
+      "bytes": 175909,
+      "sha256": "b55754b5cf99933630ebe2d93b567b82f77b87210956b9b7f10985185e776b4d",
+      "reuseExistingPublic": false,
+      "kind": "fictional-demo-native-capture",
+      "sequence": "capture-current-20261003",
+      "providedWithSource": true
+    },
+    {
+      "path": "assets/film/capture-current-20261003/capture-current-edit.png",
+      "bytes": 168035,
+      "sha256": "afe672c806c9c6660a092fbba958abbea0002f1646a00f61f3ee02e3ea228f71",
+      "reuseExistingPublic": false,
+      "kind": "fictional-demo-native-capture",
+      "sequence": "capture-current-20261003",
+      "providedWithSource": true
+    },
+    {
+      "path": "assets/film/capture-current-20261003/capture-current-saved.png",
+      "bytes": 174043,
+      "sha256": "e5a00a6f2364c51b729a4c00f4032c7d006843cf10b6d7170536c522a2df9a4c",
+      "reuseExistingPublic": false,
+      "kind": "fictional-demo-native-capture",
+      "sequence": "capture-current-20261003",
+      "providedWithSource": true
     }
   ],
-  "count": 388,
-  "bytes": 122091869,
+  "count": 391,
+  "bytes": 122609856,
   "existingPublicIdentical": 1,
-  "selectionProof": "Existing approved archive, extended with two source-preview endpoint captures supplied in the repository.",
+  "selectionProof": "Existing approved archive, two source-preview endpoints and three current saved-note captures supplied in the repository.",
   "audioGain": 1
 }

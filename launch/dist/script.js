@@ -5,7 +5,7 @@ const EN={
   "scenarioIntro": "Choose a scenario. See what you get.<br>Jump straight to the relevant part of the film.",
   "scenarioTabCourse": "Study a course",
   "scenarioTabResearch": "Find past research",
-  "scenarioTabCapture": "Save a quick note",
+  "scenarioTabCapture": "Update a quick note",
   "scenarioInputCourse": "Import a lecture. Ask AI for its key ideas and assignments.",
   "scenarioTitleCourse": "Course notes you can keep editing.",
   "scenarioResultCourse": "Core ideas, a learning framework and this week’s work, saved with the course.",
@@ -18,11 +18,11 @@ const EN={
   "scenarioCaptionResearch": "Source recall · Low-carbon transport",
   "scenarioWatchResearch": "Find it and check it",
   "scenarioFromResearch": "Film from 00:36",
-  "scenarioInputCapture": "Write down an idea about waiting time and checking a phone.",
+  "scenarioInputCapture": "Open a saved observation and add field notes.",
   "scenarioTitleCapture": "An observation, saved with its course.",
-  "scenarioResultCapture": "Link it to the design course. Keep the original note and add to it later.",
+  "scenarioResultCapture": "Save the added detail, then revisit the earlier course connection.",
   "scenarioCaptionCapture": "Original quick note · Linked to a course",
-  "scenarioWatchCapture": "Capture and connect",
+  "scenarioWatchCapture": "Update a note and revisit its results",
   "scenarioFromCapture": "Film from 00:54",
   "scenarioMaterial": "Actual App · Fictional examples",
   "scenarioPanHint": "Swipe across to explore, or open the full image.",
@@ -81,7 +81,7 @@ const EN={
   "filmChapterWorkspace": "Review notes",
   "filmChapterRead": "Schedule an event",
   "filmChapterWrite": "Find past sources",
-  "filmChapterPlan": "Save a quick note",
+  "filmChapterPlan": "Update a quick note",
   "filmChapterClose": "Check tasks",
   "heroStatement": "An AI study and research assistant for Mac",
   "heroDescription": "Read course materials and papers. Write editable notes. Plan tasks and events.",
@@ -94,7 +94,7 @@ const EN={
   "filmNativeTitle": "Turn a lecture<br><span>into notes and a study plan.</span>",
   "filmNativeDesc": "Watch AI read a source, save notes and schedule an event.<br>Then find earlier research from a new conversation.",
   "filmNativeDisclosure": "Actual App action captures · Fictional materials · Edited across sessions; waiting condensed",
-  "downloadFilm": "Download film · About 16 MB",
+  "downloadFilm": "Download film · About 17 MB",
   "storiesTitle": "Read sources. Write notes.<br><span>Plan what you need to do.</span>",
   "storiesDesc": "Ask a question and keep the answer as a document you can edit.<br>Add the work you need to do as a task or event.",
   "pauseMotion": "Pause page motion",
@@ -192,7 +192,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)film.pause(
 function setFilmLanguage(){
   if(filmLanguage===lang)return;
   filmGeneration++;filmLanguage=lang;film.pause();pendingFilmSeek=null;filmState='idle';
-  film.preload='none';film.src=`assets/film/motion-84-${lang}.mp4?v=motion7-20261003`;film.poster=`assets/film/motion-84-poster-${lang}.jpg?v=motion7-20261003`;
+  film.preload='none';film.src=`assets/film/motion-84-${lang}.mp4?v=motion8-20261003`;film.poster=`assets/film/motion-84-poster-${lang}.jpg?v=motion8-20261003`;
   film.load();filmButton.hidden=false;
   const download=document.getElementById('film-download');download.href=film.getAttribute('src');download.download=`AI-Bro-Workflow-84s-${lang.toUpperCase()}.mp4`;
   updateFilmChapters();
