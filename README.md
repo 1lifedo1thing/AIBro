@@ -1,71 +1,69 @@
 <p align="center"><img src="app/ai-bro-icon.png" width="76" height="76" alt="AI Bro" /></p>
 <h1 align="center">AI Bro</h1>
-<p align="center"><strong>把一次对话，变成可以继续的工作。</strong></p>
-<p align="center">资料有来处，修改有记录，想法有下一步。</p>
-<p align="center"><sub>MAC 原生工作台 · 本地优先 · 自选模型 · 开源</sub></p>
+<p align="center"><strong>Mac 上的 AI 学习与研究助手</strong></p>
+<p align="center">读课件和论文，整理可编辑的笔记，安排待办与日程。</p>
+<p align="center"><sub>Mac 原生 App · 本地优先 · 自选模型 · 开源</sub></p>
 <p align="center">简体中文 · <a href="README.en.md">English</a></p>
-<p align="center"><a href="https://github.com/zihenghe04/AIBro/releases/tag/v0.8.0"><strong>下载 Mac 预览版 ↗</strong></a> &nbsp; · &nbsp; <a href="https://zihenghe04.github.io/AIBro/">探索官网与工作流演示</a> &nbsp; · &nbsp; <a href="CHANGELOG.md">更新日志</a></p>
+<p align="center"><a href="https://github.com/zihenghe04/AIBro/releases/tag/v0.8.0"><strong>下载 Mac 预览版 ↗</strong></a> &nbsp; · &nbsp; <a href="https://zihenghe04.github.io/AIBro/">查看官网与演示</a> &nbsp; · &nbsp; <a href="CHANGELOG.md">更新日志</a></p>
 
-[![AI Bro：资料、对话与可编辑成果，在同一个工作台上](launch/dist/assets/demo/hero-workspace.png)](https://zihenghe04.github.io/AIBro/)
+[![AI Bro：在 Mac 上阅读课件、提问和编辑学习笔记](launch/dist/assets/demo/hero-workspace.png)](https://zihenghe04.github.io/AIBro/)
 <p align="center"><sub>AI Bro 0.8.0 实际 App 界面，来自独立演示工作区。项目、资料与回答均为虚构；动图为界面步骤编排，不代表实时模型速度。<a href="https://zihenghe04.github.io/AIBro/#workspace">查看工作流演示 ↗</a></sub></p>
 
-有些工作，值得比一段聊天记录留下更多。
+把课件、论文和笔记放进项目，向自己的资料提问。AI Bro 可以帮你整理重点、起草笔记和拆分任务；你可以打开引用的原文核对，也可以审阅、修改并保存 AI 生成的内容。写报告或复习时，再从已保存的资料中查找需要的内容。
 
-AI Bro 是 Mac 上的个人知识与行动工作台。把课件、论文、笔记或一项计划带进项目，和 AI 一起阅读、讨论、修改，再把成果和下一步留在原处。下次回来，可以接着做。
-
-**0.8.0** 带来更清楚的项目层级、更完整的文档编辑与审阅，以及连贯的课程、研究、任务和日程工作流。当前为开发预览版，面向 Apple Silicon / macOS 14+，尚未 Apple 公证。[查看本版说明](docs/RELEASE_NOTES.md)
+当前公开下载为 **0.8.0 Mac 开发预览版**，面向 Apple Silicon / macOS 14+，尚未 Apple 公证。[查看本版说明](docs/RELEASE_NOTES.md)
 
 ---
 
-## 看见工作，怎样继续。
+## 84 秒，看看一次完整的使用过程
 
-[![AI Bro 产品宣传片 — React + Remotion，84 秒](launch/dist/assets/film/motion-84-poster-zh.jpg)](https://zihenghe04.github.io/AIBro/#film)
+[![AI Bro 工作流演示：导入课件、生成笔记、审阅与安排日程，84 秒](launch/dist/assets/film/motion-84-poster-zh.jpg)](https://zihenghe04.github.io/AIBro/#film)
 
 [▶ 观看 84 秒完整工作流](https://zihenghe04.github.io/AIBro/#film) · [下载 MP4](https://zihenghe04.github.io/AIBro/assets/film/motion-84-zh.mp4)
 
-从课件导入与真实 AI 处理，到审阅采纳、日程和研究回溯，用 React + Remotion 串起完整工作流。全部采用虚构资料，多会话剪辑并压缩等待；展示开发预览能力，公开下载仍为 0.8.0。
+从导入课件和 AI 处理开始，展示笔记审阅、日程安排和研究资料回查。画面来自实际 App，使用虚构资料，跨会话剪辑并压缩了等待。片中包含灵动岛等开发中的功能，不代表公开下载的 0.8.0 已全部提供。
 
-## 读进去。写出来。接着做。
+## 读课件和论文，整理带来源的笔记
 
-### 01 &nbsp; 带着资料，展开思考。
-
-打开原始 PDF，沿来源回看证据，在旁边继续提问。文档拥有自己的标签和可调阅读区；切换项目、查看笔记，再回来时，工作的来处仍然清楚。
+导入课件或论文，问一个具体问题，比如“这章有哪些核心概念？”或“这篇论文的方法有什么限制？”。对照原文检查回答，把需要的内容保存到项目笔记中。
 
 ![从虚构资料到带来源的学习笔记：实际界面步骤演示](launch/dist/assets/demo/source-to-note.gif)
 
-- **资料与对话相连**：导入 PDF、Markdown 与其他受支持材料，在对话中引用，沿来源返回原件。
-- **给阅读留足空间**：多文档标签、PDF 翻页与查找、适合宽度或整页；按需要放大或并排工作。
-- **结果能继续使用**：在项目成果中打开已保存的笔记，而不必翻找长对话。
+- **对照资料阅读**：导入 PDF、Markdown 等受支持材料，在对话中引用，并打开来源核对。
+- **看清原文**：PDF 翻页与查找、多文档标签、适合宽度或整页；阅读区可调大小，也可与对话并排。
+- **回查已经读过的内容**：搜索项目资料和笔记，继续追问；保存的笔记可从项目成果中直接打开。
 
-### 02 &nbsp; AI 提出修改，你保留判断。
+## 编辑笔记，审阅 AI 的修改
 
-从阅读进入写作，从建议进入审阅。让一份草稿成为自己的表达，也让每次修改都有明确的保存状态。
+在可视编辑器或 Markdown 源码中写笔记，插入表格、公式、代码和图片。让 AI 补充或修改内容后，先查看差异，再决定采用哪些修改。
 
 ![虚构笔记的修改、差异审阅与保存：实际界面步骤演示](launch/dist/assets/demo/review-to-save.gif)
 
-- **两种写作方式**：Milkdown 可视编辑与 CodeMirror 源码模式，支持常用列表、表格、代码、公式和图片；完整源码始终可用。
-- **看清改了哪里**：文件差异、并排查看、逐块处理与草稿采纳；保存后继续编辑。
-- **连续工作**：保留文档位置与草稿，支持当前会话内撤销；版本冲突和保存失败有明确反馈。
+- **直接编辑文档**：可视与源码模式可切换，支持常用 Markdown 结构。
+- **逐项处理修改**：查看文件差异、并排对照和处理变更块，采纳草稿后继续编辑。
+- **知道是否保存成功**：保留草稿和阅读位置，支持当前编辑会话内撤销；保存失败或版本冲突时给出反馈。
 
-### 03 &nbsp; 让“之后再做”，有一个位置。
+## 把作业、复习和会议排进日程
 
-一份笔记可以接着变成计划，一次讨论可以留下任务。项目把材料、成果和行动放在同一条工作线上。
+从课程要求中拆出待办、设置截止日期，或直接说“每周四下午两点半开组会”。AI 给出日程提案，你确认时间和重复规则后保存。
 
 ![虚构项目的任务与日程安排：实际界面步骤演示](launch/dist/assets/demo/plan-to-agenda.gif)
 
-- **项目各有归属**：对话、资料、成果、任务、排期和总览，共用清楚的导航。
-- **安排下一步**：检查项、看板、项目排期、截止日期，以及日程的循环、提醒和 ICS 导入。
-- **回来继续**：执行记录、来源、历史版本与受支持内容的回收站，帮助找回之前的工作。
+- **管理任务**：检查项、看板、截止日期和项目排期，任务与相关资料放在同一项目中。
+- **安排日程**：单次或重复事件、提醒和 ICS 导入。
+- **查看已有工作**：项目内可切换对话、资料、成果、任务、排期和总览；执行记录、历史版本与受支持内容的回收站便于核对和恢复。
 
-<p align="center"><a href="https://zihenghe04.github.io/AIBro/#workspace"><strong>在官网探索完整工作场景 ↗</strong></a></p>
+<p align="center"><a href="https://zihenghe04.github.io/AIBro/#workspace"><strong>在官网查看操作演示 ↗</strong></a></p>
 
-## 为需要积累的工作而做
+## 可以这样用
 
-| 学习 | 科研 | 日常与项目 |
+| 场景 | 交给 AI Bro 的事 | 后续怎么用 |
 | --- | --- | --- |
-| 课件、章节笔记与复习任务围绕课程组织。对照原件，整理理解，继续追问。 | 论文、方法、实验和开放问题留在研究项目中。用 Research Wiki 关联知识与来源，审阅后再纳入积累。 | 接住灵感与链接，整理成文档、清单和日程。后续补充时，继续修改原来的工作。 |
+| 学一门课 | 整理课件中的概念、例子和作业要求，生成学习笔记与复习任务。 | 按课程项目查看笔记，对照原件复习，补充不理解的知识点。 |
+| 阅读论文、准备汇报 | 分析论文的方法与局限，保存分析笔记，用 Research Wiki 关联研究问题和来源。 | 写汇报时回查读过的论文，核对某个观点对应的原文。 |
+| 随手记录 | 记下想法、链接或一项安排，整理成笔记、清单或日程。 | 归入已有项目，需要时补充、修改或重新查找。 |
 
-## 模型由你选，工作留在这里。
+## 模型、数据与同步
 
 连接兼容 API，或使用本机官方 Codex CLI 通道，按会话选择合适的模型。Skills、项目计划与记忆帮助复用流程和上下文；不同提供商支持的工具、附件与推理能力可能不同。AI Bro 不附带模型订阅或 API 额度。
 
@@ -73,7 +71,7 @@ AI Bro 是 Mac 上的个人知识与行动工作台。把课件、论文、笔�
 
 需要跨设备同步时，可以连接自托管服务，通过 HTTPS 或 SSH 隧道推送、拉取工作区内容。SSH 在这里用于同步；同步账号负责内容归属。模型凭据与本机目录授权不随工作区同步。[了解模型与数据](docs/DESKTOP_APP.md) · [部署同步服务](docs/CLOUD_SYNC.md)
 
-## 从一份资料开始
+## 开始使用
 
 1. 从 [v0.8.0 Releases](https://github.com/zihenghe04/AIBro/releases/tag/v0.8.0) 下载 DMG 与校验文件，按[安装指南](docs/DISTRIBUTION.md)安装。App 内置 Python 与 PDF 运行时。
 2. 在设置中连接模型服务，选择模型。
@@ -81,7 +79,7 @@ AI Bro 是 Mac 上的个人知识与行动工作台。把课件、论文、笔�
 
 > 根据这份讲义整理核心概念，保留来源页码，保存成学习笔记，再列出三项复习任务。
 
-<p align="center"><a href="https://github.com/zihenghe04/AIBro/releases/tag/v0.8.0"><strong>下载 AI Bro for Mac ↗</strong></a> &nbsp; · &nbsp; <a href="https://zihenghe04.github.io/AIBro/">先看看它如何工作</a></p>
+<p align="center"><a href="https://github.com/zihenghe04/AIBro/releases/tag/v0.8.0"><strong>下载 AI Bro for Mac ↗</strong></a> &nbsp; · &nbsp; <a href="https://zihenghe04.github.io/AIBro/">查看使用演示</a></p>
 
 <details>
 <summary><strong>预览版边界与数据说明</strong></summary>
@@ -97,7 +95,7 @@ AI Bro 是 Mac 上的个人知识与行动工作台。把课件、论文、笔�
 <details>
 <summary><strong>从源码构建与参与开发</strong></summary>
 
-SwiftUI / AppKit 原生外壳、WKWebView 工作区与本机 Python 服务。开发需要 Apple Silicon Mac、Xcode 26 工具链、Node.js 24 与 Python 3.12。
+SwiftUI / AppKit 原生外壳、WKWebView 工作区与本机 Python 服务。文档编辑使用 Milkdown 与 CodeMirror；宣传片使用 React + Remotion。开发需要 Apple Silicon Mac、Xcode 26 工具链、Node.js 24 与 Python 3.12。
 
 ```sh
 git clone https://github.com/zihenghe04/AIBro.git
@@ -117,5 +115,5 @@ npm run start:native
 
 ---
 
-<p align="center">知识会积累，工作继续向前。</p>
+<p align="center">带上一份课件或论文，试着整理第一篇笔记。</p>
 <p align="center"><a href="LICENSE">AGPL-3.0-only</a> · <a href="https://github.com/zihenghe04/AIBro/issues">反馈与建议</a> · <a href="CHANGELOG.md">更新日志</a></p>

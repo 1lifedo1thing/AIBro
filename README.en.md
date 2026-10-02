@@ -1,71 +1,69 @@
 <p align="center"><img src="app/ai-bro-icon.png" width="76" height="76" alt="AI Bro" /></p>
 <h1 align="center">AI Bro</h1>
-<p align="center"><strong>Turn a conversation into work you can continue.</strong></p>
-<p align="center">Sources to return to. Changes to review. A next step to take.</p>
-<p align="center"><sub>NATIVE MAC WORKSPACE · LOCAL FIRST · YOUR MODELS · OPEN SOURCE</sub></p>
+<p align="center"><strong>An AI study and research assistant for Mac</strong></p>
+<p align="center">Read course materials and papers, edit your notes, and plan tasks and events.</p>
+<p align="center"><sub>NATIVE MAC APP · LOCAL FIRST · YOUR MODELS · OPEN SOURCE</sub></p>
 <p align="center"><a href="README.md">简体中文</a> · English</p>
-<p align="center"><a href="https://github.com/zihenghe04/AIBro/releases/tag/v0.8.0"><strong>Download the Mac preview ↗</strong></a> &nbsp; · &nbsp; <a href="https://zihenghe04.github.io/AIBro/?lang=en">Explore the product workflows</a> &nbsp; · &nbsp; <a href="CHANGELOG.md">Changelog</a></p>
+<p align="center"><a href="https://github.com/zihenghe04/AIBro/releases/tag/v0.8.0"><strong>Download the Mac preview ↗</strong></a> &nbsp; · &nbsp; <a href="https://zihenghe04.github.io/AIBro/?lang=en">Website and demos</a> &nbsp; · &nbsp; <a href="CHANGELOG.md">Changelog</a></p>
 
-[![AI Bro: source material, conversations, and editable work in one workspace](launch/dist/assets/demo/hero-workspace.png)](https://zihenghe04.github.io/AIBro/?lang=en)
+[![AI Bro: read course materials, ask questions, and edit study notes on Mac](launch/dist/assets/demo/hero-workspace.png)](https://zihenghe04.github.io/AIBro/?lang=en)
 <p align="center"><sub>Actual AI Bro 0.8.0 App interface, captured from an isolated demo workspace. Projects, documents, and responses are fictional; animations arrange interface steps and do not represent live model speed. <a href="https://zihenghe04.github.io/AIBro/?lang=en#workspace">Explore the workflows ↗</a></sub></p>
 
-Some work deserves more than a place in your chat history.
+Add course materials, papers, and notes to a project, then ask questions about them. AI Bro can help summarize key ideas, draft notes, and break work into tasks. Open the cited source to check an answer, or review and edit an AI draft before saving it. When you need the material for an exam or a report, search your saved documents and notes.
 
-AI Bro is a personal knowledge and action workspace for Mac. Bring a handout, a paper, a note, or a plan into a project. Read, discuss, and refine it with AI. Keep the resulting documents and next steps together, ready for the next time you return.
-
-**0.8.0** brings clearer project navigation, a fuller document and review workspace, and connected learning, research, task, and calendar workflows. This is a development preview for Apple Silicon / macOS 14+, not yet Apple-notarized. [Release notes](docs/RELEASE_NOTES.md)
+The public download is **0.8.0, a Mac development preview** for Apple Silicon / macOS 14+, not yet Apple-notarized. [Release notes](docs/RELEASE_NOTES.md)
 
 ---
 
-## See AI Bro in motion
+## See a complete workflow in 84 seconds
 
-[![AI Bro product film — React + Remotion, 84 seconds](launch/dist/assets/film/motion-84-poster-en.jpg)](https://zihenghe04.github.io/AIBro/?lang=en#film)
+[![AI Bro workflow demo: import course materials, draft notes, review, and schedule, 84 seconds](launch/dist/assets/film/motion-84-poster-en.jpg)](https://zihenghe04.github.io/AIBro/?lang=en#film)
 
 [▶ Watch the 84-second workflow](https://zihenghe04.github.io/AIBro/?lang=en#film) · [Download MP4](https://zihenghe04.github.io/AIBro/assets/film/motion-84-en.mp4)
 
-A React + Remotion workflow film, from a real course import and model run to review, planning and research recall. Fictional materials throughout; edited across sessions with waits condensed. It shows development-preview capabilities; the public App download remains 0.8.0.
+Watch course materials being imported and processed, then see notes reviewed, events scheduled, and research sources retrieved. The footage uses the actual App with fictional materials, edited across sessions with waits condensed. It includes features still in development, such as the island panel; not everything shown is available in the public 0.8.0 download.
 
-## Read. Make it your own. Move it forward.
+## Read course materials and papers with source references
 
-### 01 &nbsp; Think with your sources beside you.
-
-Open the original PDF, follow a citation, and keep asking questions alongside it. Documents have their own tabs and an adjustable reading area. Switch projects, consult a note, and find your way back.
+Import a handout or paper and ask a specific question: “What are the key concepts in this chapter?” or “What are the limits of this method?” Check the answer against the original and save useful findings as project notes.
 
 ![Actual App interface sequence: a fictional source becomes a cited learning note](launch/dist/assets/demo/source-to-note.gif)
 
-- **Connected material and conversations**: import PDFs, Markdown, and other supported files; reference them in chat and return to the original source.
-- **Room to read**: document tabs, PDF navigation and search, fit-to-width or fit-to-page, and focused or side-by-side reading.
-- **Work you can use again**: open saved notes from project outputs without searching through a long conversation.
+- **Read alongside your sources**: import PDFs, Markdown, and other supported files, reference them in chat, and open the cited material.
+- **Inspect the original**: PDF navigation and search, document tabs, fit-to-width or fit-to-page, and an adjustable reading area beside the conversation.
+- **Find material again**: search project documents and notes, ask follow-up questions, and open saved notes directly from project outputs.
 
-### 02 &nbsp; AI suggests a change. You decide what stays.
+## Edit your notes and review AI changes
 
-Move from reading to writing, and from a suggestion to a review. Shape the draft in your own words, with a clear view of what changed and what was saved.
+Write in the visual editor or Markdown source mode, with tables, math, code, and images. When AI proposes an addition or rewrite, inspect the differences and choose which changes to keep.
 
 ![Actual App interface sequence: review changes to a fictional note and save them](launch/dist/assets/demo/review-to-save.gif)
 
-- **Two ways to write**: Milkdown visual editing and CodeMirror source mode, with common lists, tables, code, math, and images. Full source remains available.
-- **Changes you can inspect**: file diffs, side-by-side views, individual changes, and draft acceptance. Continue editing after saving.
-- **Continuity**: document positions and drafts, undo within the current editing session, and explicit version-conflict and save-failure feedback.
+- **Edit the document directly**: switch between visual and source modes for common Markdown structures.
+- **Review individual changes**: inspect file diffs, compare side by side, work through change blocks, and keep editing after accepting a draft.
+- **Check save status**: drafts and reading positions are retained, with undo during the current editing session and feedback for save failures or version conflicts.
 
-### 03 &nbsp; Give the next step a place to happen.
+## Schedule assignments, revision, and meetings
 
-A note can become a plan. A discussion can leave a task. Projects keep the material, the outcome, and the action on the same line of work.
+Turn course requirements into tasks with due dates, or say “Schedule a lab meeting every Thursday at 2:30 pm.” AI proposes an event for you to check and save, including its time and repeat rule.
 
 ![Actual App interface sequence: tasks and calendar entries for a fictional project](launch/dist/assets/demo/plan-to-agenda.gif)
 
-- **A clear home for each project**: conversations, sources, outputs, tasks, scheduling, and overview share consistent navigation.
-- **A practical next step**: checklists, boards, project schedules, due dates, recurring events, reminders, and ICS import.
-- **A way back**: execution records, source links, version history, and a trash view for supported content.
+- **Manage tasks**: checklists, boards, due dates, and project schedules, alongside the relevant material.
+- **Plan events**: one-off or recurring events, reminders, and ICS import.
+- **Check previous work**: move between a project's conversations, sources, outputs, tasks, scheduling, and overview. Consult execution records and version history, or restore supported content from Trash.
 
-<p align="center"><a href="https://zihenghe04.github.io/AIBro/?lang=en#workspace"><strong>Explore the complete product workflows ↗</strong></a></p>
+<p align="center"><a href="https://zihenghe04.github.io/AIBro/?lang=en#workspace"><strong>Explore the interactive demos ↗</strong></a></p>
 
-## Made for work that builds on itself
+## A few ways to use it
 
-| Learning | Research | Everyday projects |
+| When | Ask AI Bro to help with | Use the result later |
 | --- | --- | --- |
-| Keep handouts, chapter notes, and revision tasks around a course. Check the original, develop your understanding, and ask the next question. | Keep papers, methods, experiments, and open questions in a research project. Connect knowledge with sources in Research Wiki, reviewing drafts before incorporating them. | Capture an idea or link. Develop it into a document, checklist, or calendar entry. Return to the same work when plans change. |
+| Taking a course | Organize concepts, examples, and assignment requirements into study notes and revision tasks. | Review the notes in your course project, check the original, and add explanations where needed. |
+| Reading papers or preparing a report | Analyze methods and limitations, save paper notes, and link questions to sources in Research Wiki. | Retrieve a paper you read earlier and check the source behind a claim in your report. |
+| Capturing an idea | Save an idea, link, or plan as a note, checklist, or calendar entry. | Add it to an existing project, then find, edit, or expand it when needed. |
 
-## Your models. Your ongoing work.
+## Models, data, and sync
 
 Connect a compatible API or a locally configured official Codex CLI, and choose a model per conversation. Skills, project plans, and memory help reuse workflows and context. Tool support, attachments, and reasoning options depend on the provider. AI Bro does not include a model subscription or API credits.
 
@@ -73,7 +71,7 @@ Your workspace is stored on your Mac by default. Reading, editing, organizing ma
 
 For multiple devices, connect your own sync service over HTTPS or an SSH tunnel to push and pull supported workspace content. SSH provides the connection; the sync account establishes content ownership. Model credentials and local-folder permissions are not included in workspace sync. [Models and local data](docs/DESKTOP_APP.md) · [Self-hosted sync](docs/CLOUD_SYNC.md)
 
-## Start with one document
+## Get started
 
 1. Download the DMG and checksums from [v0.8.0 Releases](https://github.com/zihenghe04/AIBro/releases/tag/v0.8.0), following the [installation guide](docs/DISTRIBUTION.md). Python and PDF support are bundled.
 2. Connect your model service in Settings and select a model.
@@ -81,7 +79,7 @@ For multiple devices, connect your own sync service over HTTPS or an SSH tunnel 
 
 > Summarize the core ideas in this handout, include source page references, save a learning note, and suggest three revision tasks.
 
-<p align="center"><a href="https://github.com/zihenghe04/AIBro/releases/tag/v0.8.0"><strong>Download AI Bro for Mac ↗</strong></a> &nbsp; · &nbsp; <a href="https://zihenghe04.github.io/AIBro/?lang=en">See how it works first</a></p>
+<p align="center"><a href="https://github.com/zihenghe04/AIBro/releases/tag/v0.8.0"><strong>Download AI Bro for Mac ↗</strong></a> &nbsp; · &nbsp; <a href="https://zihenghe04.github.io/AIBro/?lang=en">See the demos</a></p>
 
 <details>
 <summary><strong>Preview boundaries and data handling</strong></summary>
@@ -97,7 +95,7 @@ Remote agents, remote file management, and real-time multiplayer collaboration a
 <details>
 <summary><strong>Build from source and contribute</strong></summary>
 
-A SwiftUI / AppKit native shell, a WKWebView workspace, and a local Python service. Development requires an Apple Silicon Mac, Xcode 26, Node.js 24, and Python 3.12.
+A SwiftUI / AppKit native shell, a WKWebView workspace, and a local Python service. Document editing uses Milkdown and CodeMirror; the product film uses React + Remotion. Development requires an Apple Silicon Mac, Xcode 26, Node.js 24, and Python 3.12.
 
 ```sh
 git clone https://github.com/zihenghe04/AIBro.git
@@ -117,5 +115,5 @@ The source preview uses `.aibro-native-preview.noindex/workspace` beside the rep
 
 ---
 
-<p align="center">Keep what you learn. Continue what you started.</p>
+<p align="center">Try it with a handout or paper and make your first set of notes.</p>
 <p align="center"><a href="LICENSE">AGPL-3.0-only</a> · <a href="https://github.com/zihenghe04/AIBro/issues">Feedback</a> · <a href="CHANGELOG.md">Changelog</a></p>
