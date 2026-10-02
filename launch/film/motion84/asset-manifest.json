@@ -3061,11 +3061,29 @@
       "sha256": "105621af7fbad22e2b4daeb414bfea41713f2069329cd36a2d0769191c70aeb5",
       "reuseExistingPublic": false,
       "kind": "original-synthesized-score-no-samples"
+    },
+    {
+      "path": "assets/film/motion-v3/citation-open-real-031.jpg",
+      "bytes": 498430,
+      "sha256": "54db9903bdfaea9d2fa052ca04ae2e2f40263f5285570a753786112e5efdc4ec",
+      "reuseExistingPublic": false,
+      "kind": "fictional-demo-native-sample",
+      "sequence": "citation-open-real",
+      "providedWithSource": true
+    },
+    {
+      "path": "assets/film/motion-v3/citation-open-real-032.jpg",
+      "bytes": 498432,
+      "sha256": "e7f5a3707dc6ddcd320332138af7be4b71e1769e4f22d249ce58cad3f9010bb8",
+      "reuseExistingPublic": false,
+      "kind": "fictional-demo-native-sample",
+      "sequence": "citation-open-real",
+      "providedWithSource": true
     }
   ],
-  "count": 386,
-  "bytes": 121095007,
+  "count": 388,
+  "bytes": 122091869,
   "existingPublicIdentical": 1,
-  "selectionProof": "public-native-selection.json",
+  "selectionProof": "Existing approved archive, extended with two source-preview endpoint captures supplied in the repository.",
   "audioGain": 1
 }

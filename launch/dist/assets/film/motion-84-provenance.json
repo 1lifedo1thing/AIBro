@@ -1,5 +1,5 @@
 {
-  "revision": "editorial-refinement-20261002",
+  "revision": "research-recall-registered-20261003",
   "seconds": 84,
   "frames": 5040,
   "fps": 60,
@@ -16,8 +16,8 @@
   "files": [
     {
       "file": "motion-84-zh.mp4",
-      "bytes": 16195295,
-      "sha256": "6dca5210a9d1abbc6a92a6ec0f8bdc1a78c6415ddce16e2cd63daa2d10cf1d14"
+      "bytes": 16324422,
+      "sha256": "3b5bb3f4e61a89386e7cbd2e17e019312da72e5bbb7e7ea7feae11369129accc"
     },
     {
       "file": "motion-84-poster-zh.jpg",
@@ -26,8 +26,8 @@
     },
     {
       "file": "motion-84-en.mp4",
-      "bytes": 16259126,
-      "sha256": "f6165202fda25c7ca40921b1955a2a74728859be8be1b4e5e4c4896316197f16"
+      "bytes": 16396316,
+      "sha256": "cc5e1f9534e07acec2bc8b05e2f3c0486f425b412a4afdb564ae7b8b18b6c619"
     },
     {
       "file": "motion-84-poster-en.jpg",
@@ -37,13 +37,32 @@
   ],
   "productStatus": "Development preview; download release remains 0.8.0.",
   "provenance": "Actual isolated native App action captures with fictional materials. Edited across sessions; waiting condensed. No personal documents or credentials. The opening includes an actual model run; 60 fps describes film output, not native capture sampling.",
-  "visualReview": "The revised continuous opening title and source-check handoff passed independent review in Chinese and English actual MP4 excerpts. The prior full visual review is retained for unchanged scenes; the final 56 seconds match the previously published master frame for frame. This is not an every-frame product functionality claim.",
-  "assembly": "First two 14-second segments rerendered; four remaining segments and selected A AAC score reused without re-encoding. Both audio and video start at 0 and last 84 seconds.",
+  "visualReview": "The revised research question, attributed answer, source preview and original PDF table were reviewed in actual bilingual MP4 frames. The registered answer-to-citation cut passed targeted independent visual review. Unchanged scenes retain their earlier visual checks. This does not claim every-frame product functionality, normal-speed full playback or listening acceptance.",
+  "assembly": "The middle two 14-second segments were rerendered. The first and final 28 seconds and the selected A AAC score are reused without re-encoding. Both audio and video start at 0 and last 84 seconds.",
   "audio": "User-selected A original instrumental, copied at unity gain. Bitstream unchanged; numerical checks are recorded separately. Full listening acceptance is not claimed.",
   "source": "launch/film/motion84",
   "assetArchive": {
     "file": "motion84-assets-20261002.zip",
     "release": "v0.8.0",
     "sha256": "5a96f5ce5dbbb850328fb92db9aa3c276791aadf4f8a945c073751a794c01a55"
-  }
+  },
+  "researchChapter": {
+    "seconds": [
+      36.1,
+      54.5
+    ],
+    "presentation": "Remembered question, attributed answer, citation preview, then original PDF table. Camera movement and local registered capture transition are editorial framing over actual fictional native App pixels, not generated application scrolling."
+  },
+  "assetSupplements": [
+    {
+      "path": "launch/dist/assets/film/motion-v3/citation-open-real-031.jpg",
+      "bytes": 498430,
+      "sha256": "54db9903bdfaea9d2fa052ca04ae2e2f40263f5285570a753786112e5efdc4ec"
+    },
+    {
+      "path": "launch/dist/assets/film/motion-v3/citation-open-real-032.jpg",
+      "bytes": 498432,
+      "sha256": "e7f5a3707dc6ddcd320332138af7be4b71e1769e4f22d249ce58cad3f9010bb8"
+    }
+  ]
 }

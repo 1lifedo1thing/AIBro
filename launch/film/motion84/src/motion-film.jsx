@@ -6,6 +6,7 @@ import {nativeFrameAt} from './native-action-timing.mjs';
 const ACTIONS=Object.fromEntries(nativeActions.sequences.map(s=>[s.id,s]));
 import {LANG} from './motion-language.jsx';
 import {SceneLead} from './motion-stage.jsx';
+import {ResearchScene} from './motion-research.jsx';
 import {editorialSourceFrame} from './motion-edit-timeline.mjs';
 import {C,F,p,mix,lerp,Native,Type,Label,Rule,Hook,OpenSource,Assignment,Task,Methods,Save} from './motion-study.jsx';
 
@@ -147,8 +148,9 @@ export function MotionFilm({lang='zh',withAudio=false}){
  else if(t<17)scene=<Review q={t-12.65} lang={lang}/>;
  else if(t<20.1)scene=<Save t={t-17+12.65}/>;
  else if(t<29)scene=<Agenda q={t-20.1} lang={lang}/>;
- else if(t<40)scene=<Research q={t-29} lang={lang}/>;
- else if(t<50)scene=<Recall q={t-40} lang={lang}/>;
+ // The edited research chapter has a continuous clock across former hold cuts.
+ // Body frame 1626 maps to full-film frame 2166 (36.1 seconds).
+ else if(t<50)scene=<ResearchScene q={(frame-1626)/FILM_FPS} lang={lang}/>;
  else if(t<57)scene=<Capture q={t-50} lang={lang}/>;
  else if(t<65)scene=<Connect q={t-57} lang={lang}/>;
  else if(t<72)scene=<Island q={t-65} lang={lang}/>;

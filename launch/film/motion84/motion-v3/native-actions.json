@@ -463,6 +463,20 @@
           "width": 2560,
           "height": 1678,
           "sha256": "de2ebba6e6c8f0c91c74e7a04da5cb1de35a1dc2c6a1c8118af34ddfd1a26e99"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-031.jpg",
+          "capturedMs": 3303,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "54db9903bdfaea9d2fa052ca04ae2e2f40263f5285570a753786112e5efdc4ec"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-032.jpg",
+          "capturedMs": 3373,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "e7f5a3707dc6ddcd320332138af7be4b71e1769e4f22d249ce58cad3f9010bb8"
         }
       ]
     },
