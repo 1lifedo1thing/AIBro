@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "capture": {
+    "workspace": "fictional",
+    "kind": "native-app-keyframes",
+    "notes": "Edited across fictional study/research project sessions. Synthetic example data, not real research findings."
+  },
+  "shots": [
+    {
+      "src": "assets/film/workflow/course-import-opened.jpg",
+      "width": 2560,
+      "height": 1678
+    },
+    {
+      "src": "assets/film/workflow/course-question.jpg",
+      "width": 2560,
+      "height": 1686
+    },
+    {
+      "src": "assets/film/workflow/course-evidence-page2.jpg",
+      "width": 2560,
+      "height": 1678
+    },
+    {
+      "src": "assets/film/workflow/course-diff.jpg",
+      "width": 2560,
+      "height": 1686
+    },
+    {
+      "src": "assets/film/workflow/course-diff-saved.jpg",
+      "width": 2560,
+      "height": 1686
+    },
+    {
+      "src": "assets/film/workflow/course-result.jpg",
+      "width": 2560,
+      "height": 1686
+    },
+    {
+      "src": "assets/film/workflow/course-task-detail.jpg",
+      "width": 2560,
+      "height": 1686
+    },
+    {
+      "src": "assets/film/workflow/agenda-question.jpg",
+      "width": 2560,
+      "height": 1682
+    },
+    {
+      "src": "assets/film/workflow/agenda-proposal.jpg",
+      "width": 2560,
+      "height": 1678
+    },
+    {
+      "src": "assets/film/workflow/agenda-save.jpg",
+      "width": 1140,
+      "height": 1380
+    },
+    {
+      "src": "assets/film/workflow/agenda-calendar.jpg",
+      "width": 2560,
+      "height": 1678
+    },
+    {
+      "src": "assets/film/workflow/paper-question.jpg",
+      "width": 2560,
+      "height": 1678
+    },
+    {
+      "src": "assets/film/workflow/paper-analysis.jpg",
+      "width": 2560,
+      "height": 1678
+    },
+    {
+      "src": "assets/film/workflow/paper-analysis-numbers.jpg",
+      "width": 2560,
+      "height": 1678
+    },
+    {
+      "src": "assets/film/workflow/paper-recall.jpg",
+      "width": 2560,
+      "height": 1678
+    },
+    {
+      "src": "assets/film/workflow/quick-entry.jpg",
+      "width": 840,
+      "height": 1126
+    },
+    {
+      "src": "assets/film/workflow/quick-note-input.jpg",
+      "width": 840,
+      "height": 1126
+    },
+    {
+      "src": "assets/film/workflow/quick-note.jpg",
+      "width": 840,
+      "height": 1126
+    },
+    {
+      "src": "assets/film/workflow/quick-saved.jpg",
+      "width": 840,
+      "height": 1126
+    },
+    {
+      "src": "assets/film/workflow/capture-project-review.jpg",
+      "width": 2560,
+      "height": 1678
+    },
+    {
+      "src": "assets/film/workflow/capture-project-saved.jpg",
+      "width": 2560,
+      "height": 1678
+    },
+    {
+      "src": "assets/film/workflow/capture-integrated.jpg",
+      "width": 2560,
+      "height": 1678
+    },
+    {
+      "src": "assets/film/workflow/project-next.jpg",
+      "width": 2560,
+      "height": 1678
+    },
+    {
+      "src": "assets/film/workflow/project-next-task.jpg",
+      "width": 2560,
+      "height": 1678
+    }
+  ]
+}

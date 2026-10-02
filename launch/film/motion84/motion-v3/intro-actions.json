@@ -1,0 +1,1584 @@
+{
+  "captureDisclosure": "Selected real screenshots from a fictional workspace, at actual capture timestamps. Edited waiting and framing are not a continuous native screen recording.",
+  "sequences": [
+    {
+      "id": "course-import-commit",
+      "kind": "selected-native-screenshots",
+      "continuousVideo": false,
+      "originalDurationMs": 5370,
+      "frames": [
+        {
+          "src": "assets/film/motion-v3/course-import-commit-000.jpg",
+          "capturedMs": 0,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "0d716d2318cee0cc1f380c7ba38470280365c7a151cbe57b17f420102ebc8471"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-001.jpg",
+          "capturedMs": 1832,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "ee06a16d320b745ccff2070fa58fa08d15398e9bd12dc2f7de3b79bc811294ac"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-002.jpg",
+          "capturedMs": 1936,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "c78f76c4997dd5d99938814bcaa3e13ec2ca0dd99d98b8bec88fc73f487285e8"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-003.jpg",
+          "capturedMs": 2007,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "ca496746db218bd34776cfa2ee80fea6fe7a3c819235a16d67de526c44fac67e"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-004.jpg",
+          "capturedMs": 2071,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "f0daef3861c3d5aa8b4321ca433dd3dc2be08a6c86cdb07f8efce508f442479d"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-005.jpg",
+          "capturedMs": 2147,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a97bbafc7d2b085de1d85b1e2bc5a487bf34a384d07a52311c38ce744919abd5"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-006.jpg",
+          "capturedMs": 2221,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "af7c6dcd102b4187d20fa6a9e6b2182056e13c51cb08ddf0670be3508f68ba95"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-007.jpg",
+          "capturedMs": 2290,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "9fb9c63380f2acde621f0114ece161935ba07209a32df86c9ea47bab599e7553"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-008.jpg",
+          "capturedMs": 2369,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "feb5d7682ddbdc14a254a1a67c5251b955ae8c66a5d13ff59135cc48fc783452"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-009.jpg",
+          "capturedMs": 2451,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "be20582ae180e21f210de317eb084cf6f199b8ef83d26be9e85d3775026fd811"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-010.jpg",
+          "capturedMs": 2537,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "7242c670319b24ca8bf8522e078bd2378492121d785a86d42c0f59f55b053657"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-011.jpg",
+          "capturedMs": 2633,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1a8ad2931556d56f30b636de3b07e2aa3fd7d42be3e17a7f7648f1f8245b78b4"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-012.jpg",
+          "capturedMs": 2806,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "9015c780ac904629b353346e3ce391d0758bceba19c4f4274c2660d1fdff7733"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-013.jpg",
+          "capturedMs": 3023,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "cfcc4f930e5f27aa5dee12e2cb60711c92b955c1d80f4b2d39216b4435c3ff78"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-014.jpg",
+          "capturedMs": 3127,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "4f24385d5fa82045bf0e2c54af1d3ddf2afeb2f1dcd6cbed9e4deffdc13f0275"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-015.jpg",
+          "capturedMs": 3220,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "37645e883d2ca71c10646b2b4ecb5b22596018e3d54eae659c525e0f5efc6552"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-016.jpg",
+          "capturedMs": 3306,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "4db30aa77ed62600d69bd9aa2422402a0808fa2bbbbe677a91a0fe3758fbe554"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-017.jpg",
+          "capturedMs": 3388,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a5d3da9685ffe6174b75195a2066fcd4e6823dfe223460f7d133b07fff2839c1"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-018.jpg",
+          "capturedMs": 3483,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "08d9bfd4efaaaf7427f5e26ac07d92e627f2d36f708971147b1a192d554ae684"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-019.jpg",
+          "capturedMs": 3556,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "12f80078c76e149970f7ac63c8648782eb2839e082d13753202f3ca655301703"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-020.jpg",
+          "capturedMs": 3624,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "86f140e8505918df70d16aa6a23818f04a9bb939b7dc14ea984b6ad523db1fac"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-021.jpg",
+          "capturedMs": 3699,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "0220c32d7376179069682abee928feec9dbc5d24fa7cff9aabcda1c4cf64132d"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-022.jpg",
+          "capturedMs": 3774,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "61b9032cae80edbe55ebc15a5aa6a732b850b1bb3e1c8fb88b0e7f6b69b46bb9"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-023.jpg",
+          "capturedMs": 3896,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a67849733730f09f70ae2422f88325d5578bd88ccad78d484809e9afd7ffb7f1"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-024.jpg",
+          "capturedMs": 3989,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "8e71443be34fbe9c4a8ea788f0d89dd7ab4d3d2f01206b590af401d3190ab584"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-025.jpg",
+          "capturedMs": 4183,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "52db0501728f453a9b4ae25606a7df89cd1c5364013d7f7fdf33588cd0aa6852"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-026.jpg",
+          "capturedMs": 4252,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "08033c9c5066ae65ac515c0c2b5991316eaa240a6a2c3ee11ea5f8ee7403a163"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-027.jpg",
+          "capturedMs": 4337,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "8f87e668814e0e1102bcdaac46d74c7681fd97d894c2a17a334de489161fb168"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-028.jpg",
+          "capturedMs": 4405,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "d6dead8783a5ca3c6d8d53aba368cc5ab8b061eb16adf0deb71b6070065cc131"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-029.jpg",
+          "capturedMs": 4523,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a39fbb782ea551816e6bdd85c01de1f03cb70b613d41bca749fb4a375160bf8f"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-030.jpg",
+          "capturedMs": 4657,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "e744f0145a41ac46612a12b56b83e17aa751f265fdbd0e5ed07c7f238ac08e1c"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-031.jpg",
+          "capturedMs": 4723,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3daecb98e5eb8aef6fae7a61ab0363067102f2b292878eaf521adb2e4f6e13ac"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-032.jpg",
+          "capturedMs": 4798,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a3f1bea232c95dcb9bb7d0db0dc4ce29905c169172d2ce3dd3627812f3a58569"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-033.jpg",
+          "capturedMs": 4876,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "5c17cc8ff877d4fb26df5e6eaad1d11af236da84b3034b18a0dcf61f62814cc9"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-034.jpg",
+          "capturedMs": 4936,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "caa1fa3d84c83f0cb5895358909365d9377489470eaf3631bf3249a9774775fc"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-035.jpg",
+          "capturedMs": 5004,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "f8336b2abf38f119011fdb798474a7735d488be39ea46fccbd81136287bb908e"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-036.jpg",
+          "capturedMs": 5066,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "4fd2d6eab9670fe121be2456ffa0c30ef833028944ee496f0dd8d1bddd00be18"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-037.jpg",
+          "capturedMs": 5141,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "c17198caf0ffab5fae3ccf829fd1e0a93238b713c690a995020c83328f9eb5e3"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-038.jpg",
+          "capturedMs": 5232,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "6a5a7bed74ade00acaae9b6cfdf02cc8afb470469a371a6f4f54745fc368ee5d"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-039.jpg",
+          "capturedMs": 5301,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "0fc5ca2158c6a52f25a93031e04bbeba9428a02437e5aa93df654a5a211430f4"
+        },
+        {
+          "src": "assets/film/motion-v3/course-import-commit-040.jpg",
+          "capturedMs": 5370,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "dbdae4b0d6567d1d00f3456e1f1958387f25f2aff157974bacaed9bd4334dc93"
+        }
+      ]
+    },
+    {
+      "id": "course-send-process",
+      "kind": "selected-native-screenshots",
+      "continuousVideo": false,
+      "originalDurationMs": 10701,
+      "frames": [
+        {
+          "src": "assets/film/motion-v3/course-send-process-000.jpg",
+          "capturedMs": 0,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "26c4193d6521590f8a8ecd5eea51817f15117d7936ccf87cbedc8e502c892f96"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-001.jpg",
+          "capturedMs": 1400,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "c5a145e86e257462d7ef9187e7062e94b107c938bb414ba5b25b6dc3abef21ac"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-003.jpg",
+          "capturedMs": 2194,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "01245902b5551ff9db410748f33ce4062dc1c8576c3391325d91fe19bdf4ceee"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-004.jpg",
+          "capturedMs": 2309,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "e197c0191dc0779262d897ddbed5f6a5f10d80e414d5f1feec8bc4e8091a0f4b"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-005.jpg",
+          "capturedMs": 2402,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "02801de38f47a2ddbd8011f93a70f49a016b48c995c26bd5c25e9b522d108646"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-006.jpg",
+          "capturedMs": 2497,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "185ed2fb646a64bc45af59fb2fe7af3f7bb0839c32f5a33d2b1f551ec381c5ba"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-007.jpg",
+          "capturedMs": 2663,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "86acaebc775fd86923583a16c62bec8f438c6dc1d10d512c5ccd32e02f043c17"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-008.jpg",
+          "capturedMs": 2760,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "004a008bfa2dc8c4eef2e1b0a6282b62480f14541a0c2170406d6b4ba7d66372"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-009.jpg",
+          "capturedMs": 2838,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "45f69cf9c2b576f6d2ec0971cd47183d9e5de1a331b57ccf59234473712c92c0"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-010.jpg",
+          "capturedMs": 2915,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "6d2f573cb962ff1fcc1902ca03c7625fc58eca8895dee649720e7febd5707903"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-011.jpg",
+          "capturedMs": 2991,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a609e77958e58665150dd7f03a4f6fd3dca35c2a735304f26bc9bc309dea7bf9"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-012.jpg",
+          "capturedMs": 3071,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "d7e42567b70418b599bdaf5efa1631c3c4370c22026df5c4da1514bf4f701f0b"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-013.jpg",
+          "capturedMs": 3151,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "9a36375b34a0a9976eb962685f6b4f8bd1204afd630efad0f00068ec5b61090e"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-014.jpg",
+          "capturedMs": 3238,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "6b7873d9ea086616929766c1693317e28981c4a60cbc56269fa805062bda7a58"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-015.jpg",
+          "capturedMs": 3328,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "93a55de5958dfd745215188efd5160c4635d8577843995d6064e6d388dd34cd1"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-016.jpg",
+          "capturedMs": 3423,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "5d27a26ea9cd134c17250a7e3c342c70fb07092a314fb3e6000c4becda061a20"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-017.jpg",
+          "capturedMs": 3505,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "d5af7d9ad242aa954957fb7a342ff8f5d1c0fdc42b1841e2dfc0d9a18a7555bd"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-018.jpg",
+          "capturedMs": 3595,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "210e75f3122a2645ac49349e641189cc7680ea802ab221e4a3a51cb844dac3fb"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-019.jpg",
+          "capturedMs": 3682,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "93d3167f66d0d8760759e77abddf15aa8e037bbd7c4e940507408f836c52ce62"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-020.jpg",
+          "capturedMs": 3760,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "c7935be81ca970c10eac491a3fe14f8a1566acfb1fab02862c1f5bffd2278e12"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-021.jpg",
+          "capturedMs": 3839,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1b50e9a7c992bb5d60fe9a3cb0c307feda2cc8ffe5572584f90bdfb281557bf7"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-022.jpg",
+          "capturedMs": 3913,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "5d288754a8422cd26cc290d198a61a8dabf0f9b6ebe584064a0ce1455f3a2105"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-023.jpg",
+          "capturedMs": 3984,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a2acea22e0efb25a6609b1378a0058ef2ed8f41520992647e522930adda4e2fd"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-024.jpg",
+          "capturedMs": 4059,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "caf9442131bd5ee3f281e0e710304ee50f2e92d0e242a580f83003cd68abb427"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-025.jpg",
+          "capturedMs": 4134,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "4a08a34ff4bd2df87f27024cb7871e56a8f99ffe43479c3965dce6bb5fceea83"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-026.jpg",
+          "capturedMs": 4210,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "62eb2fb9bfecfebd65f07023d1762ac914ba1400fbc536d378310eb3cf44ed41"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-027.jpg",
+          "capturedMs": 4303,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1cb2fff0615160c778438ffb1f4439e77d5b4a0bd167cbcd04d3ffc277b864f6"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-028.jpg",
+          "capturedMs": 4376,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3fc42c9b0c4b8b312c13e95acf78c5597bccd058a1dcb89d88d89051c3f92f73"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-029.jpg",
+          "capturedMs": 4451,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "5ffd253bcc77dc4776d120b122582b12b67e912dbfb50d80280900447be2f838"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-030.jpg",
+          "capturedMs": 4530,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "2d53468c64d66149b6624a53fa39b01301bb5e0feb807b4a21734495db97ab92"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-031.jpg",
+          "capturedMs": 4625,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "598bc9ee766db2c1cd710f489cf501934a7e030fa9286216550c15b5b535d901"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-032.jpg",
+          "capturedMs": 4729,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "04fb9227b138593307d1729c8b89aab27b32d142305c0205d84f31a92dfa420d"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-033.jpg",
+          "capturedMs": 4814,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1163cf3a5e62489c31c94711681d51d3979da3ecc2f6106beb5f237445090671"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-034.jpg",
+          "capturedMs": 4895,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "4a541f3602c9b07f7ef8e00a6945cb13af758e31cdfe2f3e66cb659810f998de"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-035.jpg",
+          "capturedMs": 4972,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "7d2984d3cbdcd3008df9a6372c524985a57e890fef33e587beed11bf41ef8b88"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-036.jpg",
+          "capturedMs": 5098,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3654eba05e7c5ae3047549944ef507512967ac62e950ed68385b3b41078fb15a"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-037.jpg",
+          "capturedMs": 5195,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "13cdc3cd1f87be3a8225677404849a873f88ba14fcc44025230e94158a4f6abf"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-038.jpg",
+          "capturedMs": 5275,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "6455a85938488cbbd8c499865e17491f3c12c744f22e10747b1448ef9ea4b677"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-039.jpg",
+          "capturedMs": 5360,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "fb8efc9bfe1bb16b7c2858e3177c5f70ca263d17096778fa2dc0cf1c49d56aea"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-040.jpg",
+          "capturedMs": 5439,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1c625eee4deb1f4b5a08c049fa721a12e6af9cf7b58d696f3dd42741ecb55836"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-041.jpg",
+          "capturedMs": 5547,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "09f2a898d4ffc12e4fc22cdaaa734ee181ab0a5d0ebda52e848a48689a897112"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-042.jpg",
+          "capturedMs": 5633,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "e6a6a11cb49c70f8d15c61a41569680ce1189194ec769fe9c790b3285f94c5c7"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-043.jpg",
+          "capturedMs": 5712,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "5ffd2fd8a02283cd5f4d2fff08780aa714a7c2b2ce17b2921b6aada1f3eb426a"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-044.jpg",
+          "capturedMs": 5805,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "6331c94721cb47fb5f922b8a263bc07377c2511bc76b1c849e4f4afd3f3dabf6"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-045.jpg",
+          "capturedMs": 5905,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1512835d4d53d3218a939b2a8dc914a0a3fd82b6514c809bb0f5a118c3bd26d7"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-046.jpg",
+          "capturedMs": 5982,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "ec1ff435d40c8f005ada9d4c872179a1339afc25086b1694017cb1cbe1198e0f"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-047.jpg",
+          "capturedMs": 6238,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1e835768143ca9cd8451344c73cc7fe9ed3d4b4c160ad8d6b79594eb4b8d443c"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-048.jpg",
+          "capturedMs": 6333,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "bbacd1e36e2767bbdc11016f70d0c6b7bbec1e532b99812759b893ec9f5b6380"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-049.jpg",
+          "capturedMs": 6408,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "63229122032899937efb4126fbb21002efc11a764ac0c7618fa5bc6a158df5a7"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-050.jpg",
+          "capturedMs": 6488,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "ffca0dc40ce7b0f8179805a9b1ccedd71f57928c264838353e6171424482fed9"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-051.jpg",
+          "capturedMs": 6564,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "dcccc21114d1975e04b4583fe88c88029e7e5eefca02ba705d673d2b9d9b6ba3"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-052.jpg",
+          "capturedMs": 6637,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "97ebe2d79df244df777b5fcf4b208c901ae25d8890c48124edfdcc5e79804e79"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-053.jpg",
+          "capturedMs": 6721,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "f868d28eb752392c1a62add6057025ceffcfc0c17bcbd75282f181a0c74b1d91"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-054.jpg",
+          "capturedMs": 6795,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "423c37778d388c2e48bc0772cd8b038a357d00177fd217ecba21039668027e47"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-055.jpg",
+          "capturedMs": 6901,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "13a483bf101d5e7001663aec481776fff7e21006505d5f379b68ca2ad4b72be8"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-056.jpg",
+          "capturedMs": 6998,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "bd5c647052d79b2e833d1102d6dafa97506ccc7c72eace5345c5216b08f39171"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-057.jpg",
+          "capturedMs": 7086,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a727830c3b7c08690c99396cd5c3947db90e23e9fc9957ad3504a13ba20ce536"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-058.jpg",
+          "capturedMs": 7171,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "b636be59479bbe099d5f387cb13a0df72a7ac73d4d05e4ebe5e2930824a9103d"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-059.jpg",
+          "capturedMs": 7244,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "d6a42d8ce67c44e202231830b910737ce1a25f858ff5f7641d77ecefaee3bd77"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-060.jpg",
+          "capturedMs": 7320,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "eb54879e698487f863a06d690431090666bd98fea50e0ebe75f554860b379044"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-061.jpg",
+          "capturedMs": 7408,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "57fbedc5068ad175028853c983bdc559439a84cd6c94e68b1d10d515e59ac7a5"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-062.jpg",
+          "capturedMs": 7490,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "fce85c9d69afc96913205850a96aa226022978b8c94c4709497a8ad02a6995f3"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-063.jpg",
+          "capturedMs": 7566,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "4dc3e76d6e0ccd40cdb93f678645059f51d0121addd9a1046d482b102c0cade5"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-064.jpg",
+          "capturedMs": 7643,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "5640d6748248e0615698a6563da2d8dee871e6afa97404de85049bff6af0e92d"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-065.jpg",
+          "capturedMs": 7722,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a6a2569d59f63e0934ec5908e3411e5f89e63febc4b8657735e477c004927837"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-066.jpg",
+          "capturedMs": 7795,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a4c2f55674d24d7b0d88027756f74bdd40fe13ba3501eb82714a841dd2e2c107"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-067.jpg",
+          "capturedMs": 7868,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "badc8b0ebe8fb4e7076fc8bcbe58ea1a3c81b8f32365c8cada043f163a0c33e0"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-068.jpg",
+          "capturedMs": 7941,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3bc3f1cc696cc440f17795d4a0334aee6376081b0c7cb8d74e498028e35723a5"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-069.jpg",
+          "capturedMs": 8015,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "200efaa15c4d63bab9fe2e9785061f03fa4273c59d60538253bf38da78dfbff6"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-070.jpg",
+          "capturedMs": 8088,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3a66a206a19e73ed6253928e8de914655014d0cc0c9a079c1a721a3c225c5441"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-071.jpg",
+          "capturedMs": 8253,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "5f667959502f34ede4a3e056f3d581f90eff7012d44663f76cf0a164ee776fd3"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-072.jpg",
+          "capturedMs": 8324,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "4c189145773978869295caf962cf11900608ffb317acf66ac7cb4fd49ed1733f"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-073.jpg",
+          "capturedMs": 8396,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "9df9a0f34ea012cf5fa6e5e0ac16b91e2ac827f5d8f3fc2c8cc6b982f73cf517"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-074.jpg",
+          "capturedMs": 8492,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a9eaf30f8c6e50473ccb30586931f52a49e6e1ed34f7b23508bfc9202f203cdc"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-075.jpg",
+          "capturedMs": 8653,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "ffca0a0385c43d05ba89b6f8b705b4e4ae2e8ab034095045b04c26a42ac3511d"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-076.jpg",
+          "capturedMs": 8735,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "36e7c304e705e008f543a845d3698ed919fe979ab917381a3c783f2ac8a00199"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-077.jpg",
+          "capturedMs": 8852,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "60afca0e02280b9558fb8aa2ce5c4bc82be86e908331d83ecd70e265e0c133d6"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-078.jpg",
+          "capturedMs": 8945,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "52bd8930eb216c265c9dac38f24d18083c5fb44fa48f40a6ec11b5d80a8039b2"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-079.jpg",
+          "capturedMs": 9100,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "837abb3401e5819bfb86744e9e4b707d03344bc99d8bba07a87de3f2f380b809"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-080.jpg",
+          "capturedMs": 9272,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "48488ce48497673204b85d9acd027cf1003859ce5388e1a6290c228420f14e15"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-081.jpg",
+          "capturedMs": 9553,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "ab9355bc6f761430e740323cca0c4d24efb1b52bfc03415bf9656de09f68fb27"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-082.jpg",
+          "capturedMs": 9635,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "b9148fec2b9c0de65e07de978c1a111d3a5a43e379a591a6ceffad5ccda10c65"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-083.jpg",
+          "capturedMs": 9760,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "2b9f08dbad98947e7d304a87e5995263e722d43944ed80dc333e9af4612822fd"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-084.jpg",
+          "capturedMs": 9934,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "f82485abb7629f87df5fec65ce93396cafd4b1da9852a5d6f7a00984f3b22abc"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-085.jpg",
+          "capturedMs": 10138,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "9ad2c490f7c96d4ccde6b8ba09b37e2c81514afec855cd9f4df0ad6846e56404"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-086.jpg",
+          "capturedMs": 10248,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "6690c74d0f1de2bb9ad7a02a96783021ba2b3984a0505f6da49d95dcdc0a5d38"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-087.jpg",
+          "capturedMs": 10403,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1355d6d7c2766c1cd4413f1810bb512d3f93561a81c1e221bc1149c8c9788c97"
+        },
+        {
+          "src": "assets/film/motion-v3/course-send-process-088.jpg",
+          "capturedMs": 10510,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "62e27d3ded6bb65d3121f4cc83d4b696e3321a0c55e275bcf837b78d4072d7fc"
+        }
+      ]
+    },
+    {
+      "id": "course-approve-delivery",
+      "kind": "selected-native-screenshots",
+      "continuousVideo": false,
+      "originalDurationMs": 6904,
+      "frames": [
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-000.jpg",
+          "capturedMs": 0,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "937024665acbbbcb6eee5761825c0f91d2180db8222bf18a9a6209daaf766f87"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-001.jpg",
+          "capturedMs": 1152,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "f23e29dc6d4c9f7a3f7fcfcc370c14f9f188d47c4767ea68613112ed0c30e7eb"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-003.jpg",
+          "capturedMs": 2028,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "8d369c8a2c0b0e4ff90721e1559bb6c67ba2172008610eeea0548091955e8e40"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-004.jpg",
+          "capturedMs": 2236,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1a9551649311ae0e936b02d5f03a6aa2938f7743c4260c6643ae0f09f94a4494"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-005.jpg",
+          "capturedMs": 2320,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "6351af35ef4e83859d53ef75bd61c131b87d0b4c82019e94b2da70332a1f31a9"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-006.jpg",
+          "capturedMs": 2400,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "9a364431d6d89b330df134ccdc9a9bc981529d654c946d29c5feb954c9a0b619"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-007.jpg",
+          "capturedMs": 2475,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "75293d2dde8bc068cdb75b2367ec095d863905086cc6cbd7f466dfc5353d3154"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-008.jpg",
+          "capturedMs": 2546,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "788dd7b71ae9428fb86c98e3a6cf4ec10eed319d96bf538c4e9c4a057076f189"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-009.jpg",
+          "capturedMs": 2617,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "4b5d1fe32e9f64452c3da3bc0b8967edec097587fc6035b0940e404b825feab9"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-010.jpg",
+          "capturedMs": 2685,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "03a26755d40eb5bd0604e3136c63eee6f3469a1cc28f68d2924b9a9c1c88de21"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-011.jpg",
+          "capturedMs": 2756,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "b639206340156fc5e3be3c903d88556bd9aa640ade3109e31216f143979b604e"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-012.jpg",
+          "capturedMs": 2822,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "92e32b2a0a8cd10636139658768e4c7da059c448fa93a541876c6a24d71ec5e0"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-013.jpg",
+          "capturedMs": 2887,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "c50600b0115cf8f1fb219f6554d16ccf0bbfe413771b993a7b3b8636a04e64a6"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-014.jpg",
+          "capturedMs": 2960,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "66a686c468d5e7fbcaaa50cf265b2f6058e57f00b3031da327145aa67116167e"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-015.jpg",
+          "capturedMs": 3048,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "ff5fafb98b7d5524325c219620cafe6820e57588baf1e45128ee6d34696afbca"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-016.jpg",
+          "capturedMs": 3112,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "5a615fec6b7a3faf6578dfd37b575fb1c0fbe67d71055d9b95d7fe30e5891351"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-017.jpg",
+          "capturedMs": 3183,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "f4a2aaa8949beefdc3741cef8b52f5e568f9b44a0b49223f9d6e4aadd3c23ae0"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-018.jpg",
+          "capturedMs": 3250,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "e256404b92d961f940f5c9dd1dd3f87355de66626361706b4b2656ab9c4781ed"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-019.jpg",
+          "capturedMs": 3319,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3c0bf43276952e1a6ab0cb482bc8c5382eb5832240341e7b5b41d813a646e07a"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-020.jpg",
+          "capturedMs": 3395,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3d363f615ebc97261b7765abbad0d39a79ec900200bb4adb32ea1a5496ff9768"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-021.jpg",
+          "capturedMs": 3465,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "0125590d4623972df0c3a746a38c66c749d3ffa9b4a0699a7a5b8aaaec3cbb3d"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-022.jpg",
+          "capturedMs": 3529,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "9ae039c954f42003d1bf4658e6c955d23ee0331a0f8b85bb0257f2cdd7cf0a54"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-023.jpg",
+          "capturedMs": 3600,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "45d4a8f5b70db18888ddca50e52b182e2626b0076e83bc193e48be76a5bb0ed9"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-025.jpg",
+          "capturedMs": 3736,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "2b27d9e15cd7643bd19aaaa013735a25edcbc4319d889070d8e1a77bdc955893"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-026.jpg",
+          "capturedMs": 3804,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "64681524e41aa12016ff6192db143f515ad77df913d46491b3ba32845ebf5113"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-028.jpg",
+          "capturedMs": 3963,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1fb6d368a7f910620c64a49a198d35a568674a3e76415d648613dddf38f4b673"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-029.jpg",
+          "capturedMs": 4030,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3be6525aa9ffe6e947686ca421e526072bfe3bc3b4c977f6d282269bea8d5e76"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-030.jpg",
+          "capturedMs": 4097,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a9d3ceca67d85e1f267b6a7c95953fdf6169876334663a775bcdaa15c4226def"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-031.jpg",
+          "capturedMs": 4167,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3d20d24526b0202b2f4a78572f5cd866ed577ee2125cc2e96296830b3bdaa0c1"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-032.jpg",
+          "capturedMs": 4239,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "0bb783f3b0e2cf0b4df2a66683f3d69c2fa378aee667938b822cd51e055e1898"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-033.jpg",
+          "capturedMs": 4306,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "5e163874233e7b6f7e08209ba1e158099b1bbf0e9377f832d96572bc1cf9ad64"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-034.jpg",
+          "capturedMs": 4373,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "b6b356ef08f87dcf9cb533120933b2b5285f59126671a271ee07aefc49f84c66"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-035.jpg",
+          "capturedMs": 4447,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "eb21294254087ef405d60716b9d8654a9f48174aa2830546c5ca3078aba49987"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-036.jpg",
+          "capturedMs": 4512,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1a2cc5f6fc1a9ba22f667b8f815dd938695a2c6b781981daeb2a00e85db17279"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-037.jpg",
+          "capturedMs": 4583,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "22dbba1c73a1896dec4131a356a447c44145c0071aa6d3c16d7f0bef8dab5e70"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-038.jpg",
+          "capturedMs": 4650,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "d946885f4d94462bb2d52bfe136d5a9fb29984488e7006df370ecba2091ce183"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-039.jpg",
+          "capturedMs": 4716,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3f3477e8dd35c6c78589bea0d902c865702b29e6d0fb7099e0541391c36a4fce"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-040.jpg",
+          "capturedMs": 4779,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "fa9f6ee6b96e6c81da4d82cc030026b02cfb1c260a5638183a08338d64e39a12"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-042.jpg",
+          "capturedMs": 4914,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "5a81170e316750ae6584986282a3202e19c4ba8402ebff8eec80eb402fb65408"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-043.jpg",
+          "capturedMs": 4983,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "9a690fbfc1cd93c101bfe30aef90d4b1b11e861a65ac3830ddba5db657057efe"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-044.jpg",
+          "capturedMs": 5078,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "daeebce0e1d620b677cc7f582e36689fdd69693bfcd80dc2eb724dffcab8fc46"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-045.jpg",
+          "capturedMs": 5162,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "5af2b8b939e7749f477bd1ccba978b14d9487710f61bc97cc46ad0372fcb5b42"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-046.jpg",
+          "capturedMs": 5240,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "763c742bce8be56db6d5edfdd66d499b1b447f5364da025bc9e6b608cbc54bda"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-047.jpg",
+          "capturedMs": 5311,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "7e9273186c866381d5f422ef6fb91cc8eacb0f8a34eb83334d91686e2f4cfd58"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-048.jpg",
+          "capturedMs": 5385,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "70331e4b7a8b9ce35fab92878b82339558c494bc5788d10ac587499992b59a8c"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-049.jpg",
+          "capturedMs": 5464,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3cc28fee0087cbee13f38d15a7c072ed8bae2874ec4e438d0ab395ecb52303eb"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-050.jpg",
+          "capturedMs": 5532,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3f247ea2e4afa4f99ec815a2464603462163e21c11201d8f69b4fbc0f233a51c"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-051.jpg",
+          "capturedMs": 5599,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1df7239fd1a9b955c05e709f06f0232f874dfee81e8c0c6df8fa8134f87c14a4"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-052.jpg",
+          "capturedMs": 5665,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "2205ca6e9ba640515ecb39e636140f124d623f880ee3312370aeaba74cd3ae24"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-053.jpg",
+          "capturedMs": 5731,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "6e1d266e0e81fb979a7178ff5fa3c4987ed4f4a3d8170fa9fe733618760ce3a2"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-055.jpg",
+          "capturedMs": 5863,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "b7c481cf5cb8e21933d0505c3304a2fd23e6fd1e1ce486cba87609adb24ea590"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-056.jpg",
+          "capturedMs": 5932,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a7d1fce581ac51e2083b328c21a9fc866a8c9155ef71f7e3f1b5759363721139"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-057.jpg",
+          "capturedMs": 6009,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "903bc61e9ff653eaf3b98d8047ec7a16e735fc1f56cbbd010045da386c8f0c88"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-058.jpg",
+          "capturedMs": 6080,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "0cee6ede4490dd23afccb9f21218b4edbe39f9edfba347a778c695c1156ee4b1"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-059.jpg",
+          "capturedMs": 6150,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "7b32f904c72f7de72504c874825377eeee053a3a8076a205e25395c2c199520e"
+        },
+        {
+          "src": "assets/film/motion-v3/course-approve-delivery-060.jpg",
+          "capturedMs": 6213,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "c68cd799b29aa93d9629e7c5115bbb9e95aad7d51555c89dd99dfe601b349787"
+        }
+      ]
+    },
+    {
+      "id": "course-delivery-save",
+      "kind": "selected-native-screenshots",
+      "continuousVideo": false,
+      "originalDurationMs": 5366,
+      "frames": [
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-000.jpg",
+          "capturedMs": 0,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "dd1728f75f221196b650a09772e326c02f9f41f102339e48c6f1f2199fbcac1e"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-001.jpg",
+          "capturedMs": 1523,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "e24bea7a0c9106efb49ce32b29c7eae5483878aef9e5c97c9c8d6fb820ca40ca"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-002.jpg",
+          "capturedMs": 1633,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "34da510270ea058d102f118d0d2ab16f0e927f167d2b627d6f71111236867296"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-003.jpg",
+          "capturedMs": 1737,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "fff05a7f16cef07aff161a787057250bc0e0ccb047841a56b9a8c6d7336085b5"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-004.jpg",
+          "capturedMs": 1842,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "5d6c9fd06a8556468ecb21a042e0e61187ff761369a4983175ac1310a1ddc45f"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-005.jpg",
+          "capturedMs": 1969,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "57f9e3a4d50c955730ff2c688a16970b0a6c2b82811685b6cf9a79f66b51ad7c"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-006.jpg",
+          "capturedMs": 2082,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "51d952ff004dcbf796dd1b603aabc21b2fae7c7b0c705e2b4ae9c14d3e5b982b"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-007.jpg",
+          "capturedMs": 2197,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "ba89847856ad4a3f23304ea20d39f82a91c72860b150c5e21d81e8e9ba3ef4cd"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-008.jpg",
+          "capturedMs": 2310,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "e2e67b802876f6e0225c54203c08f39ed002d9ac54295b3f5772cf5c35e4d0f3"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-009.jpg",
+          "capturedMs": 2429,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "5cfe7849b27f3e568bc066ed0889de0a95369f3e96aaf6a7d6bd7465c3e78eef"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-010.jpg",
+          "capturedMs": 2535,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "f41739c6ede1ddfd23691df89680f1dd2263994da8533698d5d1ad7264a7b39c"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-011.jpg",
+          "capturedMs": 2639,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "781f1845ac4b6c19a945692f685edade42acee7d0f5459e6f4d9aaf7d8d3fc82"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-012.jpg",
+          "capturedMs": 2741,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "418a8b85df31160d90ecd72f50bda691abbf681817763d1f6ce609f56b0e84d1"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-013.jpg",
+          "capturedMs": 2842,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "314cc486f4629adf4b0bac896ebb74ebf81c39819edddd8bbc3e3144c6ddaec8"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-014.jpg",
+          "capturedMs": 3013,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a1119ef6e4e10dc9eea25a0b62cf61102e2459a851efdd442e762df717127a88"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-015.jpg",
+          "capturedMs": 3114,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "e9bdca58c6283707290a49b79364aff05a085754eb191d9bebac854e2bc3201b"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-016.jpg",
+          "capturedMs": 3213,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "770bdde9915612681d252b537332533b3e354f0b079a3585826bef50d382d4fc"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-017.jpg",
+          "capturedMs": 3315,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1ae2b15912c539cff5796e72dc6a22d6e5670e83be7de558faf955a107ce447d"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-018.jpg",
+          "capturedMs": 3418,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3fdf61e7d4cec29f931c3855fcfc6956e6cf0be2878af3bfd1b05ed8d496ace8"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-019.jpg",
+          "capturedMs": 3520,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1f566e19445a4b72b443e14da9f322ab9d6bd858b9089da2361d6130dbe15d11"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-020.jpg",
+          "capturedMs": 3619,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "39170e123b25c54954c716a0faa7f113a5f6bd90bff7b5f3708a811a1a19ce2d"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-021.jpg",
+          "capturedMs": 3719,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "2a57d514991eb6867de67d45c58e0bba27fc90836961e1082d359a8ad1626f80"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-022.jpg",
+          "capturedMs": 3821,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "4daaa14ee5cd4c6efe7af26e1ba351d252c73fb60809202736f0ca2c8a0d3e72"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-023.jpg",
+          "capturedMs": 3919,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "8ddd64a2257f6ce3f8bb5a7312e2a1529e921436cddbc978683d0d709b64213d"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-024.jpg",
+          "capturedMs": 4019,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "781f1845ac4b6c19a945692f685edade42acee7d0f5459e6f4d9aaf7d8d3fc82"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-025.jpg",
+          "capturedMs": 4118,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "7cbf5698fa777d9fd5f0bf94b89b239c2218b0d70157ef1040369e40bcc758bc"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-026.jpg",
+          "capturedMs": 4227,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "d902c2222d7058a7101bedaf5c6b1ef488a409bbf40bf3ac492fc34155bcc319"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-027.jpg",
+          "capturedMs": 4364,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "90e9b1ff8f6d0a3d26d5f8aeaab76beb172cccea46631549e35aca634244a544"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-028.jpg",
+          "capturedMs": 4494,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "913ff8ea657586ff3f9df9098e2cbb19f176a261c20565348c698811acd2e49c"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-029.jpg",
+          "capturedMs": 4651,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "fd188e0b2176a654574b750cc202f18f0b25741e03b4e9a68452e2519b93a36a"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-030.jpg",
+          "capturedMs": 4832,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "80194c93370305b0192048a4d6d550fa16ab64a03ac074368fb9ddd010823442"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-031.jpg",
+          "capturedMs": 4943,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "b7271d46a29042a0d26d42053e95aaa074dcce44e9a8fa0b0f61c84abe529ff9"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-032.jpg",
+          "capturedMs": 5058,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a6dbd293784aac3b63f97477297598982eb96cfcdb003c98cd14816a5597b779"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-033.jpg",
+          "capturedMs": 5163,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "156cba458f2993d062f20578ed9591c03927e9d494694a5b0310589c71e40b79"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-034.jpg",
+          "capturedMs": 5265,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "e0af3d4514e0e09a6ffff7b86917c152dcd4f102d00c564f5ad41032447e37df"
+        },
+        {
+          "src": "assets/film/motion-v3/course-delivery-save-035.jpg",
+          "capturedMs": 5366,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "523ffbaaeb55876f4fc86e887528951fba5c375b3fa26ca07332eaf2f5895337"
+        }
+      ]
+    }
+  ]
+}

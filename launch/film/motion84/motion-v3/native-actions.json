@@ -1,0 +1,1019 @@
+{
+  "captureDisclosure": "Selected real screenshots from a fictional workspace, at actual capture timestamps. Edited waiting and framing are not a continuous native screen recording.",
+  "sequences": [
+    {
+      "id": "pdf-open-real",
+      "kind": "selected-native-screenshots",
+      "continuousVideo": false,
+      "originalDurationMs": 3144,
+      "frames": [
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-000.jpg",
+          "capturedMs": 0,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "80f20e902e71b7b04a1930f169a889cff9edb82536c2f474f4cfd61bfd203889"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-001.jpg",
+          "capturedMs": 1673,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "61787388ebb53da9c866b5110701ecb4c8aa18635604df474db22c92f056ad3c"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-002.jpg",
+          "capturedMs": 1817,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a8f74c6e5ba7a32b24bfeabf8d4e14ee710fd92720a6e6005298ec1d50030dcf"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-003.jpg",
+          "capturedMs": 1919,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "50da2e2e907e64461570bd5f4eb32975a73024b47e763f941da947b8262a3cf2"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-004.jpg",
+          "capturedMs": 1999,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "2606113017b0301387d9d57504134d953020f47e30a47ddb740670b9ba770263"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-005.jpg",
+          "capturedMs": 2080,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "f2de7627d8d705cfb73d03b75fddcfbebecbf7631b5dab98b33ed99034f26cfd"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-006.jpg",
+          "capturedMs": 2155,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "222c33c9bad0bff4da4c4e5d18b8952e42e61527ff85ee88f0ed405261b9b8f2"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-007.jpg",
+          "capturedMs": 2243,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "2bd9eda637341cb18d88083753a4cd41bbb63125ad7c7bd5065931edd57bc187"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-008.jpg",
+          "capturedMs": 2358,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "5998d41396981315ff5e5da86c63c43195934feb523199452af946fdf84f55f7"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-009.jpg",
+          "capturedMs": 2435,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "e7e8474c7420443e987bfc335ae97c7c2c778ad21ca1ffe061c61bc4fb999364"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-010.jpg",
+          "capturedMs": 2514,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "f78e57417f9aea608f7148cad870e62d9ab362be37fb633b98551d8e8ec94b8e"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-011.jpg",
+          "capturedMs": 2597,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "66541cb7eaf11a39c1ec739d8f5542e35ef5f6b0d53cbd981009f130420e2582"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-012.jpg",
+          "capturedMs": 2671,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "845e20ac8514a2b52b5bcde2c955479ce9aaa942452f66c109a94af5e191ff77"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-013.jpg",
+          "capturedMs": 2746,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "cce20e6509572fbdecf8b1dd7d74c680c13da2ff59347b9ba4f9e1fa46ad1d1d"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-014.jpg",
+          "capturedMs": 2819,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "c0af1171540d5d8ca305e16e26c5ae5055e18ac453cedb68773889fe2bc6d2e2"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-015.jpg",
+          "capturedMs": 2895,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "f09e0063233c33cd7bcf488fcc240d93647bcf0c1fd55df8f5228bf1233fa158"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-016.jpg",
+          "capturedMs": 2975,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "ada52e080ee58d7fd89c363766538425fee1d5446abba093e61b041cb6617ed8"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-017.jpg",
+          "capturedMs": 3054,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "b9fe5f9c26359d78e040b7866197501d36006bc0e82f9080ed388ed756367651"
+        },
+        {
+          "src": "assets/film/motion-v3/pdf-open-real-018.jpg",
+          "capturedMs": 3144,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "b04295970c7e5dcfa86b3520ef34e04070815c05ae733dde6e2c0970f8074900"
+        }
+      ]
+    },
+    {
+      "id": "note-save-real",
+      "kind": "selected-native-screenshots",
+      "continuousVideo": false,
+      "originalDurationMs": 6202,
+      "frames": [
+        {
+          "src": "assets/film/motion-v3/note-save-real-000.jpg",
+          "capturedMs": 0,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "b1886fac439ea889109b0adc72479f3bf805ac09ed4470b2af3c36b4ad5093d6"
+        },
+        {
+          "src": "assets/film/motion-v3/note-save-real-001.jpg",
+          "capturedMs": 1346,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3883af2978fa09ec27a14aa1d453d21af771322290f22c5153e5a1c810b6aac9"
+        },
+        {
+          "src": "assets/film/motion-v3/note-save-real-002.jpg",
+          "capturedMs": 1550,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "8c80a26d932d6d3bb47bbbd33f6d199c97c03e009d2d2591ea8ac76b76834caa"
+        },
+        {
+          "src": "assets/film/motion-v3/note-save-real-003.jpg",
+          "capturedMs": 1742,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a82b3ea507295d6df3db26701bf101fff1449d41db3e38b4901a5d850a10d05d"
+        },
+        {
+          "src": "assets/film/motion-v3/note-save-real-004.jpg",
+          "capturedMs": 1936,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "32cc89694ffbca4495526a4cbfb88f51b48802d4fe8375a5a8cb06d58fd63c5b"
+        },
+        {
+          "src": "assets/film/motion-v3/note-save-real-005.jpg",
+          "capturedMs": 2152,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "50ab6997276032b03590bf3921a3eab64629c062764a165c00422b0753f1822b"
+        },
+        {
+          "src": "assets/film/motion-v3/note-save-real-006.jpg",
+          "capturedMs": 2353,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "73c7728d74ebf699524f3e429d0c303bc32d4d625ec7d94fdcacf309451b4cfd"
+        },
+        {
+          "src": "assets/film/motion-v3/note-save-real-007.jpg",
+          "capturedMs": 2557,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "204ab66f6f1ce5620e02dbcf7631ddd166c84a4415ed2d37807958e38fbafae8"
+        },
+        {
+          "src": "assets/film/motion-v3/note-save-real-008.jpg",
+          "capturedMs": 2755,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "e0de4be6f27b675e624c1a585020b285f5726af118cb551b121b78426aeb2278"
+        },
+        {
+          "src": "assets/film/motion-v3/note-save-real-009.jpg",
+          "capturedMs": 2957,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "4cc9ae53cfff58f20769cf2e43fe64a6f8fd7a0c483e00dff99ca17212b18178"
+        },
+        {
+          "src": "assets/film/motion-v3/note-save-real-010.jpg",
+          "capturedMs": 3169,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "d3ce197e41db01e72d797bb6993c7ef8a6eabb4755d67f8995289275688cffc6"
+        },
+        {
+          "src": "assets/film/motion-v3/note-save-real-011.jpg",
+          "capturedMs": 3451,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "988015b26f261157583f1390e952fcd528ac75fdb73a775485a58875aca77cdc"
+        },
+        {
+          "src": "assets/film/motion-v3/note-save-real-012.jpg",
+          "capturedMs": 3753,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3e442066bf11a62e7d5f34e5dbca332a677173cf858dce17f0991eddcd61393b"
+        }
+      ]
+    },
+    {
+      "id": "citation-open-real",
+      "kind": "selected-native-screenshots",
+      "continuousVideo": false,
+      "originalDurationMs": 3373,
+      "frames": [
+        {
+          "src": "assets/film/motion-v3/citation-open-real-000.jpg",
+          "capturedMs": 0,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "b79f13aaae80bf1b425ff017b6fc67ebdb1f43b9299de84f50ae005457b0641a"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-001.jpg",
+          "capturedMs": 1209,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "8984981528cb4933c74df7b115b69ce20e95e7e962fa526d430a220209a8729e"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-002.jpg",
+          "capturedMs": 1283,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "08385ba34b3a1a218f2bbff2f0b6a43d234c445e0c0931124b38c474df869207"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-003.jpg",
+          "capturedMs": 1353,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "688a2c7322009b4e3bb814af58712f7d787359a811a8099fa16b212d3de5c670"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-004.jpg",
+          "capturedMs": 1422,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "7fe4033cca525ba3c69cdbf4240c56e18ee04441a6672a57dc6f71891e4b032a"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-005.jpg",
+          "capturedMs": 1490,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "92350e092896afdd960d608c89836745c05bbf1ddd1e6cbcd5c15c60557e4e64"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-006.jpg",
+          "capturedMs": 1561,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "8bba69ea2707e687281c0af3dd7939e397d9a61d93e4eb701e41bf20c3ed7d78"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-007.jpg",
+          "capturedMs": 1631,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "e88b098f29f37e7a64f85c220d8728a97d186770dc1f84e3b14a5e5701dafdf0"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-008.jpg",
+          "capturedMs": 1711,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a5f66de1c25a424a2530e21da28949a869d0bef6c294403e133cf95128cf67e6"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-009.jpg",
+          "capturedMs": 1780,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "75b25b7060060086ef435fb33683e550163fb2a1c17d7d70e5bd03c7f62f9b1b"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-010.jpg",
+          "capturedMs": 1855,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "791e8ff43ec943b45e4d3b7bde63e02ad3a9a5e6a8ae9d8d239a9d0a7d23213e"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-011.jpg",
+          "capturedMs": 1923,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "32cc40c589a959a7f2134e106a1245e38b8e5df612b5bf909ec40f5186242270"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-012.jpg",
+          "capturedMs": 1995,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1f63979f833cda04cee8becdd98b3aa41f269686025e77bbb4cb94693db4cc44"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-013.jpg",
+          "capturedMs": 2065,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "5f53464393b78fc5a1d2da70cdf39960494a0d52f7990cdb4653d706ccf1ebc1"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-014.jpg",
+          "capturedMs": 2132,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "df7c9a9cf8b183c9a09503e0f49748b8284258054e6367fbd861283e3aacf989"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-015.jpg",
+          "capturedMs": 2202,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "f4f0b3eb61352c846b18879845c261d6297f4ce21ef335d64bc5b309b5dbf704"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-016.jpg",
+          "capturedMs": 2272,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "070475732b94bd880b206064c1c015960cf041bc669ec1b9ccb949d06a8737e0"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-017.jpg",
+          "capturedMs": 2342,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "5e98ac214b573eb4c2909ba1c0547424542066bb6d916ce4869e1775b51133f0"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-018.jpg",
+          "capturedMs": 2412,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "53bf040cfbe6b82527fe598bb5e28e9ef8ca98f931658a8e7e328a98b796b464"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-019.jpg",
+          "capturedMs": 2480,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "e7861e4a6d6f0f9c169ebc14fe9d63cda59debcb29a9e370278e4d63131ea140"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-020.jpg",
+          "capturedMs": 2548,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "ccecab53604140a9bebf9ac8cc1677478b929103d764a7bdadda0dab48f49507"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-021.jpg",
+          "capturedMs": 2615,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "650c3decaade2f0ce22b8cbe5bb145a74f54f46cac4ff8ea46a73e268cacf0ce"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-022.jpg",
+          "capturedMs": 2683,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "0c90a97816668e4f0d0642420e6ba2b3a85fb7c7d0c6fab66aea072a19b65d0a"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-023.jpg",
+          "capturedMs": 2753,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1f6c83c8e63fff215b7dbb16750cb4f5ac2b4323f5e0a635203aa9f8f8d5cce1"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-024.jpg",
+          "capturedMs": 2819,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "0e856cc82efcc30f8eec4c230f77edefafc3a596aa858028e1ecd1ebcce49c52"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-025.jpg",
+          "capturedMs": 2886,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "24551f259f10a189f0ab97396f1c4edb65f5606663b90516b7aae84360cc1f92"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-026.jpg",
+          "capturedMs": 2954,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "bc6265461054caf7417900b81ce9cc0d36816020edca14bd75330ba440687bdb"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-027.jpg",
+          "capturedMs": 3029,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "fdb0ac0f31c173409e731ed9c70529af2d1820e7a6fe05c98c4e3262a8349d5f"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-028.jpg",
+          "capturedMs": 3101,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "af0a311b7cfc0b4efd9f916cbe084ed8562a4f6d868d79e7b3a2921ef7db8a90"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-029.jpg",
+          "capturedMs": 3168,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "ae1adebbc12f52317c1a00220249ef2d12dc74854aa07733f38e3bf7b5b97dbe"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-open-real-030.jpg",
+          "capturedMs": 3234,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "de2ebba6e6c8f0c91c74e7a04da5cb1de35a1dc2c6a1c8118af34ddfd1a26e99"
+        }
+      ]
+    },
+    {
+      "id": "citation-source-real",
+      "kind": "selected-native-screenshots",
+      "continuousVideo": false,
+      "originalDurationMs": 5321,
+      "frames": [
+        {
+          "src": "assets/film/motion-v3/citation-source-real-000.jpg",
+          "capturedMs": 0,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "0793d289b29092a3656c22ead4d7d4c2f769c4e2e4d5b3cf28128693ccf62d6a"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-001.jpg",
+          "capturedMs": 2611,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "e524e14e5824894b7ccc2b7ea15db5449dfde8aba0702db62d6b88888182bade"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-002.jpg",
+          "capturedMs": 2719,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "24911159fea0c22210cffa364b00a89ee4390ac3a42bba8eaa28f2376b7f2344"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-003.jpg",
+          "capturedMs": 2791,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "55eb3e68f2f36f2889010256b43668d6a7967be862d2fa4c22f1bdfc3ec4436d"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-004.jpg",
+          "capturedMs": 2855,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "366be9aa547b0319b203df6dd9a93d9cd6da8fa5212660252e0b6915e1a40933"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-005.jpg",
+          "capturedMs": 2923,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "22d3d2f5aa74ef2ddd1d69d71090fcb53c7516a682b9a90e1d991d7b7d594271"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-006.jpg",
+          "capturedMs": 2990,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "ec1662b63ac05a33fb356ab0f12d88eeb1cbf0a09d62c61eec539f4b4f9191b8"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-007.jpg",
+          "capturedMs": 3064,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "cca2ef635d994630c2652e28469433979480559e3584e9be07c57d11684916fe"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-008.jpg",
+          "capturedMs": 3136,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1d47c74e6cba24d7c32274473b5e098d32626d81f7229006f309ffa777be1170"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-009.jpg",
+          "capturedMs": 3204,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "59735964a7757366a2a54cb9164bd3b7526a422a4e2935cbbf83feb7cb2d16c3"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-010.jpg",
+          "capturedMs": 3271,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "41d0636cad477071914126f03be8007bf15a667075bf74a82ec4c54c2cc23ea0"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-011.jpg",
+          "capturedMs": 3337,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "109e704203dd04f111c631a6ca7467044edae1a8e83acfefdb745e1ac90b1a48"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-012.jpg",
+          "capturedMs": 3413,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "c26fad6a2f3a8315b5527eb5ae6e2062636fe93ebfb29da83c7e8c3c6cb8bee1"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-013.jpg",
+          "capturedMs": 3495,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1ba6a5a31a70e8875d8a1e7780364db4b14c6c29ea34dd1fd87c589d9a8ddbe4"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-014.jpg",
+          "capturedMs": 3562,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1d56541bccf1ed3b8fb0dedf92c9c7534a8e7489b8481fd748eb5867bcaddaa6"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-015.jpg",
+          "capturedMs": 3636,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "ece04b012d6fb30970a06d34f678e5b8ea908394eebbb0bde68fb51b23206cde"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-016.jpg",
+          "capturedMs": 3701,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "779e708a1fc9a7b8262239106f7d2a2feb84cbc99527819ce909e55d83b87ff4"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-017.jpg",
+          "capturedMs": 3765,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "f396bda80607a1f6a13488b9984e4687bdb03b906d8f04e569ea2ce644289e34"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-018.jpg",
+          "capturedMs": 3830,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3bbb83e8bff8f69e2137be2c68456dbfe42426ac1d9c970eb54cf1b384f8535c"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-019.jpg",
+          "capturedMs": 3897,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "50e5b08207957c62301f817d63690f85b0538666fc8a1e3b9c1673f31fc765ee"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-020.jpg",
+          "capturedMs": 3962,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "78b2396010ceadd94fbed493a49e36a32e9d16594a4db773ef628714143caef2"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-021.jpg",
+          "capturedMs": 4030,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1d1c071c6da6d20b63d22799bec4066ae79e8e0a2758d316b467d6399639adff"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-022.jpg",
+          "capturedMs": 4096,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "21a15e41d675d9b79da55ae71a30b379f6620115ded56065625ee8999f410017"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-023.jpg",
+          "capturedMs": 4164,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "b78ddb4709baafca64437db2bac7d211451dd3d9a5c81fffb2b446712456074c"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-024.jpg",
+          "capturedMs": 4232,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "de2f6f37702e1ba49af574c9f8c70840f057363d6c30f5c58a593004d9a891f6"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-025.jpg",
+          "capturedMs": 4299,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "fb50d2eb829d59313e9e5d93f274a9c1847264feded4c42e8a108ff3e5fd8c35"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-026.jpg",
+          "capturedMs": 4366,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "e26e1d63badd97370edc1d54a2da98953cdfa50fa5e58674527d744038a0188e"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-027.jpg",
+          "capturedMs": 4433,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "3e0d6fd7f10a31dc9b7aa0935f514854bc7d75535a2aec749c5cb54fd875562e"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-028.jpg",
+          "capturedMs": 4500,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "81fde677731de06c2aca76daf310864941bf608964756d41f9f9fbb0b8574aed"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-029.jpg",
+          "capturedMs": 4569,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "c3559f42997791ec51c90775296ec44dc3627af8b709640b713b121c40a362d5"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-030.jpg",
+          "capturedMs": 4644,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "1674f1fed9094daa0ac0a2c8d4d994f28f4b8134026d5c55d44789e680692d17"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-031.jpg",
+          "capturedMs": 4713,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "54589ec7f75fecce3c7c85e5b3074eb47570a3f9a18d25aca22e2acf30a25e13"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-032.jpg",
+          "capturedMs": 4784,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "c26fad6a2f3a8315b5527eb5ae6e2062636fe93ebfb29da83c7e8c3c6cb8bee1"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-033.jpg",
+          "capturedMs": 4851,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "9c9e8a30afae38f478ad74a0950abefa6147fffd5740f2bf90495adaa10a35a9"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-034.jpg",
+          "capturedMs": 4919,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "d06ea0786996d80d85fae897e0c8997f3a807a39fcfee797c4b24f5494cdf5f8"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-035.jpg",
+          "capturedMs": 4988,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "216fbec6b71ff35b1e75350ba5b1efe39ea32070ef95abbdbe9a0e9d0bcd6761"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-036.jpg",
+          "capturedMs": 5055,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "c3d23dafce7d8db5e835024f145f993f2af58088a8bb5d626b3b42f9691a9059"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-037.jpg",
+          "capturedMs": 5121,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "09376ec72223c4812d461a67515debcb45398fa41e6b06cbf31857d38c2ccefa"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-038.jpg",
+          "capturedMs": 5189,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "399b49bc538dbcf8bc59b49c3af29843999d27369a5a0394207b821571e48f5c"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-039.jpg",
+          "capturedMs": 5255,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "72b450f7d488ef9b5656d873b55ae48bef6de4a0bfa37d1ca5990c114882c752"
+        },
+        {
+          "src": "assets/film/motion-v3/citation-source-real-040.jpg",
+          "capturedMs": 5321,
+          "width": 2560,
+          "height": 1678,
+          "sha256": "a482bd084591eb8eaf9758b25c1c8c576345e9246226fa21f3b5f5bb1d1d4a22"
+        }
+      ]
+    },
+    {
+      "id": "island-compact-collapsed",
+      "kind": "selected-native-screenshots",
+      "continuousVideo": false,
+      "originalDurationMs": 0,
+      "frames": [
+        {
+          "src": "assets/film/motion-v3/island-compact-collapsed-000.jpg",
+          "capturedMs": 0,
+          "width": 498,
+          "height": 78,
+          "sha256": "df5c45175339ecc044c0bec7d9da4e9bbf7771896b132c84585b58c2a5f6faa1"
+        }
+      ]
+    },
+    {
+      "id": "island-compact-tasks",
+      "kind": "selected-native-screenshots",
+      "continuousVideo": false,
+      "originalDurationMs": 4093,
+      "frames": [
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-000.jpg",
+          "capturedMs": 0,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "2cd962e2abe709039b298aadd1b15d8b34b26acb6280a35bb553587b136d334a"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-001.jpg",
+          "capturedMs": 1580,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "8db2d4d34c9f5aece0c964333a23022a73377b3ba30a6b9840c2c74d57929459"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-002.jpg",
+          "capturedMs": 1678,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "643ac5e5616a306d144d26084264a96a9748713f10db7725d65a3f7944e30a34"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-003.jpg",
+          "capturedMs": 1773,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "8f17827fb301b9590f6c44c66eb0ff4af27dc686efe294ecdd2de2b10e49543f"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-004.jpg",
+          "capturedMs": 1850,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "5938983bef69e5ebb29a3a600bd2627a3db71b43c9f0667a9d9389fe35627157"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-005.jpg",
+          "capturedMs": 1915,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "874792c3cde86ad5ac1f44ab9baed7d921f8127ce6ccf07e28562139eadbc3f1"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-006.jpg",
+          "capturedMs": 2023,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "b89466591bb43d6a0359581ecc4fcba3402523a74c5ce1de2b1805c6ca6c9235"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-007.jpg",
+          "capturedMs": 2101,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "a5a8c3662292a7b085c3375afbad1e4ab04b441794c53d5053c05f5ff4854a9b"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-008.jpg",
+          "capturedMs": 2166,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "0c05841f27f7595af9345826583529522a9db3b0071083f5dc65dde301bd4a89"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-009.jpg",
+          "capturedMs": 2251,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "ab7f8c3c2c22adff764f0ed56522477298723fe6db1ee8ffbab5a4edc7520eda"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-010.jpg",
+          "capturedMs": 2376,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "af7eaf893e409ac366f6d7029832a69bee3906fb2182cf0516283bfa3733a4b7"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-011.jpg",
+          "capturedMs": 2493,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "70d425149a4414dc7e4abd58564fc460aa72de3282679ebada9774735d66793c"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-012.jpg",
+          "capturedMs": 2570,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "c22ffd05fc398e4c0ed75208f372c682870265f3055c966eb57bcaf8c61a9a84"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-013.jpg",
+          "capturedMs": 2676,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "20985781d40f863b57ca07242586801e3babe10c49fcd37e7431f4ab47e70147"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-014.jpg",
+          "capturedMs": 2755,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "47561c61fcc3fd50798ff1028566135a651f50cb1406598f301c3e0b7fa31cb2"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-015.jpg",
+          "capturedMs": 2809,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "debe8b8a9abb093cd443238e7b382bb070110d38b03111a903db04f02f50aca0"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-016.jpg",
+          "capturedMs": 2891,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "efd62e1c2b0fcceb4b0ff6e365db3129c788819eaf9be5437e03ba5fae31c0b5"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-017.jpg",
+          "capturedMs": 2973,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "7174efb21c94c4f09b8b4c009b120666eff11b1be164d90ecaf9016bcb74b207"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-018.jpg",
+          "capturedMs": 3032,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "3b741231bd6399527c9395067c2f39a1d60edeaf19c80e0371d6c79395818814"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-019.jpg",
+          "capturedMs": 3114,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "e26cc8dc93b27ea6ecc0b64d8182d3a5ab5ace129d9ec4aa1dd969824186918c"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-020.jpg",
+          "capturedMs": 3182,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "b5fd17900fbd04eb1ac7bebefe33e8ee341437c272ffde06921dc2e0ba7ff424"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-021.jpg",
+          "capturedMs": 3265,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "a35ac7e5ea5d4e2ca35118d64c7b03b1796346bc8250d44103a1a89a5b2ec539"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-022.jpg",
+          "capturedMs": 3371,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "19fbf27b085341745270ebf44195023a80dca5bb581c6d0d3e7e7eeda1564130"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-023.jpg",
+          "capturedMs": 3432,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "cbf7ebb7c7bdcc780282d469a2c29cdd178d1f6a9be34522c7e8124ba11005f7"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-024.jpg",
+          "capturedMs": 3520,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "f08c0c32ef37a1d23f55ffb97ccc7bf90460ab44aabd74cb8625dbe930b2e787"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-025.jpg",
+          "capturedMs": 3598,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "37ef2e46bd659c4349d66290311767ce883617bfaeac094a32b6b16c514533a5"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-026.jpg",
+          "capturedMs": 3673,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "39e6c5152dbba47e54fb7fd2a34abdaaf6bbdc1ae5a34e0efd8df718ff29256c"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-027.jpg",
+          "capturedMs": 3736,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "fd64b45159d06893f5c3cc4a241f2fd319641cfe426e5718a73f5f3f26d6fdf4"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-028.jpg",
+          "capturedMs": 3821,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "557e56e108e362f964275ad3a34428355af38f880a54d0a7d16d0fad18c08933"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-029.jpg",
+          "capturedMs": 3873,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "d5dfe0f46b1e2efc6e77ef44c17cf43046b48f6f09d223cde1e4a9298f01ec2b"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-030.jpg",
+          "capturedMs": 3942,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "a2fe7b86a5c24c543554c45e258d4228cc650cb0e11cb20e404476f36dc78699"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-031.jpg",
+          "capturedMs": 4006,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "1ebd3571271d3b69c8ae482f73e2d668b41ffde9642098ae58369ac2714908e0"
+        },
+        {
+          "src": "assets/film/motion-v3/island-compact-tasks-032.jpg",
+          "capturedMs": 4093,
+          "width": 1520,
+          "height": 1040,
+          "sha256": "7398ccda388ccdea796b8b2ee7fe53152b632f07854a1ea7ecb7312cc85a7e71"
+        }
+      ]
+    }
+  ]
+}
