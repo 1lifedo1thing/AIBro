@@ -59,29 +59,25 @@ function OpenSource({t,leadQ}){
   <Rule x={1327} y={694} w={422} k={p(q,.85,1.5)}/>
  </>;
 }
-function Assignment({t}){
- const q=t-4.5;
- const transfer=p(q,1.15,2.5);
+// Assignment and Task share one editorial camera clock. The saved task stays
+// registered at the chapter boundary; this does not simulate a new App action.
+function AssignmentFlow({t}){
+ const lang=React.useContext(LANG),q=t-4.5;
+ const arrive=p(q,.75,1.7),focus=p(q,2.9,3.65);
+ const sourceExit=p(q,2.9,3.3);
+ const taskBox=lerp(lerp([1950,345,794,660],[1030,345,794,660],arrive),[210,348,1500,647.5],focus);
+ const taskCrop=lerp([810,320,1420,1180],[824,902,1390,600],focus);
  return <>
-  <Type text={'课件里的作业，\n整理成课程任务。'} x={90} y={136} size={80} reveal={p(q,0,.36)}/>
-  <Label x={95} y={330} size={20}>原文 · 第 2 页 · 作业要求</Label>
-  <Native source={S.page2} crop={ASSIGNMENT} box={lerp([94,365,1030,647],[94,365,780,647],transfer)} radius={7}/>
-  <div style={{position:'absolute',left:925,top:518,width:72,height:3,background:C.green,transform:`scaleX(${transfer})`,transformOrigin:'left'}}/>
-  <Type text={'查看课程任务。'} x={1070} y={384} size={56} width={720} reveal={transfer}/>
-  <Native source={S.task} crop={[810,320,1420,574]} box={lerp([1950,510,790,320],[1070,510,790,320],transfer)} radius={14}/>
-  <Label x={1076} y={871} size={22} style={{opacity:transfer}}>课程任务 · 已保存</Label>
+  <Type text={lang==='en'?'Turn the assignment into a checklist.':'课件里的作业，列成可执行的清单。'} x={90} y={136} size={80} width={1740} reveal={p(q,0,.36)}/>
+  <Label x={95} y={267} size={25}>{lang==='en'?'Compare the source with the saved course task.':'对照课件要求，查看已保存的课程任务。'}</Label>
+  <Label x={95-mix(0,1040,sourceExit)} y={315} size={20} style={{opacity:1-sourceExit}}>原文 · 第 2 页 · 作业要求</Label>
+  <Native source={S.page2} crop={ASSIGNMENT} box={[94-mix(0,1040,sourceExit),345,mix(1030,780,arrive),647]} radius={7}/>
+  <Label x={mix(1030,210,focus)} y={315} size={20} style={{opacity:arrive}}>课程任务 · 已保存</Label>
+  <Native source={S.task} crop={taskCrop} box={taskBox} radius={17}/>
  </>;
 }
-function Task({t}){
- const q=t-7.3,k=p(q,.48,2.25);
- return <>
-  <Type text={'作业要求，\n列成检查清单。'} x={93} y={200} size={92} width={650} reveal={p(q,0,.38)}/>
-  <Label x={100} y={471} size={25}>观察 · 原型 · 笔记 · 反馈</Label>
-  <Native source={S.task} crop={lerp([810,322,1415,1090],[824,893,1390,609],k)} box={lerp([790,167,1060,816],[715,395,1140,550],k)} radius={19}/>
-  <Rule x={100} y={610} w={484} k={p(q,.6,1.4)}/>
-  <Label x={99} y={653} size={25}>逐项查看任务要求。</Label>
- </>;
-}
+function Assignment({t}){return <AssignmentFlow t={t}/>;}
+function Task({t}){return <AssignmentFlow t={t}/>;}
 function Methods({t}){
  const q=t-10.15,k=p(q,.36,1.2),handoff=p(q,1.32,2.3);
  return <>
