@@ -36,3 +36,7 @@ At 54.5–60.7 seconds, the current native panel shows a manual edit to an exist
 ## Course-task handoff revision
 
 The island task list leads into the course overview, then the same existing task and its five unchecked steps. The current task-detail capture was saved and reopened after a manual description edit in the fictional workspace. It is not new AI work or a completed task. The title holds across the course transition; the full task dialog appears before the camera moves to its checklist. Duration, earlier chapters and the A soundtrack are unchanged.
+
+## Course-note framing revision
+
+At 60.7–67.9 seconds, the earlier course association and its saved result use a wider frame. The course label and original note remain readable; the result holds all six observation questions without clipping the last row or exposing internal record IDs. This revisits the earlier synthesis, rather than showing a new AI execution. Actual captures, chapter timing, the 84-second duration and A soundtrack are unchanged.

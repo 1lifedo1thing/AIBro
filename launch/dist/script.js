@@ -192,7 +192,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)film.pause(
 function setFilmLanguage(){
   if(filmLanguage===lang)return;
   filmGeneration++;filmLanguage=lang;film.pause();pendingFilmSeek=null;filmState='idle';
-  film.preload='none';film.src=`assets/film/motion-84-${lang}.mp4?v=motion9-20261003`;film.poster=`assets/film/motion-84-poster-${lang}.jpg?v=motion9-20261003`;
+  film.preload='none';film.src=`assets/film/motion-84-${lang}.mp4?v=motion10-20261003`;film.poster=`assets/film/motion-84-poster-${lang}.jpg?v=motion10-20261003`;
   film.load();filmButton.hidden=false;
   const download=document.getElementById('film-download');download.href=film.getAttribute('src');download.download=`AI-Bro-Workflow-84s-${lang.toUpperCase()}.mp4`;
   updateFilmChapters();

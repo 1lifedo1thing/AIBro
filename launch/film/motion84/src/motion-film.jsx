@@ -104,15 +104,21 @@ function Capture({q,lang}){
  </>;
 }
 function Connect({q,lang}){
- if(q<3.7){const k=p(q,.6,1.8);return <>
-  <SceneLead q={q} lang={lang} title={L(lang,'让随记接上课程','Connect notes\nto your course')} subtitle={L(lang,'回看之前的关联与整理，原始记录仍保留。','Review the earlier association.\nThe original note is preserved.')} x={87} y={180} width={840} subtitleWidth={785} size={86}/>
-  <Native source={img(q<2.1?'capture-project-review':'capture-project-saved')} crop={q<2.1?[753,336,1178,806]:[555,387,1890,740]} box={lerp([990,400,830,570],[820,345,1005,645],k)} radius={20}/>
-  <Rule x={99} y={625} w={516} k={p(q,.8,1.55)}/>
-  <Label x={100} y={738} size={24}>{L(lang,q<2.1?'此前的关联审阅':'此前已采纳',q<2.1?'Earlier association review':'Previously accepted')}</Label>
+ if(q<3.7){const reviewing=q<2.1;return <>
+  <SceneLead q={q} lang={lang} title={L(lang,'让随记接上课程','Connect notes to your course')} subtitle={L(lang,'回看之前的关联与整理，原始记录仍保留。','Review the earlier association. The original note is preserved.')} y={135} size={76}/>
+  {/* Preserve the captured review / accepted cut. Focus the actual project fields,
+      then show the saved note's course breadcrumb together with its original text. */}
+  <Label x={112} y={307} size={23}>{L(lang,reviewing?'此前的关联审阅':'此前已采纳 · 课程归属与原始记录',reviewing?'Earlier association review':'Previously accepted · Course and original note')}</Label>
+  <Native source={img(reviewing?'capture-project-review':'capture-project-saved')}
+   crop={reviewing?[780,618,1145,531]:[550,405,1986,600]}
+   box={reviewing?[263,356,1394,646.5]:[110,375,1700,513.6]} radius={20}/>
  </>;}
- const k=p(q,4.25,6.85);return <>
-  <SceneLead q={q-3.7} lang={lang} title={L(lang,'整理好的课程笔记','Your organized course notes')} subtitle={L(lang,'此前整理的观察问题，已保存在课程笔记中。','The earlier synthesis is saved in the course notes.')} size={81}/>
-  <Native source={img('capture-integrated')} crop={lerp([626,424,1828,876],[644,618,1770,255],k)} box={lerp([282,389,1356,583],[105,501,1710,338],k)} radius={18}/>
+ // Keep all six complete questions visible throughout one brief editorial push.
+ // The source IDs above and below this passage remain outside the unaltered crop.
+ const focus=p(q,4.2,4.8);return <>
+  <SceneLead q={q-3.7} lang={lang} title={L(lang,'随手观察，整理成六个问题','Six questions for your next observation')} subtitle={L(lang,'此前整理的观察问题，已保存在课程笔记中。','The earlier synthesis is saved in the course notes.')} y={135} size={76}/>
+  <Native source={img('capture-integrated')} crop={[642,620,1840,708]}
+   box={lerp([155,365,1610,619.5],[102,347,1716,660.3],focus)} radius={18}/>
  </>;
 }
 // The saved task gives semantic continuity while its surrounding UI stays readable.
