@@ -36,24 +36,42 @@ function Review({q,lang}){
   <Label x={100} y={839} size={22}>{L(lang,accepted?'已采纳 · 原文保留':'待审阅的修改',accepted?'Accepted · Original kept':'Changes to review')}</Label>
  </>;
 }
-function Agenda({q,lang}){
- if(q<2.65){const aim=p(q,.5,1.35),proposal=p(q,1.3,2.15);return <>
-  <SceneLead q={q} lang={lang} title={L(lang,'一句话，安排日程','Plan it in one sentence')} subtitle={L(lang,'说清时间和事项，确认后加入课程。','Say when and what. Review before adding it.')} size={86}/>
-  <Native source={img('agenda-question')} crop={[1143,263,1159,147]} box={lerp([468,463,1320,168],[110,382,1698,216],aim)} radius={23}/>
-  <Native source={img('agenda-proposal')} crop={[755,700,1452,415]} box={lerp([1040,1088,778,223],[800,660,1015,290],proposal)} radius={18}/>
-  <Label x={112} y={722} size={27} style={{opacity:proposal}}>{L(lang,'日期、时间、所属课程。','Date. Time. Course.')}</Label>
- </>;}
- if(q<5.75){const k=p(q,2.9,4.7);return <>
-  <SceneLead q={q-2.65} lang={lang} title={L(lang,'确认时间','Check the time')} subtitle={L(lang,'下午三点，安排二十分钟校园观察。','3 p.m. A twenty-minute observation.')} x={90} y={199} width={915} size={95}/>
-  <Native source={img('agenda-save')} crop={[0,0,1140,1380]} box={lerp([1165,305,555,672],[1056,138,715,865],k)} radius={27}/>
-  <Type text={L(lang,'确认后保存。','Confirm and save.')} x={98} y={626} size={56} width={815} reveal={p(q,3.25,3.7)}/>
-  <Rule x={98} y={736} w={690} k={p(q,3.4,4.05)}/>
- </>;}
- const k=p(q,6.2,7.45);return <>
-  <SceneLead q={q-5.75} lang={lang} title={L(lang,'校园观察，排好了','Your observation is scheduled')} subtitle={L(lang,'回到课程，就能查看任务和日程。','Find your tasks and calendar in the course.')} size={85}/>
-  <Native source={img('agenda-calendar')} crop={lerp([569,162,1930,912],[570,525,1930,512],k)} box={lerp([310,425,1420,534],[98,428,1724,457],k)} radius={23}/>
+function Agenda({q,clock,lang}){
+ const confirming=q>=2.65,saved=q>=5.75;
+ // Only the captured states use the original source clock. The editorial camera
+ // stays continuous across the removed source hold at full-film 31.6 seconds.
+ const arrive=p(clock,.5,1.35),proposal=p(clock,1.3,2.15),reserve=p(clock,2.05,2.65);
+ const resultMove=p(clock,5.2,6.25),requestExit=p(clock,4.95,5.2);
+ // Match the actual visible Native frame, not merely its letterboxed container.
+ // The new capture starts in the outgoing frame, then its crop opens to the
+ // full review or result. There is never a blend of two readable screenshots.
+ const anchor=[1085,390,720,720*415/1452],formEnter=p(clock,8/3,3.24);
+ const formCrop=lerp([0,95,1140,1140*415/1452],[0,0,1140,1190],formEnter);
+ const formXYW=lerp(anchor.slice(0,3),[1155,325,650],formEnter);
+ const formBox=[...formXYW,formXYW[2]*formCrop[3]/formCrop[2]];
+ const calendarCrop=lerp([570,585,884*1140/1190,884],[570,585,1930,460],resultMove);
+ const calendarXYW=lerp([1155,325,650],[98,435,1724],resultMove);
+ const calendarBox=[...calendarXYW,calendarXYW[2]*calendarCrop[3]/calendarCrop[2]];
+ const requestBox=lerp(lerp([468,463,1320,168],[110,382,1698,216],arrive),[96,375,910,115.4],reserve);
+ requestBox[0]-=1100*requestExit;
+ return <>
+  <SceneLead q={clock} lang={lang} title={L(lang,'一句话，安排日程','Plan it in one sentence')} subtitle={L(lang,'说清时间和事项，确认后加入课程。','Say when and what. Review before adding it.')} x={95} y={140} size={78}/>
+  <Native source={img('agenda-question')} crop={[1143,263,1159,147]} box={requestBox} radius={20} style={{opacity:1-requestExit}}/>
+  {!confirming&&<Native source={img('agenda-proposal')} crop={[755,700,1452,415]}
+   box={lerp(lerp([1040,1088,778,223],[800,660,1015,290],proposal),anchor,reserve)} radius={22}/>}
+  {confirming&&!saved&&<Native source={img('agenda-save')} crop={formCrop} box={formBox} radius={22}/>}
+  {confirming&&<div style={{opacity:1-requestExit}}>
+   <Label x={101} y={566} size={24}>{L(lang,'核对请求中的安排','Check the requested details')}</Label>
+   <Type text={L(lang,'15:00–15:20\n二十分钟校园观察','3:00–3:20 p.m.\nCampus observation')} x={98} y={621} size={55} width={975} reveal={p(clock,2.67,3.07)}/>
+   <Label x={101} y={795} size={25}>{L(lang,'课程：交互设计方法','Course: Interaction Design Methods')}</Label>
+  </div>}
+  {saved&&<>
+   <Native source={img('agenda-calendar')} crop={calendarCrop} box={calendarBox} radius={22}/>
+   <Label x={102} y={961} size={25} style={{opacity:p(clock,6.35,6.65)}}>{L(lang,'15:00 · 校园观察，已加入日程。','3 p.m. · Campus observation is on the calendar.')}</Label>
+  </>}
  </>;
 }
+
 function Research({q,lang}){
  if(q<3.6)return <>
   <SceneLead q={q} lang={lang} title={L(lang,'读研究资料，\n抓住重点','Read a study.\nFind what matters.')} subtitle={L(lang,'询问研究方法、关键数据和结论。','Ask about the method, data, and findings.')} x={88} y={171} width={1350} size={85}/>
@@ -171,7 +189,7 @@ export function MotionFilm({lang='zh',withAudio=false}){
  else if(t<12.65)scene=<Methods t={t}/>;
  else if(t<17)scene=<Review q={t-12.65} lang={lang}/>;
  else if(t<20.1)scene=<Save t={t-17+12.65}/>;
- else if(t<29)scene=<Agenda q={t-20.1} lang={lang}/>;
+ else if(t<29)scene=<Agenda q={t-20.1} clock={(frame-1140)/FILM_FPS} lang={lang}/>;
  // The edited research chapter has a continuous clock across former hold cuts.
  // Body frame 1626 maps to full-film frame 2166 (36.1 seconds).
  else if(t<50)scene=<ResearchScene q={(frame-1626)/FILM_FPS} lang={lang}/>;

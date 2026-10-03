@@ -1,5 +1,5 @@
 {
-  "revision": "motion11-course-task-flow-20261003",
+  "revision": "motion12-agenda-continuity-20261003",
   "seconds": 84,
   "frames": 5040,
   "fps": 60,
@@ -16,8 +16,8 @@
   "files": [
     {
       "file": "motion-84-zh.mp4",
-      "bytes": 15358029,
-      "sha256": "2fea841222002a99901ce8f088a41387296da64710d7b47d35b36c8311278daf"
+      "bytes": 15179277,
+      "sha256": "ce2318f17f69dda889d4aadd76a271e122837c89e7626e5c03d1cff088ac2d20"
     },
     {
       "file": "motion-84-poster-zh.jpg",
@@ -26,8 +26,8 @@
     },
     {
       "file": "motion-84-en.mp4",
-      "bytes": 15451859,
-      "sha256": "50f4e4784b42585d74124ae863ca4468873db7b7d4665ceffa759091f6bde71c"
+      "bytes": 15307183,
+      "sha256": "8ca3b9074ef2c805f03095707f19f3a5c84f33387b65feb98043c6c93ab0c029"
     },
     {
       "file": "motion-84-poster-en.jpg",
@@ -37,8 +37,8 @@
   ],
   "productStatus": "Development preview; download release remains 0.8.0.",
   "provenance": "Actual isolated native App action captures with fictional materials. Edited across sessions; waiting condensed. No personal documents or credentials. The opening includes an actual model run; 60 fps describes film output, not native capture sampling.",
-  "visualReview": "The course-task framing and bilingual stills were reviewed. Changed chapter and assembly boundaries were sampled from the actual final MP4. This does not claim full real-time playback, soundtrack listening, or native capture frame-rate acceptance.",
-  "assembly": "Only the first two 14-second blocks were rerendered per language. The following four compressed blocks and original 84-second A AAC score were copied unchanged. Both streams start at 0 and last 84 seconds. Earlier motion10 association-result framing remains.",
+  "visualReview": "Bilingual9-second local previews played to their endpoints. Actual decoded source-cut neighbors and full-candidate assembly boundaries were reviewed separately. This does not claim full real-time film playback, soundtrack listening or native capture frame-rate acceptance.",
+  "assembly": "Only the third14-second block (28–42s) was rerendered per language. The other five compressed blocks and original84-second A AAC score were copied unchanged. Both streams start at0 and last84seconds. Earlier course, research, association and task-return improvements remain.",
   "audio": "User-selected A original instrumental, copied at unity gain. Bitstream unchanged; numerical checks are recorded separately. Full listening acceptance is not claimed.",
   "source": "launch/film/motion84",
   "assetArchive": {
@@ -121,5 +121,16 @@
       18.6
     ],
     "presentation": "The source assignment and the already-saved course task share one editorial canvas. The same native task capture moves continuously into a complete seven-item checklist; there is no new click, save or completion claim at the previous 16.3-second chapter boundary."
+  },
+  "agendaFlow": {
+    "seconds": [
+      28,
+      36.1
+    ],
+    "presentation": "The original request and one purpose title remain through review. The real proposal, review form and saved calendar use registered editorial frames at their original source-cut times. A continuous crop movement opens the complete review or date card; no click, save or UI state is synthesized.",
+    "sourceCutsSeconds": [
+      30.666666666666668,
+      32.95
+    ]
   }
 }
