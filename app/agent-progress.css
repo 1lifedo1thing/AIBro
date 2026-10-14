@@ -31,7 +31,7 @@
 .progress-group-details>summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:28px;list-style:none;cursor:pointer;min-width:0}
 .progress-group-mark{display:inline-flex;align-items:center;justify-content:center;flex:0 0 16px;font-size:11px;color:var(--faint)}
 .progress-group.is-running>.progress-group-details>summary .progress-group-mark{color:var(--accent)}
-.progress-group.is-failed>.progress-group-details>summary .progress-group-mark{color:var(--danger)}
+.progress-group.is-failed>.progress-group-details>summary .progress-group-mark{color:var(--red)}
 .progress-group-text{min-width:0;flex:1 1 110px;overflow-wrap:anywhere;font-size:12px;color:var(--muted)}
 .progress-group-status,.progress-group-cost{font-size:10px;color:var(--faint);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .progress-group-details>summary>.progress-chevron{margin-left:auto}
@@ -66,7 +66,7 @@
 .agent-progress.agent-progress .progress-cost{padding:0;background:transparent;color:var(--faint);font-size:10px}
 .agent-progress.agent-progress .progress-mark{font-size:11px;min-height:24px;color:var(--faint);transition:color 180ms ease}
 .agent-progress.agent-progress .progress-item.is-running .progress-mark{color:var(--accent)}
-.agent-progress.agent-progress .progress-item.is-failed .progress-mark{color:var(--danger)}
+.agent-progress.agent-progress .progress-item.is-failed .progress-mark{color:var(--red)}
 .progress-active-mark{width:6px;height:6px;display:block;border-radius:50%;background:currentColor}
 .progress-activity{display:flex;width:16px;height:16px;align-items:center;justify-content:center}
 .progress-activity svg{width:16px;height:16px;stroke:currentColor;stroke-width:1.5;animation:progress-turn 1.5s linear infinite}

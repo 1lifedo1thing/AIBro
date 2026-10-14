@@ -38,6 +38,12 @@
  root.ComposerUI={init,createAction,rootFor:node=>node?.closest?.('[data-composer-control]')||node,
   setContext:props=>update('composerContext',props),setModel:props=>update('composerModel',props),setPermission:props=>update('composerPermission',props),
   setVoice:props=>update('composerVoice',props),
-  setSending:value=>{sending=!!value;return update('agentSend',{});},get mounted(){return booted;}};
+  setSending:value=>{
+   const changed=sending!==!!value;sending=!!value;const updated=update('agentSend',{});
+   // Presentation only: the glyph swaps send ↔ stop with a short scale-in so
+   // the change reads as one control changing role, not a new button.
+   const glyph=changed&&controls.get('agentSend')?.button?.querySelector('svg');
+   if(glyph)root.ActivityMotion?.animate(glyph,[{opacity:0,transform:'scale(.6) rotate(-30deg)'},{opacity:1,transform:'none'}],{duration:240,easing:'cubic-bezier(.2,.1,.15,1)'});
+   return updated;},get mounted(){return booted;}};
  init();
 })(globalThis);

@@ -131,6 +131,22 @@ const watchdog = setTimeout(() => { win?.destroy(); server?.kill(); app.exit(1);
   measurements.push({case:'real-mouse-selection',diagnostics,focusEmulation:true});
   fs.writeFileSync(path.join(OUT,'mouse-diagnostics.json'),JSON.stringify(diagnostics,null,2));
   assert.ok(actual.events.some(event=>event.type==='mousedown'&&event.trusted));assert.ok(actual.selected.includes('Rotation0 selectable'),JSON.stringify(diagnostics));await screenshot('mouse-drag-selection');
+  // The same real selection offers explain / translate / ask, and the request
+  // names this PDF and page. The transport is a local fake: nothing leaves.
+  await until(()=>evaluate(`!document.querySelector('#selectionBar').hidden`),'selection toolbar for PDF text');
+  const buttons=await evaluate(`[...document.querySelectorAll('#selectionBar button')].map(b=>b.textContent)`);
+  assert.deepEqual(buttons.filter(name=>['解释','翻译','批注','问 AI'].includes(name)),['解释','翻译','批注','问 AI']);
+  const request=await evaluate(`(async()=>{let captured=null;const transport=AgentTransport.requestPlan;AgentTransport.requestPlan=async options=>{captured=options.input;return '合成译文';};
+   const resolve=ConversationModels.resolve;ConversationModels.resolve=async()=>({provider:'local-fake',model:'fake'});
+   try{document.querySelector('#selectionBar [data-selection-mode="translate"]').click();for(let i=0;i<50&&!captured;i++)await new Promise(r=>setTimeout(r,20));}
+   finally{AgentTransport.requestPlan=transport;ConversationModels.resolve=resolve;}
+   return {rules:captured?.[0]?.content?.[0]?.text||'',user:captured?.[1]?.content?.[0]?.text||'',title:document.querySelector('#selectionTitle')?.textContent||''};})()`);
+  assert.match(request.rules,/翻译选中片段/);assert.match(request.rules,/第 1 页/);assert.match(request.user,/Rotation0 selectable/);assert.match(request.title,/翻译/);
+  await evaluate(`SelectionExplain.close()`);
+  // Private mode: the same selection is not offered to a model.
+  await evaluate(`(()=>{window.__privateOn=PrivateMode.isOn;PrivateMode.isOn=()=>true;document.dispatchEvent(new Event('selectionchange'))})()`);await delay(60);
+  assert.equal(await evaluate(`document.querySelector('#selectionBar').hidden`),true,'private mode hides selection actions on PDF text');
+  await evaluate(`PrivateMode.isOn=window.__privateOn;getSelection().removeAllRanges()`);
  });
  await check('copy-page Kit action passes actual extracted page text to clipboard writeText', async () => {
   await open('text-cases', 1);await click('[data-pdf-copy]');await until(()=>evaluate(`window.__clipboardWrites.length===1`),'copy callback');

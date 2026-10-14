@@ -21,8 +21,8 @@ function fixture({ native, values = {}, storage = {}, fetch, durableSave } = {})
   for (const [key, value] of Object.entries(values)) nodes.get('#' + key).value = value;
   const permissions = [element('permission')]; permissions[0].dataset.permission = '科研'; permissions[0].value = 'approval';
   const state = { settings: { permissions: { 科研: 'approval' } } };
-  const context = vm.createContext({ state, URL, Promise, AbortController,
-    window: { ...(native ? { workstationDesktop: { apiCredentials: native } } : {}), confirm: () => true },
+  const context = vm.createContext({ apiProfiles: null, state, URL, Promise, AbortController,
+    Event, window: { ...(native ? { workstationDesktop: { apiCredentials: native } } : {}), confirm: () => true, dispatchEvent() {} },
     document: { createElement: () => element(), getElementById: id => nodes.get('#' + id) }, $: selector => nodes.get(selector) || null, $$: () => permissions,
     localStorage: { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, String(value)), removeItem: key => data.delete(key) },
     setTimeout: fn => { timers.push(fn); return timers.length; }, clearTimeout() {}, Core: { endpoint: base => base.replace(/\/$/, '') + '/models' },

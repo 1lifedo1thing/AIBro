@@ -115,7 +115,8 @@ async function finish() {
   });
   const values = { apiBase: 'https://settings-fixture.invalid/v1', apiKey: 'synthetic-unsaved-api-key', model: 'fixture-unsaved-model', usageCurrency: '¥', usageInputRate: '2.5', usageOutputRate: '7.25', embeddingBase: 'https://embedding-fixture.invalid/v1', embeddingModel: 'fixture-embedding-model', embeddingKey: 'synthetic-unsaved-embedding-key', cloudServerUrl: 'https://sync-fixture.invalid', cloudUsername: 'fixture-user', cloudPassword: 'synthetic-unsaved-sync-password', cloudDeviceName: '验收电脑 · unsaved' };
   await check('four-section round trip retains real nodes, handlers and every unsaved field without saving', async () => {
-    await select('sync'); await click('.cloud-sync-advanced summary'); await click('#cloudStartConnect');
+    // Connect stays disabled while the workspace save started by opening the section is in flight (cloud-sync-ui hostBusy).
+    await select('sync'); await click('.cloud-sync-advanced summary'); await until(() => evaluate(`!document.querySelector('#cloudStartConnect').disabled`), 'cloud connect enabled'); await click('#cloudStartConnect');
     for (const [id, value] of Object.entries(values)) await edit(id, value);
     await wait(100);
     assert.equal(await evaluate(`document.querySelector('#cloudServerUrl').getClientRects().length>0`), true);

@@ -41,7 +41,7 @@ function generationFixture(options = {}) {
   const context = vm.createContext({
     state, window: { ConversationModels: models }, ConversationModels: models, ModelChain,
     DOMException, URL, AbortController,
-    $: id => fields.get(id), localStorage: { getItem: () => null }, apiCredentialState: null, apiSettingsDirty: false,
+    $: id => fields.get(id), localStorage: { getItem: () => null }, apiProfiles: null, apiCredentialState: null, apiSettingsDirty: false,
     workspaceName: value => value || '日常', defaultModelConfiguration: () => ({ provider: 'api', model: fields.get('#model').value }),
     apiOrigin: value => { try { return new URL(value).origin; } catch (_) { return ''; } },
     AgentTransport: { requestPlan: async request => { calls.requests.push(request); return options.transport ? options.transport(request) : 'Rewritten paragraph'; } },

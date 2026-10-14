@@ -689,3 +689,20 @@ for(const unavailable of ['hidden','detached','disabled'])test(`maintenance open
   await h.surfaces.CloudSyncOverview.onSSHStorage({currentTarget:legacy});
   assert.equal(priorFocus,h.el('cloudRefresh'));assert.equal(input.value,'synthetic retained draft');
 });
+
+test('atomic conflict retains every member and cannot choose a single local version', async () => {
+  const revision='e'.repeat(64);
+  const members=[{entityId:'n1',title:'关联笔记',local:{content:'本机草稿'},remote:{content:'云端正文'}},
+    {entityId:'t1',title:'关联任务',local:null,remote:{title:'整组任务'}}];
+  const h=harness({conflictKit:true,status:connected({state:'conflict',conflicts:2}),fetch:call=>{
+    if(call.url==='/__cloud/conflicts')return {ok:true,json:async()=>({conflicts:[{id:'g-c',revision,groupId:'g',groupMembers:members,title:'一次完整操作'}]})};
+    if(call.url==='/__cloud/resolve')return {ok:true,json:async()=>connected({conflicts:0})};
+  }});
+  try {
+    await h.api.conflicts();const ui=h.surfaces.CloudConflictReview,entry=ui.entries[0];
+    assert.equal(entry.groupId,'g');assert.equal(entry.groupMembers.length,2);
+    assert.match(entry.groupMembers[0].localPreview,/本机草稿/);assert.equal(entry.groupMembers[1].localDeleted,true);
+    await ui.onChoose('g-c','local',revision);assert.equal(h.calls.some(call=>call.url==='/__cloud/resolve'),false);
+    await ui.onChoose('g-c','remote',revision);assert.deepEqual(h.calls.find(call=>call.url==='/__cloud/resolve').body,{id:'g-c',choice:'remote',revision});
+  }finally{h.api.destroy();}
+});

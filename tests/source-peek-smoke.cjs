@@ -23,7 +23,9 @@ const watchdog=setTimeout(()=>{win?.destroy();server?.kill();app.exit(1)},90000)
  await win.loadURL(origin);await until(()=>evaluate('typeof storageHydrated!=="undefined"&&storageHydrated'),'hydrate');await wait(900);
  // A hidden BrowserWindow can change activeElement without dispatching focusin.
  // Focus its webContents so this test exercises real browser focus events.
- win.webContents.focus();assert.equal(await evaluate('document.hasFocus()'),true);
+ // Focus emulation keeps the hidden window focused regardless of which app the
+ // OS considers frontmost (same approach as citation-evidence-smoke).
+ win.webContents.focus();win.webContents.debugger.attach('1.3');await win.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled',{enabled:true});assert.equal(await evaluate('document.hasFocus()'),true);
  await step('startup produces valid resource URLs and no renderer initialization errors',async()=>{assert.deepEqual(rendererErrors,[]);assert.deepEqual(await evaluate(`performance.getEntriesByType('resource').filter(r=>!URL.canParse(r.name)).map(r=>({name:r.name,type:r.initiatorType}))`),[]);});
  await evaluate(`WorkstationOnboarding.close();state.ui.onboarding={version:WorkstationOnboarding.VERSION,status:'skipped'};`+fs.readFileSync(path.join(ROOT,'tests/fixtures/agent-workbench.js'),'utf8'));
  await evaluate(`(()=>{currentConversation().messages=[{id:'source-answer',role:'agent',text:'这次方案参考了当前项目里已保存的两份文档。聚焦或悬停来源可以先查看内容，再决定是否打开原文。',at:Date.now()}];renderConversation();const host=document.createElement('div');host.id='qa-source-row';host.style.cssText='display:flex;gap:12px;padding:24px';for(const[id,note,label]of[['qa-plan','ui-plan','交互改造计划'],['qa-principles','ui-notes','设计原则'],['qa-missing','missing','已失效来源']]){const b=document.createElement('button');b.type='button';b.id=id;b.dataset.openNote=note;b.textContent=label;host.append(b)}document.querySelector('#messageList').append(host);host.scrollIntoView({behavior:'instant',block:'center'});document.querySelector('#qa-plan').setAttribute('aria-describedby','existing-description');})()`);
@@ -74,7 +76,11 @@ const watchdog=setTimeout(()=>{win?.destroy();server?.kill();app.exit(1)},90000)
   const pdf=spawnSync('python3',['-c',`import fitz,sys,json\nfrom pathlib import Path\np=Path(sys.argv[1]);d=fitz.open()\nfor n in range(2):\n page=d.new_page(width=420,height=300);page.insert_text((35,45),'Source citation page '+str(n+1))\n(p/'qa-source-pdf').write_bytes(d.tobytes())\n(p/'qa-source-pdf.meta.json').write_text(json.dumps({'name':'Source citation.pdf','mimeType':'application/pdf'}))`,files]);
   assert.equal(pdf.status,0,pdf.stderr?.toString());
   win.setSize(1440,1000);
-  await evaluate(`ReadingPane.hide();state.imports.push({id:'qa-source-pdf',name:'Source citation.pdf',mimeType:'application/pdf',content:'Page one overview. Page two evidence.',workspace:'日常'});const chip=document.createElement('button');chip.id='qa-page-source';chip.dataset.openImport='qa-source-pdf';chip.dataset.sourcePage='2';chip.textContent='来源 · 第 2 页';document.querySelector('#messageList').append(chip);chip.scrollIntoView({block:'center',behavior:'instant'});chip.focus();`);
+  await evaluate(`ReadingPane.hide();state.imports.push({id:'qa-source-pdf',name:'Source citation.pdf',mimeType:'application/pdf',content:'Page one overview. Page two evidence.',workspace:'日常'});const chip=document.createElement('button');chip.id='qa-page-source';chip.dataset.openImport='qa-source-pdf';chip.dataset.sourcePage='2';chip.textContent='来源 · 第 2 页';document.querySelector('#messageList').append(chip);`);
+  // Let ConversationReading observe the new layout first; a scroll in the same
+  // tick as the insertion is treated as layout and restored to the reading anchor.
+  await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))`);
+  await evaluate(`(()=>{const chip=document.querySelector('#qa-page-source');chip.scrollIntoView({block:'center',behavior:'instant'});chip.focus();return true;})()`);
   assert.equal(await hidden(),false);
   await evaluate(`document.querySelector('#sourcePeek button').click()`);
   await until(()=>evaluate(`(()=>{const image=document.querySelector('.pdf-sheet img');return document.querySelector('[data-pdf-page]')?.value==='2'&&image?.complete&&image.naturalWidth>0;})()`),'source PDF page 2');
@@ -99,4 +105,4 @@ const watchdog=setTimeout(()=>{win?.destroy();server?.kill();app.exit(1)},90000)
   await evaluate(`(()=>{const chip=document.querySelector('#qa-guarded');delete chip.dataset.citationRun;delete chip.dataset.citationSource;chip.dataset.openNote='guard-note';__peekAccess.projects[0].deletedAt=1;SourcePeek.show(chip)})()`);assert.equal(await hidden(),true);await evaluate(`delete __peekAccess.projects[0].deletedAt;SourcePeek.show(document.querySelector('#qa-guarded'))`);assert.equal(await hidden(),false);await evaluate(`__peekAccess.notes[0].private=true;document.body.append(document.createElement('span'))`);await until(hidden,'DOM state change clears private legacy source');assert.equal(await evaluate(`document.querySelector('#sourcePeek').textContent`),'');
  });
  const report={checks,passed:checks.length,failures,modelCalls:0,rendererErrors,workspace:TEMP};fs.writeFileSync(path.join(OUT,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));clearTimeout(watchdog);win.destroy();server.kill();app.exit(failures.length?1:0);
-})().catch(e=>{console.error(e);clearTimeout(watchdog);win?.destroy();server?.kill();app.exit(1)});
+})().catch(e=>{console.error(e);clearTimeout(watchdog);if(win&&!win.isDestroyed()&&win.webContents.debugger.isAttached())win.webContents.debugger.detach();win?.destroy();server?.kill();app.exit(1)});

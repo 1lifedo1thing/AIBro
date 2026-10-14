@@ -18,7 +18,7 @@ const timeout=setTimeout(()=>{win?.destroy();server?.kill();app.exit(1);},120000
  await win.loadURL(origin);await until(()=>e('typeof storageHydrated!=="undefined"&&storageHydrated'),'hydrated');
  await e(`WorkstationOnboarding.close();state.ui.onboarding={version:WorkstationOnboarding.VERSION,status:'skipped'};`+fs.readFileSync(path.join(ROOT,'tests/fixtures/agent-workbench.js'),'utf8'));
  assert(await e(`!!document.querySelector('[data-halaska-root="ReviewChangeCard"]')`));
- await click('.file-change-row:nth-child(2)');await until(()=>e(`!!document.querySelector('[data-halaska-root="ReviewHeading"]')`),'Kit heading');
+ await click('.file-change-row:nth-child(2) button[aria-label^="审阅修改"]');await until(()=>e(`!!document.querySelector('[data-halaska-root="ReviewHeading"]')`),'Kit heading');
  assert.equal(await e(`document.querySelector('[data-review-file][aria-pressed=true]').dataset.reviewFile`),'ui-notes');
  assert(await e(`['ReviewSummary','ReviewHeading','ReviewModeControl','ReviewDiffTools','ReviewActions'].every(name=>document.querySelector('[data-halaska-root="'+name+'"]'))`));
  checks.push('real conversation output card opens the selected snapshot with five distinct Kit surfaces');

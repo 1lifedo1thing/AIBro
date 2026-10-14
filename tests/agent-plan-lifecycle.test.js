@@ -281,8 +281,8 @@ function sendHarness(responses) {
     papers: [], imports: [], links: [], trash: [], agentRuns: [], conversations: [{id: 'conversation', title: 'Fixture', workspace: '日常', projectId: 'project', messages: [], attachments: []}],
     currentConversationId: 'conversation', settings: {permissions: {'日常': 'auto'}}};
   const models = {configuration: () => ({provider: 'api', model: 'fixture-model', effort: 'medium'}), resolve: async value => value};
-  const context = vm.createContext({structuredClone, state, Core, KnowledgeAccess, AttachmentContext, AttachmentDelivery, AttachmentAnalysis,
-    $: element, window: {ConversationModels: models, AttachmentAnalysis, ApprovalIntent, TaskWorkflow, KnowledgeAccess, RunOutcomePresentation, AgentTransport: Transport}, ConversationModels: models,
+  const context = vm.createContext({apiProfiles:null,structuredClone, state, Core, KnowledgeAccess, AttachmentContext, AttachmentDelivery, AttachmentAnalysis,
+    $: element, window: {ConversationModels: models, AttachmentAnalysis, ApprovalIntent, TaskWorkflow, KnowledgeAccess, ReadTools: require('../app/read-tools'), RunOutcomePresentation, AgentTransport: Transport}, ConversationModels: models,
     localStorage: {getItem: () => ''}, document: {createElement: () => element('holder')}, AbortController, URL, setTimeout, clearTimeout,
     uid: prefix => prefix + '-' + ++serial, workspaceName: value => value || '日常', classifyWorkspace: () => '日常', currentConversation: () => state.conversations.find(item => item.id === state.currentConversationId),
     currentAttachments: () => [], projectIsActive: id => state.projects.some(project => project.id === id && !project.archived),
@@ -301,7 +301,7 @@ function sendHarness(responses) {
     section('function activeResultRecord(', '\nfunction conversationProjectIds('),
     section('function dedupeResultEntries(', '\nfunction groupedEntities('),
     section('function commitAttachmentAnalysis(', '\nfunction executeActions('),
-    section('function executeActions(', '\nfunction fallbackWorkflow('),
+    section('function executeActions(', '\nfunction actionsNeedApproval('),
     section('function actionsNeedApproval(', '\nfunction actionSummary('),
     assertActiveSource, section('function apiOrigin(', '\nfunction renderSettings('), requestSource,
     section('async function sendMessage(', '\n\nfunction formatBytes('),

@@ -112,6 +112,10 @@
     && !['model_not_found', 'insufficient_quota', 'rate_limit_exceeded'].includes(failure?.code)
     && !/(?:model[^.]{0,80}(?:does not exist|not found|not available))/i.test(message);
   error.diagnostic = root.RunFailureDiagnostics?.fromHttp(response.status, failure, { context: error.code === 'CONTEXT_LENGTH_EXCEEDED', protocolMismatch: error.protocolMismatch });
+  // Retry-After is either delta-seconds or an HTTP date. Anything else is ignored.
+  const retryAfter = String(response.headers?.get?.('retry-after') || '').trim();
+  if (/^\d{1,6}$/.test(retryAfter)) error.retryAfterMs = Number(retryAfter) * 1000;
+  else if (retryAfter && /^[A-Za-z]{3},/.test(retryAfter) && Number.isFinite(Date.parse(retryAfter))) error.retryAfterMs = Math.max(0, Date.parse(retryAfter) - Date.now());
   // Provider error bodies can echo credentials or input. Only fixed guidance
   // and whitelisted evidence are allowed into persisted conversation errors.
   if (error.diagnostic) error.message = root.RunFailureDiagnostics.present(error.diagnostic).description;
@@ -179,8 +183,20 @@
       return { role, content: textOnly ? converted.map(part => part.text).join('\n') : converted };
     });
   }
+  // Resolved per call: agent-retry.js may load after this file, and isolated
+  // test contexts without it keep the original single-attempt behaviour.
+  const retryModule = () => root.AgentRetry || (typeof require === 'function' ? require('./agent-retry.js') : null);
+  // One logical request: resend only a transient failure that showed nothing.
+  function attemptOnce(options) {
+    const Retry = retryModule();
+    if (!Retry?.run) return requestOnce(options);
+    return Retry.run(() => requestOnce(options), { signal: options.signal, onRetry: info => {
+      const seconds = Math.max(1, Math.round(info.delayMs / 1000)), status = info.httpStatus ? `（HTTP ${info.httpStatus}）` : '';
+      options.onActivity?.({ id: `commentary:${nextActivityNamespace()}:retry-${info.retry}`, source: 'transport', ...(info.error?.attemptId ? { attemptId: info.error.attemptId } : {}), kind: 'commentary', status: 'completed', name: '自动重试', text: `服务暂时没有返回内容${status}，${seconds} 秒后自动重试（第 ${info.retry}/${info.maxRetries} 次）。尚未收到任何内容，不会重复已显示的输出。` });
+    } });
+  }
   async function requestPlan(options) {
-    try { return await requestOnce(options); }
+    try { return await attemptOnce(options); }
     catch (error) {
       if (error?.code !== 'CONTEXT_LENGTH_EXCEEDED' || !error.contextRecoveryAllowed || typeof options.recoverInput !== 'function' || options.signal?.aborted) throw error;
       // The owner knows which derived history can be reduced. Never guess by
@@ -199,7 +215,7 @@
       options.onActivity?.({ id: `commentary:${nextActivityNamespace()}:context-recovery`, source: 'transport', ...(error.attemptId ? { attemptId: error.attemptId } : {}), kind: 'commentary', status: 'completed', name: '上下文恢复', text: '服务报告上下文过长，已缩减较早对话并重试一次；近期用户要求与已执行记录保留。' });
       // This is one model request, not a replay of the host tool loop. Do not
       // recurse: another overflow terminates, as does any other provider error.
-      try { return await requestOnce({ ...options, input, protocol: error.requestProtocol || options.protocol }); }
+      try { return await attemptOnce({ ...options, input, protocol: error.requestProtocol || options.protocol }); }
       catch (retryError) {
         if (retryError?.code === 'CONTEXT_LENGTH_EXCEEDED') {
           retryError.message += '\n已缩减较早对话并重试一次，服务仍报告上下文过长；当前目标、附件和已执行记录未被静默删减。';
@@ -495,9 +511,9 @@
           if (choice && ['length','content_filter','error'].includes(choice.finish_reason)) { const error = new Error('模型生成被截断或未完成，本次未执行操作。请检查服务返回的完成状态后重试。'); error.code = 'STREAM_ERROR'; error.diagnostic = root.RunFailureDiagnostics?.fromStream(null, choice.finish_reason === 'length' ? 'max_output_tokens' : choice.finish_reason); throw error; }
           if (choice?.delta?.tool_calls?.length || choice?.message?.tool_calls?.length || choice?.delta?.function_call || choice?.message?.function_call || ['tool_calls', 'function_call'].includes(choice?.finish_reason)) pendingNativeToolCall = true;
           const delta = choice?.delta?.content ?? choice?.text;
-          // 明文思考（DeepSeek 等经 reasoning_content 返回）：独立成“深度思考”段进入
-          // 进度流，与工具、正文分层；正文或工具一开始就收束该段——段级呼吸据此在
-          // 思考完成后自动折叠，并保留随时点开回看。思考内容不进正文（不混流）。
+          // 明文思考（DeepSeek 等经 reasoning_content 返回）：独立成“模型思考”段进入
+          // 进度流，与工具、正文分层；正文或工具一开始就结束该段。该段默认收起，
+          // 摘要行实时显示最新一行，可随时点开回看。思考内容不进正文（不混流）。
           const thinking = [choice?.delta?.reasoning_content, choice?.delta?.reasoning, choice?.message?.reasoning_content].find(value => typeof value === 'string' && value) || '';
           if (thinking) {
             if (!chatThinkingOpen) { chatThinkingOpen = true; chatThinkingIndex += 1; }
@@ -550,11 +566,14 @@
       if (!completed) { const error = new Error('连接已结束，但未收到模型的明确完成事件。本次结果可能不完整，未执行任何操作。请重试或检查 API 的流协议兼容性。'); error.code = 'STREAM_INCOMPLETE'; throw error; }
       if (pendingNativeToolCall) throw nativeProtocolError();
       const protocolFailure = protocolError([...outputParts.values()].join('') || output); if (protocolFailure) throw protocolFailure;
-      if (!output.trim()) throw new Error('模型未返回内容，请检查账号和模型后重试。'); receptionOutcome = 'completed'; return output;
+      if (!output.trim()) throw Object.assign(new Error('模型未返回内容，请检查账号和模型后重试。'), { code: 'EMPTY_RESPONSE' }); receptionOutcome = 'completed'; return output;
     } catch (error) {
       receptionOutcome = controller.signal.aborted || error?.name === 'AbortError' || error?.code === 'CANCELLED' ? 'cancelled' : 'failed';
       if (controller.signal.aborted || error?.name === 'AbortError') throw Object.assign(interruptionError(), attemptId ? { attemptId } : {});
       if (attemptId) error.attemptId = attemptId;
+      // Anything already shown (text, reasoning, sources) makes a resend visible
+      // as duplicated output, so only a request with no content may be retried.
+      if (error && typeof error === 'object') error.receivedContent = receivedContent;
       if (error?.code === 'CONTEXT_LENGTH_EXCEEDED') { error.contextRecoveryAllowed = !receivedContent && !error.contextHasGeneration; error.requestProtocol = usedProtocol; }
       const diagnostic = root.RunFailureDiagnostics?.capture(error)
         || (error?.name === 'TypeError' && response ? root.RunFailureDiagnostics?.receipt('UPSTREAM_STREAM_INTERRUPTED', { phase: 'stream' }) : null);

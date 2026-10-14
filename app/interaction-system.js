@@ -30,8 +30,20 @@
    [...footer.children].forEach(node=>extras.append(node));footer.append(primary,extras);
    const closeMore=restore=>{if(extras.hidden)return;extras.hidden=true;more.setAttribute('aria-expanded','false');if(restore)more.focus();};
    on(more,'click',()=>{extras.hidden=!extras.hidden;more.setAttribute('aria-expanded',String(!extras.hidden));if(!extras.hidden)extras.querySelector('button')?.focus();});
-   on(doc,'pointerdown',e=>{if(!extras.contains(e.target)&&!more.contains(e.target))closeMore(false);});
-   on(doc,'keydown',e=>{if(e.key==='Escape'&&!extras.hidden){e.preventDefault();closeMore(true);}});
+   // A tool's popup can live outside the menu (the polish settings popover is
+   // appended to <body>). Presses inside a popup a menu control owns are inside.
+   const ownsPopup=target=>[...extras.querySelectorAll('[aria-controls]')].some(control=>doc.getElementById(control.getAttribute('aria-controls'))?.contains(target));
+   on(doc,'pointerdown',e=>{if(!extras.contains(e.target)&&!more.contains(e.target)&&!ownsPopup(e.target))closeMore(false);});
+   // One Escape closes one layer: a layer above the menu that already took it
+   // (a source preview, a tool's popup) leaves the menu open. Focus returns to
+   // More only from inside the menu, so Escape never pulls it out of the input.
+   const inMenu=node=>!!node&&(extras.contains(node)||more.contains(node)||ownsPopup(node));
+   on(doc,'keydown',e=>{if(e.key==='Escape'&&!e.defaultPrevented&&!e.isComposing&&e.keyCode!==229&&!extras.hidden){e.preventDefault();closeMore(inMenu(doc.activeElement));}});
+   // Keyboard focus leaving the menu closes it, like an outside press, so the
+   // menu never stays open behind the control that now owns Escape (the slash
+   // skill picker in the input). Focus with no new owner (a re-rendered tool,
+   // another window) keeps it open.
+   on(doc,'focusout',e=>{if(!extras.hidden&&e.relatedTarget&&!inMenu(e.relatedTarget))closeMore(false);});
    on(extras,'click',e=>{if(e.target.closest('#composerContextWorkbench,#composerPermission,#composerLocal,#composerSkill'))closeMore(false);});
   }
   function indicators(){
@@ -68,7 +80,7 @@
    animation.onfinish=()=>{details.open=opening;details.style.height='';details.style.overflow='';animations.delete(details);delete details._interactionDesiredOpen;schedule();};
    animation.oncancel=()=>{details.style.height='';details.style.overflow='';};
   });
-  on(doc,'keydown',event=>{if(event.key==='Escape'){const menu=doc.querySelector('.message-action-menu[open]');if(menu){menu.open=false;menu.querySelector('summary')?.focus();event.preventDefault();}}});
+  on(doc,'keydown',event=>{if(event.key==='Escape'&&!event.defaultPrevented){const menu=doc.querySelector('.message-action-menu[open]');if(menu){menu.open=false;menu.querySelector('summary')?.focus();event.preventDefault();}}});
   const observer=new MutationObserver(schedule);observer.observe(doc.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','aria-selected','aria-pressed','aria-checked','hidden','open']});disposers.push(()=>observer.disconnect());
   if(root.ResizeObserver){const resize=new ResizeObserver(schedule);[list,composer,q('#readingPane'),q('.main')].filter(Boolean).forEach(n=>resize.observe(n));disposers.push(()=>resize.disconnect());}
   on(list,'scroll',schedule,{passive:true});on(root,'resize',schedule);on(doc,'scroll',schedule,true);doc.body.classList.add('interaction-system-ready');refresh();

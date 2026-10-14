@@ -28,8 +28,10 @@ async function run(){
  await until(()=>evaluate('__qaRound>0'),'mock transport started');
  const messageId=await evaluate(`currentConversation().messages.at(-1).id`),scope=`[data-message-id="${messageId}"]`;
  const inject=async events=>{await evaluate(`(()=>{const o=__qaTransport.options;${events}})()`);await wait(180);};
- const openOf=key=>evaluate(`(()=>{const n=document.querySelector(${JSON.stringify(scope)}+' [data-progress-key="'+${JSON.stringify(key)}+'"]');return n?n.open:null})()`);
- const clickSummary=key=>evaluate(`document.querySelector(${JSON.stringify(scope)}+' [data-progress-key="'+${JSON.stringify(key)}+'"] > summary').click()`);
+ // 连续过程（ConversationFlow v1）：思考段 progressKey=ConversationProcess.flowKey 复合键；工具段是账本行 data-tool-id=provider:main:<id>，开合记在 run.toolLedgerPins。
+ const flowKey=id=>'flow:'+JSON.stringify(['reasoning',null,null,id]),node=key=>key==='feed'?`${scope} .agent-progress`:key.startsWith('tool-')?`${scope} .tool-ledger-row[data-tool-id="provider:main:${key}"]`:`${scope} [data-progress-key='${flowKey(key)}']`;
+ const openOf=key=>evaluate(`(()=>{const n=document.querySelector(${JSON.stringify(node(key))});return n?n.open:null})()`);
+ const clickSummary=key=>evaluate(`document.querySelector(${JSON.stringify(node(key)+' > summary')}).click()`);
  await step('构造完整一轮（含思考摘要与工具段）并完成',async()=>{
   await inject(`o.onActivity({kind:'summary',id:'seg-1',status:'running',text:'先核对公开资料。'});o.onActivity({kind:'tool',id:'tool-1',status:'running',name:'读取原始资料',text:'定位第 3 页'});`);
   await inject(`o.onActivity({kind:'summary',id:'seg-1',status:'completed',text:'第一步已完成。'});o.onActivity({kind:'tool',id:'tool-1',status:'completed',name:'读取原始资料',text:'第 3 页已读取，共 12 段'});o.onActivity({kind:'summary',id:'seg-2',status:'running',text:'第二步：汇总结论。'});`);
@@ -42,7 +44,8 @@ async function run(){
   await clickSummary('feed');await wait(200);
   assert.equal(await evaluate(`document.querySelector(${JSON.stringify(scope+' .agent-progress')}).open`),true,'终态点击应能重新展开过程总览');
   // 诊断：列出全部条目的构成（id / kind / 是否可展开 / 文本），用于确认哪些行可回看
-  const items=await evaluate(`JSON.stringify([...document.querySelectorAll(${JSON.stringify(scope+' .agent-progress .progress-item')})].map(li=>{const d=li.querySelector('details[data-progress-key]');return{id:li.dataset.activityId,expandable:!!d,bodyChars:d?(d.querySelector('.progress-item-body')?.textContent||'').trim().length:0,label:(li.querySelector('summary')||li).textContent.trim().slice(0,32)};}),null,1)`);
+  // 过程行（思考/工具）在 .conversation-flow 中；固定阶段只作状态记录，收在“阶段记录”诊断里。
+  const items=await evaluate(`JSON.stringify([...document.querySelectorAll(${JSON.stringify(scope+' .agent-progress .conversation-flow > .conversation-flow-item, '+scope+' .agent-progress .conversation-flow-stages > li')})].map(li=>{const d=li.querySelector('details.conversation-flow-reasoning-details,details.tool-ledger-row');const body=!d?'':d.matches('.tool-ledger-row')?[...d.children].filter(n=>n.nodeName!=='SUMMARY'&&!n.matches('.tool-ledger-raw')).map(n=>n.textContent).join(''):d.querySelector(':scope > .conversation-flow-text')?.textContent||'';const id=li.dataset.flowKind==='reasoning'?JSON.parse(li.dataset.flowId)[3]:d?.dataset.toolId?.replace(/^provider:main:/,'')||'stage:'+li.textContent.trim();return{id,expandable:!!d,bodyChars:body.trim().length,label:(li.querySelector('summary')||li).textContent.trim().slice(0,32)};}),null,1)`);
   console.log('ITEMS',items);
   const listed=JSON.parse(items);
   for(const id of ['seg-1','tool-1','seg-2'])assert.ok(listed.some(item=>item.id===id&&item.expandable),`段 ${id} 应作为可展开条目出现`);
@@ -55,19 +58,25 @@ async function run(){
   assert.equal(await openOf('seg-1'),false,'未固定过的段终态收束');
   await clickSummary('seg-1');await wait(200);
   assert.equal(await openOf('seg-1'),true,'终态点击段标题应能展开');
-  const body=await evaluate(`(()=>{const d=document.querySelector(${JSON.stringify(scope)}+' [data-progress-key="seg-1"]');return d.querySelector('.progress-item-body')?.textContent||''})()`);
-  assert.ok(body.trim().length>0,'展开后应能看到段的详情正文');
+  const body=await evaluate(`(()=>{const d=document.querySelector(${JSON.stringify(node('seg-1'))});return d.querySelector(':scope > .conversation-flow-text')?.textContent||''})()`);
+  assert.ok(body.includes('第一步已完成'),'展开后应能看到段的详情正文');
+  assert.equal(await openOf('tool-1'),false,'未固定过的工具段终态收束');
   await clickSummary('tool-1');await wait(200);
   assert.equal(await openOf('tool-1'),true,'工具段同样可展开回看');
+  assert.match(await evaluate(`document.querySelector(${JSON.stringify(node('tool-1'))}).textContent`),/第 3 页已读取，共 12 段/,'工具段结果正文可回看');
  });
  await step('终态展开状态随消息持久化（重载后仍可回看）',async()=>{
   await evaluate('save();flushWorkspace()');await until(()=>evaluate('!serverSaveInFlight&&!serverSaveQueued&&!state._pendingLocalSave'),'persist');
   const pins=await evaluate(`JSON.stringify(currentConversation().messages.at(-1).progressPins||null)`);
-  assert.equal(pins,'{"feed":true,"seg-1":true,"tool-1":true}','终态下的开合选择进入 progressPins');
+  assert.equal(pins,JSON.stringify({feed:true,[flowKey('seg-1')]:true}),'终态下的开合选择进入 progressPins');
+  assert.equal(await evaluate(`JSON.stringify(state.agentRuns.at(-1).toolLedgerPins||null)`),'{"provider:main:tool-1":true}','工具段的终态开合选择进入 run.toolLedgerPins');
+  assert.equal(await evaluate(`JSON.stringify(currentConversation().messages.at(-1).conversationFlow.items.map(i=>[i.kind,i.status]))`),'[["reasoning","completed"],["tool","completed"],["reasoning","completed"]]','连续过程记录随终态保存');
   const activities=await evaluate(`JSON.stringify((currentConversation().messages.at(-1).activities||[]).map(a=>a.id))`);
   assert.equal(activities,'["seg-1","tool-1","seg-2"]','活动明细不因终态保存被裁剪');
   await evaluate('renderAll()');await wait(200);
   assert.equal(await openOf('seg-1'),true,'重渲染后展开状态保持');
+  assert.equal(await openOf('tool-1'),true,'重渲染后工具段展开状态保持');
+  assert.ok((await evaluate(`document.querySelector(${JSON.stringify(node('seg-1'))}).querySelector(':scope > .conversation-flow-text')?.textContent||''`)).includes('第一步已完成'),'重渲染后思考详情仍可回看');
  });
  await step('终态回看不引入新增渲染器错误',async()=>{
   const introduced=errors.filter(message=>!bootErrors.includes(message)&&!/covered/.test(message));

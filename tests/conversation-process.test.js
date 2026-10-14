@@ -172,3 +172,15 @@ test('stage-only histories default to actual tool receipts without erasing the s
   Process.compose(value.wrapper,withReasoning,value.run);
   assert.equal(panel(value.wrapper,'progress').querySelector('.conversation-reasoning-note'),null);
 });
+
+test('ledger labels separate unknown, not-started and ordinary interrupted reads', () => {
+  const title = call => ToolScheduler.card({ toolCalls: [call], status: 'interrupted' }, { embedded: true }).children[0].children[0].textContent;
+  const unknown = { id: 'cmd', type: 'terminal', status: 'interrupted', outcome: 'unknown', request: { type: 'terminal' } };
+  const notStarted = { id: 'later', type: 'terminal', status: 'cancelled', outcome: 'not-started', request: { type: 'terminal' } };
+  const legacy = { id: 'old', type: 'terminal', status: 'interrupted', request: { type: 'terminal' } };
+  const read = { ...tool('read'), status: 'interrupted' };
+  assert.match(title(unknown), /结果未知/); assert.match(title(legacy), /结果未知/, 'an acting record saved before outcomes existed');
+  assert.match(title(notStarted), /未执行/); assert.doesNotMatch(title(notStarted), /结果未知/);
+  assert.match(title(read), /已中断/); assert.doesNotMatch(title(read), /结果未知/);
+  assert.equal(ToolScheduler.issueCount({ toolCalls: [unknown, notStarted, legacy, read] }), 3, 'not-started is not an issue');
+});

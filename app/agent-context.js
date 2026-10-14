@@ -3,6 +3,8 @@
  'use strict';
  const agendaInstructions="日程查询与修改协议：日程不是任务。先用 knowledgeRequests:[{type:\"agenda_list\",query:\"短标题或关键词\",offset:0,limit:20}] 查询当前原生日程；task_list/search/history_search 的阴性结果不能证明日程不存在。agenda_list 不带日期查日程系列，from/to 需成对提供，可直接使用带 Z 或 ±HH:mm 时区的 ISO 8601 日期时间（如 2026-10-04T00:00:00+08:00）或毫秒时间戳，无需自行换算；结束晚于开始、最多366天，返回真实日程出现时间；nextOffset 非空继续分页。再用 {type:\"agenda_read\",eventId:\"真实eventId\",expectedVersion:\"列表返回version可选\"} 读取完整日程。错误/deferred 不是空结果，不能声称不存在。只覆盖返回的 scope。创建继续既有 agendaProposals 格式。更新/删除只输出 agendaProposals，不写 actions，不 update_note/delete_note 日程镜像。格式 {operation:\"update|delete\",eventId:\"本轮agenda_read的ID\",expectedVersion:\"该次完整version\",sourceMessageId:\"当前用户消息ID\",quote:\"当前用户准确原话\",scope:\"single|series\",patch:{title,start,end,timeZone,allDay,location,details,reminderMinutes}}。start/end 是毫秒时间戳；patch 仅含要改的字段；delete 不带 patch，必须是本轮明确删除/取消请求。不改项目或重复规则，不从历史/任务猜ID。重复事件只有用户明确要求整个系列时用 series；单次重复修改本批不支持，不得替换成整组删除。提案是待审阅，原生持久回执 committed 前不得宣称已创建/更新/删除。";
  const Assignment=typeof module==='object'&&module.exports?require('./record-assignment'):globalThis.RecordAssignment;
+ // Loaded after this file in index.html, so resolve it when history is built.
+ const Scheduler=()=>typeof module==='object'&&module.exports?require('./tool-scheduler'):globalThis.ToolScheduler;
  const list=x=>Array.isArray(x)?x:[],active=m=>m&&!m.live&&!m.deletedAt&&!m.retryRunId;
  const definitions={projects:'查找项目、将指定项目及其所属内容移入可恢复回收站',tasks:'查找、创建、更新、完成和删除任务与提醒，调整已有任务归属',knowledge:'整理附件、归档、创建与更新笔记、调整既有笔记归属、删除重复附件',research:'分析论文、科研 Wiki 和研究工作流',files:'本机文件、Office 修改提案、终端和复杂研究工具',agenda:'查询和读取真实日程；创建、修改与删除提案，由用户审阅保存',memory:'项目记忆草稿'};
  const markdownOutput='Markdown 文档输出（仅创建或更新 Markdown 正文时）：用标准 Markdown 表达；尖括号字面量、特殊 token、命令、路径及代码用行内代码或代码围栏，如 `<BOS>`、`p(Cher|<BOS>)=0`，不要写成裸 HTML 标签。数学公式用 $...$，块级公式用独占行的 $$ 围住公式；代码字面量不冒充数学。已有真实 HTML、脚注等结构应原样保留，不为可视编辑而删除、改义或整体转义。仅回答问题时不要因此创建或重写文档。';
@@ -18,9 +20,11 @@
   // 机械锚点与模型摘要互补：摘要负责语义取舍，锚点保证“不漏”——路径、网址、错误串、编号与本应用 ID 逐字保留来源。
   const anchorBudget=Math.max(300,Math.min(2400,Math.floor(maxTokens*.5)));
   const anchors=A&&A.extract?boundedRows(A.extract(messages,{limit:60,maxChars:anchorBudget}),Math.floor(maxTokens*.25)):[];
-  const candidates=list(state.agentRuns).filter(r=>r.conversationId===conversation.id&&!r.deletedAt&&r.status!=='running').reverse().map(r=>({runId:r.id,status:r.status,goal:String(r.goal||'').slice(0,200),results:list(r.results).slice(0,8).map(x=>({type:x.type,id:x.id,text:String(x.text||'').slice(0,100)})),omittedResults:Math.max(0,list(r.results).length-8),error:r.error?String(r.error).slice(0,200):null,readResults:r.contextCheckpoint?.ledger?.length||0}));
+  const unconfirmed=r=>list(Scheduler()?.unconfirmed?.(r)).slice(0,5).map(c=>({type:c.type,request:JSON.stringify(c.request||{}).slice(0,160)}));
+  const candidates=list(state.agentRuns).filter(r=>r.conversationId===conversation.id&&!r.deletedAt&&r.status!=='running').reverse().map(r=>{const unknown=unconfirmed(r);return {runId:r.id,status:r.status,goal:String(r.goal||'').slice(0,200),results:list(r.results).slice(0,8).map(x=>({type:x.type,id:x.id,text:String(x.text||'').slice(0,100)})),omittedResults:Math.max(0,list(r.results).length-8),error:r.error?String(r.error).slice(0,200):null,readResults:r.contextCheckpoint?.ledger?.length||0,...(unknown.length?{unconfirmedTools:unknown}:{})};});
   const operations=boundedRows(candidates,Math.floor(maxTokens*.2));
   const envelope={sourceLinkedSummary:summary,summaryNotice:'摘录不是完整历史；助手原话不是已验证事实，以用户最新消息为准。',sourceLinkedAnchors:anchors.length&&A?{notice:A.NOTICE,items:anchors}:[],messages:[],omittedMessages:messages.length,operations,historyAccess:'history_search 查当前对话；history_read(messageId,offset) 读原文；evidence_log(runId,offset) 查读取记录。省略不等于不存在。'};
+  if(operations.some(o=>o.unconfirmedTools))envelope.unconfirmedNotice='unconfirmedTools 是已发出但未收到结果的工具，可能已经产生效果。先核对实际状态（如读取文件、查看命令记录），再决定是否需要再次执行；不要直接重复。';
   const metadataBudget=maxTokens-Math.min(800,Math.max(220,Math.floor(maxTokens*.35)));
   while(W.tokens(envelope)>metadataBudget&&(operations.length||summary.length||anchors.length)){
    if(operations.length)operations.pop();else if(summary.length)summary.pop();else anchors.pop();

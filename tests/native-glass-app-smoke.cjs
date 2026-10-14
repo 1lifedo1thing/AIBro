@@ -55,27 +55,43 @@ async function run(){
     }
     return {samples:samples.length,minimumAlpha:Math.min(...samples)};
   }
+  // Since 0fa5a1b (docs/GLASS_MATERIAL.md) native NSGlassEffectView owns navigation only: the sidebar and
+  // conversation navigator. Top bar, composer and reader controls use DOM/CSS materials and are never native holes.
+  async function navigation(){
+    const value=await evaluate('(()=>{const marked=[...document.querySelectorAll("[data-native-glass-region]")].map(e=>e.getAttribute("data-native-glass-region"));return{marked,regions:NativeGlassUI.init().status().regions,content:!!document.querySelector(":is(.topbar,#composer,.reading-pane) [data-native-glass-region],:is(.topbar,#composer)[data-native-glass-region]")}})()');
+    assert.ok(value.marked.includes('sidebar'),'sidebar is native material');assert.ok(value.marked.every(id=>['sidebar','navigator'].includes(id)),'native material belongs to navigation only');
+    assert.equal(value.regions,new Set(value.marked).size);assert.equal(value.content,false);return value;
+  }
+  // DOM labels over native material need their own scrims: they lack AppKit vibrancy.
   async function checkScrim(){
-    const actual=await evaluate('(()=>{const e=document.querySelector(".topbar"),p=getComputedStyle(e,"::before"),q=getComputedStyle(e,"::after"),r=e.getBoundingClientRect();return{content:p.content,display:p.display,position:p.position,width:parseFloat(p.width),height:parseFloat(p.height),hostWidth:r.width,hostHeight:r.height,background:p.backgroundColor,overlay:{content:q.content,display:q.display,position:q.position,width:parseFloat(q.width),height:parseFloat(q.height),background:q.backgroundColor,mask:q.maskImage},colors:["text","muted","faint"].map(name=>{const span=document.createElement("span");span.style.color="var(--"+name+")";e.append(span);const color=getComputedStyle(span).color;span.remove();return color})}})()');
-    assert.notEqual(actual.content,'none');assert.notEqual(actual.display,'none');assert.equal(actual.position,'absolute');
-    assert.ok(actual.width>=actual.hostWidth-12&&actual.height>=actual.hostHeight-12,'scrim must cover the actual header text area');
-    assert.notEqual(actual.overlay.content,'none');assert.notEqual(actual.overlay.display,'none');assert.equal(actual.overlay.position,'absolute');
-    assert.ok(actual.overlay.width>=actual.hostWidth-12&&actual.overlay.height>=actual.hostHeight-12);assert.match(actual.overlay.mask,/linear-gradient/);
-    const rgba=value=>value.match(/[\d.]+/g).map(Number),bg=rgba(actual.background),overlay=rgba(actual.overlay.background),alpha=bg[3]??1,overlayAlpha=overlay[3]??1;
-    const luminance=rgb=>rgb.map(v=>{const c=v/255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
-    const ratios=[];
-    for(const background of [0,255])for(const color of actual.colors){const base=bg.slice(0,3).map((v,i)=>overlay[i]*overlayAlpha+(v*alpha+background*(1-alpha))*(1-overlayAlpha)),fg=rgba(color),visible=fg.slice(0,3).map((v,i)=>v*(fg[3]??1)+base[i]*(1-(fg[3]??1)));const a=luminance(base),b=luminance(visible);ratios.push((Math.max(a,b)+.05)/(Math.min(a,b)+.05));}
-    assert.ok(Math.min(...ratios)>=4.5,'header text must contrast with its scrim over both black and white native backdrops');
-    return {background:actual.background,contentBackground:actual.overlay.background,minimumContrast:Math.min(...ratios)};
+    const regions=await evaluate('(()=>{const{regions}=NativeGlassUI.collectRegions(document);return[...document.querySelectorAll("[data-native-glass-region]")].map(e=>{const id=e.getAttribute("data-native-glass-region"),region=regions.find(r=>r.id===id),b=e.getBoundingClientRect(),pad={x:b.left+e.clientLeft,y:b.top+e.clientTop,width:e.clientWidth,height:e.clientHeight},p=getComputedStyle(e,"::before"),q=getComputedStyle(e,"::after");return{id,region,pad,content:p.content,display:p.display,position:p.position,width:parseFloat(p.width),height:parseFloat(p.height),background:p.backgroundColor,overlay:{content:q.content,display:q.display,position:q.position,width:parseFloat(q.width),height:parseFloat(q.height),background:q.backgroundColor,mask:q.maskImage},colors:["text","muted","faint"].map(name=>{const span=document.createElement("span");span.style.color="var(--"+name+")";e.append(span);const color=getComputedStyle(span).color;span.remove();return color})}})})()');
+    assert.ok(regions.length>=1);const result=[];
+    for(const actual of regions){
+      assert.ok(actual.region,'marked element has a native region');
+      // Text lives in the padding box; where it overlaps native material, the scrim must cover it.
+      const r=actual.region,q=actual.pad,text={width:Math.min(r.x+r.width,q.x+q.width)-Math.max(r.x,q.x),height:Math.min(r.y+r.height,q.y+q.height)-Math.max(r.y,q.y)};
+      assert.notEqual(actual.content,'none');assert.notEqual(actual.display,'none');assert.equal(actual.position,'absolute');
+      assert.ok(actual.width>=text.width-1&&actual.height>=text.height-1,'scrim must cover the native region behind '+actual.id+' text');
+      assert.notEqual(actual.overlay.content,'none');assert.notEqual(actual.overlay.display,'none');assert.equal(actual.overlay.position,'absolute');
+      assert.ok(actual.overlay.width>=text.width-1&&actual.overlay.height>=text.height-1);assert.match(actual.overlay.mask,/linear-gradient/);
+      const rgba=value=>value.match(/[\d.]+/g).map(Number),bg=rgba(actual.background),overlay=rgba(actual.overlay.background),alpha=bg[3]??1,overlayAlpha=overlay[3]??1;
+      const luminance=rgb=>rgb.map(v=>{const c=v/255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
+      const ratios=[];
+      for(const background of [0,255])for(const color of actual.colors){const base=bg.slice(0,3).map((v,i)=>overlay[i]*overlayAlpha+(v*alpha+background*(1-alpha))*(1-overlayAlpha)),fg=rgba(color),visible=fg.slice(0,3).map((v,i)=>v*(fg[3]??1)+base[i]*(1-(fg[3]??1)));const a=luminance(base),b=luminance(visible);ratios.push((Math.max(a,b)+.05)/(Math.min(a,b)+.05));}
+      assert.ok(Math.min(...ratios)>=4.5,actual.id+' text must contrast with its scrim over both black and white native backdrops');
+      result.push({id:actual.id,background:actual.background,contentBackground:actual.overlay.background,minimumContrast:Math.min(...ratios)});
+    }
+    return result;
   }
   await until(()=>evaluate('typeof storageHydrated!=="undefined"&&storageHydrated'),'isolated hydration');
+  assert.ok(fs.existsSync(path.join(assets,'native-glass.node')),'Native addon missing: run npm run native:build (macOS SDK 26 + Node-API headers) or set AI_BRO_GLASS_DIAGNOSTIC to a built native-glass.node');
   assert.ok(app.getPath('userData').startsWith(appData+path.sep));
   assert.ok(['#00000000','#000000'].includes(win.getBackgroundColor()));
   await evaluate('document.querySelector("#onboardingSkip")?.click();Object.assign(state,{projects:[],tasks:[],imports:[],papers:[],agentRuns:[],trash:[],notes:[{id:"native-qa-note",title:"Synthetic note",content:"# Synthetic document\\n\\nThis is isolated test content.",workspace:"科研"}]});normalizeStateShape(state);repairRelationships();showView("agent","持续对话");renderAll();NativeGlassUI.init();true');
   const checks=[];
   await until(()=>evaluate('NativeGlassUI.init().status().active'),'native activation in full app');
   let status=await evaluate('NativeGlassUI.init().status()');
-  assert.equal(status.supported,true);assert.ok(status.regions>=3&&status.regions<=5);checks.push('real-main-preload-ipc-active');
+  assert.equal(status.supported,true);await navigation();checks.push('real-main-preload-ipc-active');
   const inspect=async()=>{
     const addon=require(path.join(assets,'native-glass.node'));
     return typeof addon.diagnose==='function'?JSON.parse(addon.diagnose()):undefined;
@@ -94,9 +110,9 @@ async function run(){
     console.log(JSON.stringify({theme,view,shell,scrim,...(diagnostics?{diagnostics}:{})}));
     checks.push('theme-'+theme);
   }
-  await evaluate('openNote("native-qa-note");true');await until(()=>evaluate('!document.querySelector("#readingPane").hidden&&NativeGlassUI.init().status().active&&!!document.querySelector("[data-native-glass-region=reader-header]")'),'reading pane glass');
+  await evaluate('openNote("native-qa-note");true');await until(()=>evaluate('!document.querySelector("#readingPane").hidden&&NativeGlassUI.init().status().active'),'reading pane glass');
   const reader=await evaluate('({background:getComputedStyle(document.querySelector("#previewDialog")).backgroundColor,body:document.querySelector(".note-document-preview")?.textContent||document.querySelector("#previewDialog").textContent,regions:NativeGlassUI.init().status().regions})');
-  assert.notEqual(reader.background,'rgba(0, 0, 0, 0)');assert.match(reader.body,/Synthetic document/);assert.ok(reader.regions>=3&&reader.regions<=5);checks.push('opaque-readable-document');
+  assert.notEqual(reader.background,'rgba(0, 0, 0, 0)');assert.match(reader.body,/Synthetic document/);await navigation();checks.push('opaque-readable-document');
   if(process.env.AI_BRO_GLASS_SCREENSHOTS){
     const output=path.resolve(process.env.AI_BRO_GLASS_SCREENSHOTS);fs.mkdirSync(output,{recursive:true});
     const bounds=win.getBounds();backdrop=new BrowserWindow({show:false,frame:false,x:bounds.x-60,y:bounds.y-60,width:bounds.width+120,height:bounds.height+120,backgroundColor:'#ffffff',webPreferences:{sandbox:true,contextIsolation:true,backgroundThrottling:false}});
@@ -120,7 +136,7 @@ async function run(){
   win.setSize(1100,800);await wait(220);await until(()=>evaluate('NativeGlassUI.init().status().active&&!document.querySelector("[data-native-glass-region]")?.hidden'),'resized active');
   assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'),true);checks.push('resize-and-bounds');
   await evaluate('ReadingPane.hide();NativeGlassUI.refresh();true');await wait(220);
-  assert.equal(await evaluate('!!document.querySelector("[data-native-glass-region=reader-header]")'),false);checks.push('closed-reader-removal');
+  await until(()=>evaluate('NativeGlassUI.init().status().active&&document.querySelector("#readingPane").hidden'),'closed reader active');await navigation();checks.push('closed-reader-navigation-only');
   assert.equal(denied.some(route=>/\/(respond|proxy|fetch|connect)$/.test(route)),false,'no model request was attempted');
   const credentials=path.join(app.getPath('userData'),'credentials');
   assert.ok(!fs.existsSync(credentials)||fs.readdirSync(credentials).length===0,'the isolated acceptance must not create any credential record');

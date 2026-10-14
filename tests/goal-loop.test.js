@@ -69,3 +69,48 @@ test('状态与标签如实反映进行中、已达成与已达上限',()=>{
  assert.match(Loop.label({goalLoop:{active:false,stopped:'目标已达成',round:3,limit:5}}),/已结束 · 目标已达成/);
  assert.match(Loop.label({goalLoop:{active:false,stopped:'已达到轮数上限',round:5,limit:5}}),/已达到轮数上限/);
 });
+
+// 宿主钩子与传输均为夹具：不连网、不调模型。
+function host({answer,conversations=[{id:'a',goalLoop:{active:true,goal:'整理资料',round:0,limit:5}},{id:'b'}],onScreen='a'}={}){
+ const state={conversations},toasts=[],continued=[],requests=[];
+ const prev={ConversationModels:globalThis.ConversationModels,AgentTransport:globalThis.AgentTransport};
+ globalThis.ConversationModels={resolve:async()=>({provider:'openai-auth',model:'fixture'})};
+ globalThis.AgentTransport={requestPlan:options=>{requests.push(options);return answer(options);}};
+ Loop.init({getState:()=>state,save(){},render(){},toast:text=>toasts.push(text),getConversation:()=>state.conversations.find(c=>c.id===onScreen),getCurrentModel:()=>({}),continueWith:async(text,id)=>continued.push({text,id})});
+ const restore=()=>{for(const [k,v] of Object.entries(prev)){if(v===undefined)delete globalThis[k];else globalThis[k]=v;}};
+ return {state,toasts,continued,requests,restore};
+}
+const done={status:'completed',conversationId:'a',goal:'整理资料',results:[{type:'note',text:'课程笔记'}]};
+
+test('自证请求带中止信号；停止循环会中止进行中的自证，且不再推进下一轮',async()=>{
+ let release;const h=host({answer:options=>new Promise((resolve,reject)=>{options.signal.addEventListener('abort',()=>reject(Object.assign(Error('已停止本次执行'),{code:'CANCELLED'})));release=resolve;})});
+ try{
+  const pending=Loop.onRoundFinished(done);await new Promise(r=>setImmediate(r));
+  assert.ok(h.requests[0].signal,'自证请求必须可中止');
+  Loop.stop('你已停止','a');assert.equal(h.requests[0].signal.aborted,true);
+  await pending;assert.equal(h.continued.length,0);assert.equal(h.state.conversations[0].goalLoop.stopped,'你已停止');
+  assert.equal(h.toasts.some(t=>/自证没有给出明确结论/.test(t)),false,'被用户停止不是自证失败');
+ }finally{h.restore();}
+});
+
+test('自证请求失败时如实说明原因，而不是只给笼统的“没有结论”',async()=>{
+ const h=host({answer:async()=>{throw Object.assign(Error('请求受到限流'),{code:'HTTP'});}});
+ try{
+  await Loop.onRoundFinished(done);
+  const loop=h.state.conversations[0].goalLoop;
+  assert.equal(loop.active,false);assert.equal(loop.lastVerdict.failed,true);assert.match(loop.lastVerdict.reason,/请求受到限流/);
+  assert.ok(h.toasts.some(t=>/自证没有给出明确结论（请求受到限流）/.test(t)));
+ }finally{h.restore();}
+ const bad=host({answer:async()=>'不是 JSON'});
+ try{await Loop.onRoundFinished(done);assert.match(bad.state.conversations[0].goalLoop.lastVerdict.reason,/不是有效的判定 JSON/);}finally{bad.restore();}
+});
+
+test('自证结论只作用于本轮所属的对话，即使用户已切到另一条对话',async()=>{
+ const h=host({onScreen:'b',answer:async()=>'{"done":true,"reason":"已产出笔记"}'});
+ try{
+  await Loop.onRoundFinished(done);
+  assert.equal(h.state.conversations[0].goalLoop.active,false);assert.equal(h.state.conversations[0].goalLoop.stopped,'目标已达成');
+  assert.equal(h.state.conversations[0].goalLoop.round,1,'轮次记在本轮所属的对话上');
+  assert.equal(h.state.conversations[1].goalLoop,undefined,'屏幕上的另一条对话不受影响');
+ }finally{h.restore();}
+});

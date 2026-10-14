@@ -17,12 +17,16 @@
   const privateMode=()=>!!(hooks.isPrivate?.()??root.PrivateMode?.isOn?.());
   const visibility=value=>evidence()?.access(hooks.state(),value)||{kind:'missing',available:false};
   const closeAndRestore=()=>{const target=anchor;close();restoringFocus=true;try{target?.focus({preventScroll:true});}finally{restoringFocus=false;}};
-  function position(){
-   if(!anchor?.isConnected){close();return;}
-   const a=anchor.getBoundingClientRect(),scroll=anchor.closest('#messageList')?.getBoundingClientRect();
+  // A source is visible while any part of it is inside the message list's
+  // viewport (or the window, for sources outside the list).
+  function inView(node){
+   const a=node.getBoundingClientRect(),scroll=node.closest('#messageList')?.getBoundingClientRect();
    const left=Math.max(0,scroll?.left||0),top=Math.max(0,scroll?.top||0),right=Math.min(root.innerWidth,scroll?.right??root.innerWidth),bottom=Math.min(root.innerHeight,scroll?.bottom??root.innerHeight);
-   if(!a.width||!a.height||a.bottom<=top||a.top>=bottom||a.right<=left||a.left>=right){close();return;}
-   const c=card.getBoundingClientRect();card.style.left=Math.max(12,Math.min(a.left,root.innerWidth-c.width-12))+'px';card.style.top=(a.bottom+c.height+12<root.innerHeight?a.bottom+8:Math.max(12,a.top-c.height-8))+'px';
+   return !!(a.width&&a.height)&&a.bottom>top&&a.top<bottom&&a.right>left&&a.left<right;
+  }
+  function position(){
+   if(!anchor?.isConnected||!inView(anchor)){close();return;}
+   const a=anchor.getBoundingClientRect(),c=card.getBoundingClientRect();card.style.left=Math.max(12,Math.min(a.left,root.innerWidth-c.width-12))+'px';card.style.top=(a.bottom+c.height+12<root.innerHeight?a.bottom+8:Math.max(12,a.top-c.height-8))+'px';
   }
   function paint(){
    if(!current)return;
@@ -67,6 +71,10 @@
     const page=Number(target.dataset.sourcePage),source={type,id,title:record.title||record.name||'Untitled',page:Number.isSafeInteger(page)&&page>0?page:null,offset:null,provided:false,legacyPreview:excerpt(record)};found={source,siblings:[source]};
    }
    if(visibility(found.source).kind==='private'){close();return;}
+   // Keyboard focus can land on a source the message list has scrolled out of
+   // view; its smooth scrolling would still leave it hidden when the card is
+   // placed, which closes the card. Reveal it at once instead.
+   if(!inView(target))target.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});
    undescribe();anchor=target;current=found.source;siblings=found.siblings?.length?found.siblings:[current];index=Math.max(0,siblings.findIndex(s=>s.sourceId===current.sourceId));generation++;busy=false;error='';card.hidden=false;
    target.setAttribute('aria-describedby',[target.getAttribute('aria-describedby'),card.id].filter(Boolean).join(' '));target.setAttribute('aria-expanded','true');paint();
   }
@@ -86,8 +94,15 @@
    if(card.hidden||e.isComposing||e.keyCode===229)return;
    if(e.key==='ArrowDown'&&anchor?.contains(e.target)){card.querySelector('button:not([disabled])')?.focus({preventScroll:true});e.preventDefault();}
    if(['ArrowLeft','ArrowRight'].includes(e.key)&&(anchor?.contains(e.target)||card.contains(e.target))){navigate(e.key==='ArrowLeft'?-1:1);e.preventDefault();}
-   if(e.key==='Escape'){closeAndRestore();e.preventDefault();e.stopPropagation();}
   });
+  // The preview floats above the composer menu, popups and the reader, so it
+  // takes Escape first and only it closes. Focus returns to the source only
+  // from the preview or the source; a hover preview closes where focus is.
+  on(doc,'keydown',e=>{
+   if(e.key!=='Escape'||card.hidden||e.isComposing||e.keyCode===229)return;
+   if(card.contains(doc.activeElement)||anchor?.contains(doc.activeElement))closeAndRestore();else close();
+   e.preventDefault();e.stopPropagation();
+  },true);
   on(doc,'scroll',()=>{if(!card.hidden)position();},true);on(root,'resize',()=>{if(!card.hidden)position();});
   const observer=new MutationObserver(refresh);observer.observe(doc.body,{childList:true,subtree:true});const privacyStrip=doc.getElementById('privateModeStrip');if(privacyStrip)observer.observe(privacyStrip,{attributes:true,attributeFilter:['hidden']});
   destroy=()=>{close();listeners.forEach(off=>off());observer.disconnect();island?.unmount();card.remove();};publicShow=show;publicRefresh=refresh;

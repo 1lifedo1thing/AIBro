@@ -57,7 +57,7 @@ function fixture(actions = [{ type: 'create_task', title: 'Approved task' }], sa
     AgentTransport: { requestPlan: async request => { calls.requests.push(request); return transport(request); } }, activeRunController: null
   });
   vm.runInContext([
-    cut('function commitAttachmentAnalysis(', '\nfunction fallbackWorkflow('),
+    cut('function commitAttachmentAnalysis(', '\nfunction actionsNeedApproval('),
     cut('function actionsNeedApproval(', '\nfunction grantSessionAllow('),
     cut('function grantSessionAllow(', '\nconst ACTION_LABELS'),
     cut('function sessionAllowMarkup(', '\nlet runCheckpointController'),

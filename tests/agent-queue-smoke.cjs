@@ -20,10 +20,14 @@ async function run(){
  const evaluate=async code=>{try{return await win.webContents.executeJavaScript(code,true);}catch(error){console.error('Renderer errors:',JSON.stringify(errors));throw error;}};
  async function step(label,fn){try{await fn();passed.push(label);console.log('PASS',label);}catch(error){failures.push({label,error:error.stack});console.error('FAIL',label,error.message);}}
  await win.loadURL(ORIGIN);await until(()=>evaluate('typeof storageHydrated!=="undefined"&&storageHydrated'),'hydration');
+ // 首次引导会在重载后把视图切到设置页，对话列表高度为 0 时 ConversationWindow 不刷新消息；与其余冒烟一样在水合后关闭（2db801d）。
+ await evaluate("WorkstationOnboarding.close();state.ui.onboarding={version:WorkstationOnboarding.VERSION,status:'skipped'};true");
  await wait(600);const bootErrors=[...errors];
  assert.equal(await evaluate('!!window.AgentQueue'),true,'queue module must load before the app');
  await evaluate(`(()=>{const now=Date.now();state.projects=[];state.notes=[];state.tasks=[];state.imports=[];state.agentRuns=[];state.conversations=[{id:'qa_queue_conversation',title:'隔离验收 · 排队提交',workspace:'日常',permissionMode:'auto',attachments:[],draftAttachmentIds:[],draft:'',messages:[],createdAt:now}];state.currentConversationId='qa_queue_conversation';state.settings.permissions={'日常':'auto','课程':'auto','科研':'auto'};normalizeStateShape(state);state.ui.inspectorOpen=false;save();applyUiPreferences();showView('agent','持续对话');renderAll();$('#apiBase').value='https://fixture.invalid/v1';$('#apiKey').value='isolated-test-placeholder';ConversationModels.configuration=()=>({provider:'api',model:'QA isolated model',effort:'medium'});ConversationModels.resolve=async value=>value;window.__qaRound=0;AgentTransport.requestPlan=options=>{window.__qaRound++;window.__qaTransport={options};return new Promise((resolve,reject)=>{window.__qaTransport.resolve=resolve;options.signal.addEventListener('abort',()=>{const e=new Error('验收主动停止');e.code='CANCELLED';reject(e);},{once:true});});};})()`);
  const typeAndEnter=async text=>{await evaluate(`(()=>{const input=$('#agentInput');input.value=${JSON.stringify(text)};input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));})()`);await wait(240);};
+ // 待审批运行由计划审阅卡片承载（plan-review-surfaces.jsx）；旧的 [data-approve-run] 按钮只在 PlanReview 不可用时出现。
+ const planButton=(message,prefix)=>`[...document.querySelectorAll('[data-message-id="${message}"] .plan-review button')].find(b=>b.textContent.trim().startsWith(${JSON.stringify(prefix)}))`;
  const queueState=()=>evaluate(`(()=>{const box=$('#composerQueue');const conversation=currentConversation();return{hidden:box.hidden,text:box.textContent,count:(conversation.pendingSubmits||[]).length,goals:(conversation.pendingSubmits||[]).map(item=>item.goal),input:$('#agentInput').value,busy:!!sendMessage.busy,round:window.__qaRound};})()`);
  await step('页面不存在重复 id：既有控件不会被输入区新元素抢占',async()=>{
   const duplicates=await evaluate(`(()=>{const ids=[...document.querySelectorAll('[id]')].map(node=>node.id);return JSON.stringify([...new Set(ids.filter((id,index)=>ids.indexOf(id)!==index))]);})()`);
@@ -121,16 +125,18 @@ async function run(){
   const target=await evaluate(`(()=>{const conversation=currentConversation();const message=[...conversation.messages].reverse().find(item=>item.role==='agent'&&!item.live);const run=state.agentRuns.find(item=>item.id===message.runId);message.usage={input:1200,output:345,total:1545};run.usage=message.usage;run.finishedAt=run.startedAt+146000;renderConversation();return message.id;})()`);
   await wait(220);
   const scope=`[data-message-id="${target}"]`;
-  const meta=await evaluate(`document.querySelector(${JSON.stringify(scope+' .message-meta')})?.textContent||null`);
-  assert.ok(meta,'已完成的消息应显示元信息行');
-  assert.match(meta,/1\.5k tokens/,'应显示服务端返回的真实用量（1545 → 1.5k）');
-  assert.match(meta,/2 分 26 秒/,'应按真实起止时间显示耗时');
-  assert.match(meta,/复制/,'应提供复制入口');
+  // 有执行过程时耗时只显示在过程摘要上、不在消息尾重复（docs/CONVERSATION_HIERARCHY_20261001.md）；复制是固定图标按钮（docs/CONVERSATION_ACTIONS_REFERENCE_20261001.md）。
+  const readMeta=()=>evaluate(`(()=>{const wrap=document.querySelector(${JSON.stringify(scope)});const meta=wrap?.querySelector(':scope > .message-meta');return{text:meta?.textContent??null,copy:meta?.querySelector('[data-copy-message]')?.getAttribute('aria-label')||null,elapsed:[...(wrap?.querySelectorAll(':scope > .message-meta .meta-elapsed, :scope > .agent-progress > summary .progress-elapsed')||[])].map(node=>node.textContent)};})()`);
+  const meta=await readMeta();
+  assert.ok(meta.text!==null,'已完成的消息应显示元信息行');
+  assert.match(meta.text,/1\.5k tokens/,'应显示服务端返回的真实用量（1545 → 1.5k）');
+  assert.ok(meta.elapsed.includes('2 分 26 秒'),'应按真实起止时间显示耗时');
+  assert.equal(meta.copy,'复制','应提供复制入口');
   await evaluate(`(()=>{const message=currentConversation().messages.find(item=>item.id===${JSON.stringify(target)});delete message.usage;const run=state.agentRuns.find(item=>item.id===message.runId);delete run.usage;renderConversation();})()`);
   await wait(220);
-  const withoutUsage=await evaluate(`document.querySelector(${JSON.stringify(scope+' .message-meta')})?.textContent||''`);
-  assert.doesNotMatch(withoutUsage,/tokens/,'服务端未返回用量时不得展示 token 数');
-  assert.match(withoutUsage,/2 分 26 秒/,'耗时仍然显示');
+  const withoutUsage=await readMeta();
+  assert.doesNotMatch(withoutUsage.text||'',/tokens/,'服务端未返回用量时不得展示 token 数');
+  assert.ok(withoutUsage.elapsed.includes('2 分 26 秒'),'耗时仍然显示');
  });
  await step('上下文行不再常驻本地 token 估算，仅保留真实整理入口',async()=>{
   const shown=await evaluate(`(()=>{const box=$('#composerContextStrip');return{hidden:box.hidden,text:box.textContent};})()`);
@@ -168,11 +174,13 @@ async function run(){
   assert.deepEqual(introduced,[],'整理流程不得引入渲染器错误');
  });
  await step('回滚覆盖面在撤销之前说清：终端命令的效果不随文件撤销回滚',async()=>{
-  const withCommands=await evaluate(`(()=>{const card=window.FileReview.card({id:'qa-run',fileChanges:[{type:'note',id:'n1',title:'QA 笔记',added:2,removed:1}],commands:[{id:'c1',argv:['pwd'],startedAt:1,status:'succeeded'}]});return card?card.textContent:null;})()`);
+  // 审阅卡片只为工作区里真实存在、归属可核对的运行生成（file-review.js card → availableRun；tests/review-access.test.cjs），合成运行先登记到当前对话。
+  const withCommands=await evaluate(`(()=>{const run={id:'qa-run',conversationId:currentConversation().id,status:'completed',startedAt:1,finishedAt:2,steps:[],fileChanges:[{type:'note',id:'n1',title:'QA 笔记',added:2,removed:1}],commands:[{id:'c1',argv:['pwd'],startedAt:1,status:'succeeded'}]};state.agentRuns.push(run);const card=window.FileReview.card(run,state);return card?card.textContent:null;})()`);
   assert.ok(withCommands,'有文件变更时应生成审阅卡片');
   assert.match(withCommands,/终端命令/,'存在已执行命令时必须提示');
   assert.match(withCommands,/不会随撤销回滚/,'必须说明不可回滚的边界');
-  const withoutCommands=await evaluate(`(()=>{const card=window.FileReview.card({id:'qa-run',fileChanges:[{type:'note',id:'n1',title:'QA 笔记',added:2,removed:1}],commands:[{id:'c1',argv:['pwd'],status:'pending'}]});return card?card.textContent:'';})()`);
+  const withoutCommands=await evaluate(`(()=>{const run=state.agentRuns.find(item=>item.id==='qa-run');run.commands=[{id:'c1',argv:['pwd'],status:'pending'}];const card=window.FileReview.card(run,state);state.agentRuns=state.agentRuns.filter(item=>item!==run);return card?card.textContent:null;})()`);
+  assert.ok(withoutCommands,'命令未执行时仍应生成审阅卡片');
   assert.doesNotMatch(withoutCommands,/终端命令/,'未执行的命令不得被说成已生效');
   const commandCard=await evaluate(`(()=>{const card=window.TerminalTools.card({commands:[{id:'c2',argv:['pwd'],displayCwd:'/tmp',status:'succeeded',startedAt:1,timeout:60}]});return card?card.textContent:null;})()`);
   assert.ok(commandCard,'命令记录卡片应渲染');
@@ -300,13 +308,14 @@ async function run(){
   await evaluate(`(()=>{const conversation=currentConversation();const now=Date.now();const run={id:'qa-review-run',conversationId:conversation.id,status:'awaiting-approval',goal:'整理资料并创建任务',workspace:'日常',startedAt:now,finishedAt:now+1,userMessageId:'qa-review-user',pendingActions:[{type:'create_task',title:'整理课程资料'}],steps:[{text:'等待审批',status:'running',at:now}]};state.agentRuns.push(run);conversation.messages.push({id:'qa-review-user',role:'user',text:'整理资料并创建任务',at:now});conversation.messages.push({id:'qa-review-agent',role:'agent',text:'待批准的执行计划。',pendingRunId:run.id,at:now+1});save();renderConversation();})()`);
   await wait(240);
   const scope='[data-message-id="qa-review-agent"]';
-  assert.equal(await evaluate(`document.querySelector(${JSON.stringify(scope+' [data-review-run]')})?.textContent||null`),'让审查者先看','审批卡片应提供独立审查入口');
+  // 审查入口在计划审阅卡片底部（“请审查者核对”），批准/拒绝同在卡片底部。
+  assert.equal(await evaluate(`${planButton('qa-review-agent','请审查者核对')}?.textContent.trim()||null`),'请审查者核对','审批卡片应提供独立审查入口');
   // 隔离：本步骤之前的页面重载会清掉更早步骤设置的替身，这里必须重新设置模型与凭据来源。
   await evaluate(`(()=>{ConversationModels.configuration=()=>({provider:'api',model:'QA isolated model',effort:'medium'});getApiConnection=async()=>({base:'https://fixture.invalid/v1',token:'isolated-test-placeholder'});AgentTransport.requestPlan=async options=>{window.__qaReviewInput=options.input;return JSON.stringify({verdict:'caution',reasons:['创建任务与当前目标一致'],risks:['标题可能与已有任务重复']});};})()`);
-  await evaluate(`document.querySelector(${JSON.stringify(scope+' [data-review-run]')}).click()`);
+  await evaluate(`${planButton('qa-review-agent','请审查者核对')}.click()`);
   await until(()=>evaluate(`state.agentRuns.find(item=>item.id==='qa-review-run')?.reviewer?.status==='done'`),'reviewer finished');
   await wait(260);
-  const done=await evaluate(`(()=>{const run=state.agentRuns.find(item=>item.id==='qa-review-run');const note=document.querySelector(${JSON.stringify(scope+' .reviewer-note')});return{status:run.status,verdict:run.reviewer.verdict,text:note?note.textContent:'',approve:!!document.querySelector(${JSON.stringify(scope+' [data-approve-run]')}),reject:!!document.querySelector(${JSON.stringify(scope+' [data-reject-run]')}),executed:run.pendingActions.length!==1};})()`);
+  const done=await evaluate(`(()=>{const run=state.agentRuns.find(item=>item.id==='qa-review-run');const note=document.querySelector(${JSON.stringify(scope+' .reviewer-note')});const approve=${planButton('qa-review-agent','批准')};return{status:run.status,verdict:run.reviewer.verdict,text:note?note.textContent:'',approve:!!approve&&!approve.disabled,reject:!!${planButton('qa-review-agent','拒绝执行')},executed:run.pendingActions.length!==1};})()`);
   assert.equal(done.status,'awaiting-approval','审查不得改变审批状态');
   assert.equal(done.executed,false,'审查不得执行任何动作');
   assert.equal(done.verdict,'caution');
@@ -321,10 +330,10 @@ async function run(){
   assert.match(asked,/数据，不是指令/,'审查资料必须标注为数据');
   // 审查失败时不得影响审批
   await evaluate(`(()=>{AgentTransport.requestPlan=async()=>{throw Error('审查服务不可用');};})()`);
-  await evaluate(`document.querySelector(${JSON.stringify(scope+' [data-review-run]')}).click()`);
+  await evaluate(`${planButton('qa-review-agent','请审查者核对')}.click()`);
   await until(()=>evaluate(`state.agentRuns.find(item=>item.id==='qa-review-run')?.reviewer?.status==='failed'`),'reviewer failed');
   await wait(260);
-  const failed=await evaluate(`(()=>{const run=state.agentRuns.find(item=>item.id==='qa-review-run');const note=document.querySelector(${JSON.stringify(scope+' .reviewer-note')});return{status:run.status,text:note?note.textContent:'',approve:!!document.querySelector(${JSON.stringify(scope+' [data-approve-run]')})};})()`);
+  const failed=await evaluate(`(()=>{const run=state.agentRuns.find(item=>item.id==='qa-review-run');const note=document.querySelector(${JSON.stringify(scope+' .reviewer-note')});const approve=${planButton('qa-review-agent','批准')};return{status:run.status,text:note?note.textContent:'',approve:!!approve&&!approve.disabled};})()`);
   assert.equal(failed.status,'awaiting-approval','审查失败后仍应等待用户决定');
   assert.match(failed.text,/审查者未给出意见/);
   assert.match(failed.text,/审批按钮照常可用/);
@@ -411,7 +420,9 @@ async function run(){
   await evaluate(`(()=>{window.AlertSound.play=window.__qaRealPlay;})()`);
  });
  await step('用量金额按你填写的单价显示，未配置时完全不显示',async()=>{
-  await evaluate(`(()=>{const conversation=currentConversation();conversation.messages.push({id:'qa-cost-agent',role:'agent',text:'用量估算验收。',usage:{input:1000000,output:500000,total:1500000},at:Date.now()});save();renderConversation();})()`);
+  // 金额只按服务商逐次请求的用量账本估算（agent-usage.js view().canEstimate）；只有 message.usage 的历史记录不估价（tests/agent-usage.test.cjs）。
+  // 这里用真实记录器写入一次完整请求的用量，与 sendMessage 的 onAttempt/onUsage 路径一致。
+  await evaluate(`(()=>{const conversation=currentConversation();const now=Date.now();const run={id:'qa-cost-run',conversationId:conversation.id,status:'completed',goal:'用量估算验收',startedAt:now,finishedAt:now+1000,steps:[]};const message={id:'qa-cost-agent',role:'agent',text:'用量估算验收。',runId:run.id,at:now};const usage=window.AgentUsage.create(run,message),route={provider:'api',model:'QA isolated model'};usage.attempt({id:'qa-cost-attempt',status:'running'},route);usage.report({input:1000000,output:500000,total:1500000},{attemptId:'qa-cost-attempt'},route);usage.attempt({id:'qa-cost-attempt',status:'completed'},route);usage.finish('completed');state.agentRuns.push(run);conversation.messages.push(message,{id:'qa-cost-legacy',role:'agent',text:'历史用量记录。',usage:{input:1000000,output:500000,total:1500000},at:now+1});save();renderConversation();})()`);
   await wait(240);
   const bare=await evaluate(`document.querySelector('[data-message-id="qa-cost-agent"] .message-meta')?.textContent||''`);
   assert.match(bare,/tokens/,'元信息应显示实测用量');
@@ -429,6 +440,9 @@ async function run(){
   const priceState=JSON.parse(priced);
   assert.equal(priceState.text,'≈¥6.00（估算）','100 万输入 + 50 万输出按 ¥2/¥8 应为 ¥6');
   assert.match(priceState.title,/不是服务商账单/,'必须声明这只是估算');
+  const legacy=await evaluate(`(()=>{const meta=document.querySelector('[data-message-id="qa-cost-legacy"] .message-meta');return{text:meta?.textContent||'',cost:!!meta?.querySelector('.meta-cost')};})()`);
+  assert.match(legacy.text,/1\.5M tokens/,'历史记录仍如实显示用量');
+  assert.equal(legacy.cost,false,'历史记录无逐次请求账本，不得据此估价');
   await evaluate(`(()=>{$('#usageCurrency').value='';window.UsageCost.read();save();renderConversation();})()`);
   await wait(200);
   assert.equal(await evaluate(`!!document.querySelector('[data-message-id="qa-cost-agent"] .meta-cost')`),false,'清空币种后金额应消失');
@@ -638,7 +652,8 @@ async function run(){
   const panel=JSON.parse(ledger);
   assert.match(panel.summary,/原文锚点 \d+ 条/);
   assert.match(panel.text,/app\/server\.py/,'相对路径应作为锚点保留');
-  assert.match(panel.text,/\/Users\/czx\/workspace\/docs\/plan\.md/,'绝对路径应作为锚点保留');
+  // 与上面的夹具文本一致（夹具已用占位路径 /Users/example/…，断言此前仍写着旧路径）。
+  assert.match(panel.text,/\/Users\/example\/workspace\/docs\/plan\.md/,'绝对路径应作为锚点保留');
   assert.match(panel.text,/TypeError: cannot read property x/,'错误串应逐字保留');
   assert.match(panel.text,/https:\/\/example\.com\/spec/,'网址应作为锚点保留');
   assert.match(panel.text,/#1234/,'编号应作为锚点保留');
@@ -759,6 +774,13 @@ async function run(){
   if (final.texts.filter(text=>text==='这一条会在下一次请求生效').length && await evaluate(`state.conversations.find(item=>item.id==='qa-inject-conv').messages.some(message=>message.midRun===true)`)) {
     assert.equal(final.midRun>=1,true,'写成对话的中途补充应带 midRun 标记，便于与原消息区分');
   }
+  // 隔离：被结算为“未生效”的补充会降级排队，并在本轮完成后自动再发一轮；收掉那一轮，免得它占住后续步骤（分支切换、停止回填都要求空闲）。
+  await wait(1500);
+  const deliveredTimes=await evaluate(`window.__qaInputs.filter(item=>item.includes('这一条会在下一次请求生效')).length`);
+  if(await evaluate('!!sendMessage.busy')){await evaluate(`window.__qaResolve2&&window.__qaResolve2()`);await until(()=>evaluate('!sendMessage.busy'),'follow-up round settled');}
+  await evaluate(`(()=>{window.AgentQueue.clear(currentConversation());renderComposerQueue();save();})()`);
+  // 结算“不丢失也不重复”（docs/AGENT_HARNESS_UX_IMPLEMENTATION.md §20.3）：已随请求送达模型的补充，不得在收尾时再排队重发一次。
+  assert.equal(deliveredTimes,1,'已随请求送达的补充只能送达一次，不得在轮次结束后再作为新消息重发');
  });
  await step('审查者代批（基本路径）：审查者建议批准时走既有执行路径，并如实记录是代批',async()=>{
   let __n=0;const ev=async code=>{__n++;try{return await evaluate(code);}catch(error){console.error('SUBSTEP#'+__n+' failed:',String(error.message).slice(0,220));throw error;}};
@@ -809,15 +831,19 @@ async function run(){
  });
  await step('审查者代批（人工接管）：人亲自批准即解除熔断，且不冒称代批',async()=>{
   let __n=0;const ev=async code=>{__n++;try{return await evaluate(code);}catch(error){console.error('SUBSTEP#'+__n+' failed:',String(error.message).slice(0,220));throw error;}};
-  await ev(`(()=>{const run=state.agentRuns.find(item=>item.id==='qa-destructive-run');run.status='awaiting-approval';run.pendingActions=[{type:'create_task',title:'人工接管任务',workspace:'日常'}];run.reviewer=null;run.reviewerDelegation=null;save();renderConversation();})()`);
-  await wait(260);
-  await ev(`document.querySelector('[data-message-id="qa-destructive-agent"] [data-approve-run]')?.click()`);
-  await until(()=>evaluate(`state.agentRuns.find(item=>item.id==='qa-destructive-run')?.status!=='awaiting-approval'`),'manual approval after halt');
+  // 熔断是对话级状态；在同一（已熔断的）对话里给出一份新的待批计划，由人通过计划审阅卡片亲自批准。
+  // 不再原地改写上一步的 pendingActions：计划审阅会把被改写的计划判为已变化并禁用批准（docs/PLAN_REVIEW_20260924.md）。
+  await ev(`(()=>{const conversation=currentConversation();const now=Date.now();const run={id:'qa-takeover-run',conversationId:conversation.id,status:'awaiting-approval',goal:'人工接管',workspace:'日常',permissionMode:'smart',startedAt:now,finishedAt:now+1,pendingActions:[{type:'create_task',title:'人工接管任务',workspace:'日常'}],steps:[{text:'等待审批',status:'running',at:now}]};state.agentRuns.push(run);conversation.messages.push({id:'qa-takeover-agent',role:'agent',text:'待批准的执行计划。',pendingRunId:run.id,at:now+1});save();renderConversation();})()`);
+  await until(()=>evaluate(`!!${planButton('qa-takeover-agent','批准')}&&!${planButton('qa-takeover-agent','批准')}.disabled`),'plan review ready');
+  assert.equal(await evaluate(`currentConversation().reviewerHalted===true`),true,'前提：上一步已熔断');
+  await ev(`${planButton('qa-takeover-agent','批准')}.click()`);
+  await until(()=>evaluate(`state.agentRuns.find(item=>item.id==='qa-takeover-run')?.status!=='awaiting-approval'`),'manual approval after halt');
   await wait(300);
-  const takenOver=await ev(`(()=>{const conversation=currentConversation();const run=state.agentRuns.find(item=>item.id==='qa-destructive-run');const meta=document.querySelector('[data-message-id="qa-destructive-agent"] .message-meta');const msg=conversation.messages.find(item=>item.id==='qa-destructive-agent');return{halted:conversation.reviewerHalted===true,denials:conversation.reviewerDenials||0,status:run.status,approvedBy:run.approvedBy||null,on:conversation.reviewerApprove===true,task:state.tasks.some(item=>item.title==='人工接管任务'),meta:meta?meta.textContent:'',msgApprovedBy:msg?.approvedBy||null};})()`);
+  const takenOver=await ev(`(()=>{const conversation=currentConversation();const run=state.agentRuns.find(item=>item.id==='qa-takeover-run');const meta=document.querySelector('[data-message-id="qa-takeover-agent"] .message-meta');const msg=conversation.messages.find(item=>item.id==='qa-takeover-agent');return{halted:conversation.reviewerHalted===true,denials:conversation.reviewerDenials||0,status:run.status,approvedBy:run.approvedBy||null,on:conversation.reviewerApprove===true,task:state.tasks.some(item=>item.title==='人工接管任务'),meta:meta?meta.textContent:'',msgApprovedBy:msg?.approvedBy||null};})()`);
   assert.equal(takenOver.halted,false,'人亲自批准后应解除熔断');
   assert.equal(takenOver.denials,0,'人工接管后连续拒绝计数应清零');
-  assert.equal(takenOver.approvedBy,null,'人工批准不得被记录成审查者代批');
+  // approveRun 现在把人工批准如实记为 approvedBy:'user'（tests/approval-host-integration.test.js:383），不得记成审查者代批。
+  assert.equal(takenOver.approvedBy,'user','人工批准不得被记录成审查者代批');
   assert.equal(takenOver.on,true,'代批开关由用户设置决定，系统不得替用户开启或关闭');
   assert.equal(takenOver.task,true,'人工批准的动作必须真的执行');
   assert.equal(takenOver.msgApprovedBy,null,'人工批准的消息上不得出现代批标记');
@@ -834,11 +860,12 @@ async function run(){
   const after=await evaluate(`(()=>{const c=currentConversation();return{ids:c.messages.map(m=>m.id),parked:(c.branches||[]).map(b=>({id:b.id,ids:b.messages.map(m=>m.id),from:b.fromMessageId})),chip:document.getElementById('conversationPathChip')?.textContent||'',meta:c.activeBranch||null};})()`);
   assert.deepEqual(after.ids,['qab1','qab2'],'当前路径应截断到分支点');
   assert.equal(after.parked.length,1,'应产生一条分支');
-  assert.deepEqual(after.parked[0].ids,['qab3','qab4'],'之后的内容整体存入分支');
+  // 分支存档保留完整旧路径（historyFormat full-v1，docs/CONVERSATION_BRANCH_HISTORY_20261003.md）：切回时上下文不缺公共前缀。
+  assert.deepEqual(after.parked[0].ids,['qab1','qab2','qab3','qab4'],'分支完整保存旧路径（含分叉点之后的内容）');
   assert.equal(after.parked[0].from,'qab2','分支必须记住来源消息');
   assert.match(after.chip,/1 个分支/,'存在分支时头部显示入口');
   assert.equal(after.meta?.id,'main','分叉时必须把当前路径的元数据建立起来');
-  assert.equal(after.ids.length+after.parked[0].ids.length,4,'分叉前后消息必须守恒，一条都不能丢');
+  assert.deepEqual([...new Set([...after.ids,...after.parked[0].ids])].sort(),['qab1','qab2','qab3','qab4'],'分叉前后消息必须守恒，一条都不能丢');
  });
  await step('会话内分支：可切换、可切回，执行中拒绝切换，面板如实列出各路径',async()=>{
   const paths=await evaluate(`(()=>{const c=currentConversation();const module=window.ConversationBranches;return{current:module.currentId(c),describe:(c.branches||[]).map(b=>module.describe(b)),listed:(c.branches||[]).length};})()`);
@@ -847,17 +874,17 @@ async function run(){
   // 执行中不允许切换：正在跑的一轮不能被从底下换掉
   await evaluate(`(()=>{sendMessage.busy=false;})()`);
   assert.equal(await evaluate(`!!sendMessage.busy`),false,'前置：测试环境应为空闲（守卫只在执行中生效）');
-  await evaluate(`(()=>{sendMessage.busy=true;})()`);
-  assert.equal(await evaluate(`switchConversationBranch(currentConversation().branches[0].id)`),false,'执行中必须拒绝切换');
-  assert.equal(await evaluate(`currentConversation().activeBranchId||null`),null,'被拒绝时不得改动当前路径');
-  await evaluate(`(()=>{sendMessage.busy=false;})()`);
+  // 模拟执行中，并在同一次求值里复位：断言失败也不能把 busy 留给后续步骤。分叉时已把当前路径登记为 main，被拒绝后必须原样保留。
+  const refused=await evaluate(`(async()=>{const c=currentConversation();const before=JSON.stringify({active:c.activeBranchId??null,ids:c.messages.map(m=>m.id)});sendMessage.busy=true;let result;try{result=await switchConversationBranch(c.branches[0].id);}finally{sendMessage.busy=false;}return{result,before,after:JSON.stringify({active:c.activeBranchId??null,ids:c.messages.map(m=>m.id)})};})()`);
+  assert.equal(refused.result,false,'执行中必须拒绝切换');
+  assert.equal(refused.after,refused.before,'被拒绝时不得改动当前路径');
   const branchId=await evaluate(`currentConversation().branches[0].id`);
   const switchedOk=await evaluate(`switchConversationBranch(${JSON.stringify(branchId)})`);
   if (switchedOk!==true) console.error('T7 DEBUG', await evaluate(`(()=>{const c=currentConversation();return JSON.stringify({branchId:c.branches[0]?.id||null,current:window.ConversationBranches.currentId(c),busy:!!sendMessage.busy,msgCount:c.messages.length});})()`));
   assert.equal(switchedOk,true,'空闲时应能切换');
   await wait(260);
   const switched=await evaluate(`(()=>{const c=currentConversation();const module=window.ConversationBranches;return{ids:c.messages.map(m=>m.id),current:module.currentId(c),parked:(c.branches||[]).map(b=>({id:b.id,ids:b.messages.map(m=>m.id),from:b.fromMessageId}))};})()`);
-  assert.deepEqual(switched.ids,['qab3','qab4'],'切换后应载入目标路径');
+  assert.deepEqual(switched.ids,['qab1','qab2','qab3','qab4'],'切换后应载入目标路径（含完整公共前缀）');
   assert.equal(switched.current,branchId);
   const parkedMain=switched.parked.find(b=>b.id==='main');
   assert.deepEqual(parkedMain.ids,['qab1','qab2'],'原路径必须完整存档');
@@ -866,7 +893,7 @@ async function run(){
   const back=await evaluate(`(()=>{const c=currentConversation();return{ids:c.messages.map(m=>m.id),branches:(c.branches||[]).map(b=>({id:b.id,from:b.fromMessageId,ids:b.messages.map(m=>m.id)}))};})()`);
   assert.deepEqual(back.ids,['qab1','qab2'],'切回后主线内容还原');
   const branchEntry=back.branches.find(b=>b.id!=='main');
-  assert.deepEqual(branchEntry.ids,['qab3','qab4'],'切回后分支内容仍完整');
+  assert.deepEqual(branchEntry.ids,['qab1','qab2','qab3','qab4'],'切回后分支内容仍完整');
   assert.equal(branchEntry.from,'qab2','往返切换后分支来源消息仍必须保留');
   await evaluate(`openPathPanel()`);
   await wait(240);
@@ -1000,7 +1027,8 @@ async function run(){
   assert.equal(created.workspace,'科研','空间沿用对话本身');
   assert.equal(created.conv,before.convId,'必须记录来源对话');
   assert.equal(created.msg,'qa-nc-agent','必须记录来源消息');
-  await until(async()=>await evaluate(`document.querySelector('#previewContent .note-document')?.dataset.mode==='rich' && !!document.querySelector('#previewContent .markdown-editor [contenteditable="true"]')`),'文档进入可直接编辑的排版模式');
+  // 可视编辑现由 Milkdown/Crepe 挂在 .note-document-rich 内（docs/DOCUMENT_EDITOR_FOUNDATION_20260930.md）；旧的 .markdown-editor 只在没有现代内核时出现。
+  await until(async()=>await evaluate(`document.querySelector('#previewContent .note-document')?.dataset.mode==='rich' && !!document.querySelector('#previewContent :is(.note-document-rich,.markdown-editor) [contenteditable="true"]')`),'文档进入可直接编辑的排版模式');
   const after=await evaluate(`currentConversation().messages.find(x=>x.id==='qa-nc-agent').text`);
   assert.equal(after,before.text,'存为文档不得改写原消息');
   await evaluate(`document.querySelector('[data-save-note="qa-nc-agent"]').click()`);
@@ -1011,29 +1039,33 @@ async function run(){
  await step('工具执行记录自动呼吸：轮次中展开、终态收敛，用户手动开合优先且重绘不覆盖',async()=>{
   const probe=await evaluate(`(()=>{
     const now=Date.now();
-    const run={id:'qa_ledger_run',conversationId:'qa_queue_conversation',status:'running',startedAt:now-5000,
+    // 真实运行总带 steps（sendMessage 建 run 时为 []）；缺了它 renderComposerActivity 会在 run.steps.length 处抛错。
+    const run={id:'qa_ledger_run',conversationId:currentConversation().id,status:'running',startedAt:now-5000,steps:[],
       toolCalls:[
         {id:'qa_l1',type:'read',status:'running',request:{type:'read',id:'n1'},startedAt:now-2000},
         {id:'qa_l2',type:'read',status:'completed',request:{type:'read',id:'n2'},startedAt:now-4000,finishedAt:now-3000}
       ]};
     state.agentRuns.push(run);
     const conversation=currentConversation();
-    conversation.messages.push({id:'qa_ledger_msg',role:'agent',text:'正在执行…',live:true,at:now-5000,runId:run.id,steps:[],activities:[]});
+    const message={id:'qa_ledger_msg',role:'agent',text:'正在执行…',live:true,at:now-5000,runId:run.id,steps:[],activities:[]};
+    conversation.messages.push(message);
     renderAll();
-    const read=()=>{const block=document.querySelector('[data-message-id="qa_ledger_msg"] .tool-ledger');return block?{open:block.open,rows:[...block.querySelectorAll('.tool-ledger-row')].map(row=>row.open)}:null;};
-    const summary=()=>document.querySelector('[data-message-id="qa_ledger_msg"] .tool-ledger > summary');
+    // 工具记录现在嵌在每条回答唯一的“执行过程”折叠里（conversation-process.js compose；docs/CONVERSATION_PROCESS_DELIVERY_20260929.md）：
+    // 外层开合由 message.progressPins.feed 记录用户选择，工具行在轮次中按“正在执行”展开。
+    const read=()=>{const block=document.querySelector('[data-message-id="qa_ledger_msg"] > .agent-progress');return block?{open:block.open,rows:[...block.querySelectorAll('.tool-ledger-row')].map(row=>row.open)}:null;};
+    const summary=()=>document.querySelector('[data-message-id="qa_ledger_msg"] > .agent-progress > summary');
     const initial=read();
     summary().click();
-    const pinnedOff=JSON.stringify(run.toolLedgerPins||null);
+    const pinnedOff=JSON.stringify(message.progressPins||null);
     renderAll();
     const afterPinOff=read();
     summary().click();
     renderAll();
     const afterPinOn=read();
-    run.status='completed';run.finishedAt=Date.now();
+    run.status='completed';run.finishedAt=Date.now();message.live=false;
     renderAll();
     const afterSettle=read();
-    delete run.toolLedgerPins;
+    delete message.progressPins;
     renderAll();
     const afterAuto=read();
     state.agentRuns=state.agentRuns.filter(item=>item.id!=='qa_ledger_run');
@@ -1043,7 +1075,7 @@ async function run(){
   })()`);
   assert.equal(probe.initial.open,true,'轮次执行中：工具记录自动展开，能实时看到正在调用什么');
   assert.deepEqual(probe.initial.rows,[true,false],'正在执行的工具行展开、已完成的行收起');
-  assert.equal(probe.pinnedOff,'{"ledger":false}','用户点击后按显式选择记录');
+  assert.equal(probe.pinnedOff,'{"feed":false}','用户点击后按显式选择记录');
   assert.equal(probe.afterPinOff.open,false,'重绘后保持用户关闭');
   assert.equal(probe.afterPinOn.open,true,'再次点击展开同样被记住');
   assert.equal(probe.afterSettle.open,true,'用户固定展开后，轮次结束也不得自动收敛');

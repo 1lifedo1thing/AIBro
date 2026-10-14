@@ -2,6 +2,7 @@
 import Foundation
 import AppKit
 import WebKit
+import Combine
 func nativeUI(_ zh:String,_ en:String)->String{en}
 final class NativeL10n {static let shared=NativeL10n();func setLanguage(_ s:String){};static func normalize(_ s:String)->String{s}}
 struct SpeechHostProject {var id="",title=""}
@@ -11,7 +12,9 @@ struct BrowserFailure:Error {var details:[String:Any]=[:];var code=""}
 @MainActor final class SpeechHostBrowser {func request(_ request:[String:Any],root:URL,workspaceOrigin:URL?)async throws->[String:Any]{[:]}}
 final class NativeVectorStore {enum Failure:Error{case invalidRecord};init(folder:URL){};func load(_ profile:String)throws->[String:Any]{[:]};func write(_ profile:String,puts:[[String:Any]],removes:[String])throws{}}
 @MainActor final class Workspace {
- var origin:URL?,ready=false,snapshot:SpeechHostSnapshot?
+ var origin:URL?,snapshot:SpeechHostSnapshot?
+ @Published var ready=false
+ let dataDirectory=URL(fileURLWithPath:"/synthetic")
  var selection="",agendaCreationReview:AgendaCreationReview?,agendaDraft:AgendaEvent?
  let web=WKWebView(),root=URL(fileURLWithPath:"/synthetic")
  let agenda=AgendaStore(),browser=SpeechHostBrowser()

@@ -20,7 +20,7 @@ async function run(){
   fs.writeFileSync(path.join(STORE,'files',id),original);
   fs.writeFileSync(path.join(STORE,'files',id+'.meta.json'),JSON.stringify({name:id+'.txt',mimeType:'text/plain',size:Buffer.byteLength(original)}));
  }
- serverLog=fs.openSync(path.join(TEMP,'server.log'),'a');server=spawn(process.env.PYTHON||'python3',[path.join(ROOT,'server.py')],{cwd:ROOT,env:{...process.env,AI_WORKSTATION_PORT:String(PORT),AI_WORKSTATION_DATA_DIR:STORE},stdio:['ignore',serverLog,serverLog]});
+ serverLog=fs.openSync(path.join(TEMP,'server.log'),'a');server=spawn(process.env.PYTHON||'python3',[path.join(ROOT,'app','server.py')],{cwd:ROOT,env:{...process.env,AI_WORKSTATION_PORT:String(PORT),AI_WORKSTATION_DATA_DIR:STORE},stdio:['ignore',serverLog,serverLog]});
  await until(async()=>{if(server.exitCode!==null)throw Error('QA service exited');try{return(await request('/__health')).status===200;}catch{return false;}},'temporary service');
  await app.whenReady();win=new BrowserWindow({show:false,width:1440,height:960,webPreferences:{sandbox:true,contextIsolation:true,backgroundThrottling:false}});
  const errors=[],forbidden=[];
@@ -43,7 +43,7 @@ async function run(){
  const settleSave=async()=>{await evaluate('flushWorkspace()');await until(()=>evaluate('!serverSaveInFlight&&!serverSaveQueued&&!state._pendingLocalSave'),'saved fixture');};
  const domain=()=>evaluate('JSON.stringify({projects:state.projects,tasks:state.tasks,notes:state.notes,imports:state.imports,papers:state.papers,links:state.links})');
  const stored=async()=>JSON.parse((await request('/__state')).body);
- await win.loadURL(ORIGIN);await until(()=>evaluate('typeof storageHydrated!=="undefined"&&storageHydrated'),'hydration');
+ await win.loadURL(ORIGIN);await until(()=>evaluate('typeof storageHydrated!=="undefined"&&storageHydrated'),'hydration');await evaluate("WorkstationOnboarding.close();state.ui.onboarding={version:WorkstationOnboarding.VERSION,status:'skipped'};true");
  const now=Date.now(),oldId='qa-old-course',holdId='qa-hold-course',mainId='qa-main-conversation',sourceId='qa-route-source',newName='人工智能基础数学理论和算法';
  const material=(id,projectId=null)=>({id,name:id+'.txt',originalName:id+'.txt',mimeType:'text/plain',size:Buffer.byteLength(original),content:original,projectId,project:projectId===oldId?'人工智能：原理模型与算法':null,workspace:'课程',folderPath:'原始资料',analysis:{status:'pending'},importOrigin:'conversation',createdAt:now,updatedAt:now});
  const conversation=(id,attachmentId,projectId=null)=>({id,title:id,workspace:'课程',projectId,permissionMode:'full',modelConfig:{provider:'api',model:'isolated-model',effort:'medium'},attachments:[attachmentId],draftAttachmentIds:[attachmentId],draft:'',messages:[],createdAt:now,updatedAt:now});
@@ -64,10 +64,26 @@ async function run(){
  async function sendPending(cid,id,suffix){
   await evaluate('ReadingPane.hide();openConversation('+JSON.stringify(cid)+');true');await input('#agentInput','请分析这份课件，整理知识点和复习任务。');
   const count=await evaluate('__qaRequests.length');await click('#agentSend');await until(()=>evaluate('__qaRequests.length>'+count),'mock transport intercepted');
-  await evaluate('__qaPending.resolve('+JSON.stringify(JSON.stringify({workspace:'课程',message:'拟整理课件内容。',actions:actions(id,suffix)}))+');true');await until(()=>evaluate('!sendMessage.busy'),'pending course review');
+  // AgentContext loads the knowledge/tasks operation protocols the plan needs and asks for the checked final plan
+  // again (app.js prepareFinal -> KnowledgeAccess.continuePlan); the model answers that round with the same plan.
+  const plan=JSON.stringify(JSON.stringify({workspace:'课程',message:'拟整理课件内容。',actions:actions(id,suffix)}));let answered=count+1;
+  await evaluate('__qaPending.resolve('+plan+');true');
+  for(;;){await until(()=>evaluate('!sendMessage.busy||__qaRequests.length>'+answered),'pending course review');if(!await evaluate('sendMessage.busy'))break;
+   assert.ok(answered<count+3,'at most one capability expansion round');const text=await evaluate('JSON.stringify(__qaRequests.at(-1).input)');assert.match(text,/先前计划尚未执行/);assert.match(text,/AI Bro 操作协议：knowledge/);assert.match(text,/AI Bro 操作协议：tasks/);
+   answered=await evaluate('__qaRequests.length');await evaluate('__qaPending.resolve('+plan+');true');}
   return evaluate('state.agentRuns.at(-1)');
  }
- async function approve(run){await click('[data-approve-run="'+run.id+'"]');await until(()=>evaluate('state.agentRuns.find(x=>x.id==='+JSON.stringify(run.id)+').status!=="awaiting-approval"'),'review decision');return evaluate('state.agentRuns.find(x=>x.id==='+JSON.stringify(run.id)+')');}
+ // Awaiting-approval runs render the plan review card (app.js renderMessage -> PlanReview.mount); its footer calls approveRun/rejectRun.
+ const pendingMessage=run=>evaluate('(()=>{const m=state.conversations.flatMap(c=>c.messages).find(m=>m.pendingRunId==='+JSON.stringify(run.id)+');return m&&{id:m.id,text:m.text}})()');
+ const planButton=(messageId,prefix)=>'[...document.querySelectorAll('+JSON.stringify('[data-message-id="'+messageId+'"] .plan-review-footer button')+')].find(b=>b.textContent.trim().startsWith('+JSON.stringify(prefix)+'))';
+ async function clickPlan(run,prefix){const {id}=await pendingMessage(run),button=planButton(id,prefix);await until(()=>evaluate('!!'+button+'&&!'+button+'.disabled'),'plan review '+prefix);await evaluate('('+button+').id="qa-plan-action";true');await click('#qa-plan-action');await evaluate('document.querySelector("#qa-plan-action")?.removeAttribute("id");true');}
+ // A plan whose sources or scope changed after it was shown cannot be approved: PlanReview's token check (plan-review.js assertBase,
+ // PLAN_TARGET_CHANGED; docs/PLAN_REVIEW_20260924.md) disables approval and offers recheck/reload. Declining leaves the domain untouched.
+ async function refuseStale(run){const {id}=await pendingMessage(run),notice='document.querySelector('+JSON.stringify('[data-message-id="'+id+'"] .plan-review-error')+')';await until(()=>evaluate('!!'+notice),'stale plan notice');
+  assert.match(await evaluate(notice+'.textContent'),/对象已变化/);assert.equal(await evaluate('('+planButton(id,'批准')+').disabled'),true,'stale approval disabled');
+  assert.equal(await evaluate('approveRun('+JSON.stringify(run.id)+').then(String)'),'false','a stale confirmation is refused');assert.equal(await evaluate('state.agentRuns.find(x=>x.id==='+JSON.stringify(run.id)+').status'),'awaiting-approval');
+  await clickPlan(run,'拒绝执行');await until(()=>evaluate('state.agentRuns.find(x=>x.id==='+JSON.stringify(run.id)+').status!=="awaiting-approval"'),'stale plan declined');const done=await evaluate('state.agentRuns.find(x=>x.id==='+JSON.stringify(run.id)+')');assert.equal(done.status,'rejected');return done;}
+ async function approve(run){await clickPlan(run,'批准');await until(()=>evaluate('state.agentRuns.find(x=>x.id==='+JSON.stringify(run.id)+').status!=="awaiting-approval"'),'review decision');return evaluate('state.agentRuns.find(x=>x.id==='+JSON.stringify(run.id)+')');}
  async function moveMaterial(id,{newProjectName,projectId}){
   await evaluate('openImport('+JSON.stringify(id)+')');await until(()=>evaluate('state.previewImportId==='+JSON.stringify(id)+'&&!$("#previewOrganize").hidden'),'material reader');await click('#previewOrganize');
   await select('#assignWorkspaceInput','课程');if(newProjectName)await input('#assignNewProjectInput',newProjectName);else await select('#assignProjectInput',projectId);
@@ -77,7 +93,11 @@ async function run(){
  let firstRun,noteId,taskId,newId,historyBefore;
  await step('unbound full-permission course materials require routing review with zero domain writes',async()=>{
   const before=await domain();firstRun=await sendPending(mainId,sourceId,'first');assert.equal(firstRun.status,'awaiting-approval');assert.equal(firstRun.permissionMode,'full');assert.equal(firstRun.routingReview.required,true);
-  assert.equal(await domain(),before);assert.match(await evaluate('document.querySelector('+JSON.stringify('[data-approve-run="'+firstRun.id+'"]')+').textContent'),/确认归属并执行/);assert.equal(await evaluate('document.querySelector('+JSON.stringify('[data-reject-run="'+firstRun.id+'"]')+').textContent'),'暂不归入');
+  assert.equal(await domain(),before);
+  // The routing question is stated in the pending message; the plan card offers approve/reject and never a session-wide allowance for routing.
+  const message=await pendingMessage(firstRun);assert.ok(message.text.includes(firstRun.routingReview.message));assert.match(message.text,/归属尚未确认/);
+  const card=await evaluate('(()=>{const m=document.querySelector('+JSON.stringify('[data-message-id="'+message.id+'"]')+');return {body:m?.textContent||"",buttons:[...m.querySelectorAll(".plan-review-footer button")].map(b=>b.textContent.trim()),session:!!m.querySelector(".plan-review-session"),legacy:!!m.querySelector("[data-approve-run]")}})()');
+  assert.match(card.body,/归属尚未确认/);assert.ok(card.buttons.includes('拒绝执行'),JSON.stringify(card.buttons));assert.ok(card.buttons.includes('批准 3 步'),JSON.stringify(card.buttons));assert.equal(card.session,false,'routing review is never session-approvable');assert.equal(card.legacy,false);
   await settleSave();const disk=await stored();assert.equal(disk.imports.find(x=>x.id===sourceId).name,sourceId+'.txt');assert.equal(disk.imports.find(x=>x.id===sourceId).projectId,null);assert.equal(disk.notes.length,1);assert.equal(disk.tasks.length,1);
  });
  await step('native confirmation commits the whole reviewed plan once and preserves unrelated original course data',async()=>{
@@ -89,11 +109,11 @@ async function run(){
  });
  await step('moving an attachment during review rejects the stale confirmation without applying any planned mutation',async()=>{
   const run=await sendPending('qa-stale-conversation','qa-stale-source','stale-source');assert.equal(run.status,'awaiting-approval');await moveMaterial('qa-stale-source',{projectId:holdId});
-  await evaluate('ReadingPane.hide();openConversation("qa-stale-conversation");true');const before=await domain(),done=await approve(run);assert.equal(done.status,'cancelled');assert.match(done.error,/归属已变化/);assert.equal(await domain(),before);assert.equal(await evaluate('state.imports.find(x=>x.id==="qa-stale-source").projectId'),holdId);assert.equal(await evaluate('state.notes.some(x=>x.title==="矩阵分析_stale-source")'),false);
+  await evaluate('ReadingPane.hide();openConversation("qa-stale-conversation");true');const before=await domain(),done=await refuseStale(run);assert.equal(await domain(),before);assert.equal(await evaluate('state.imports.find(x=>x.id==="qa-stale-source").projectId'),holdId);assert.equal(await evaluate('state.notes.some(x=>x.title==="矩阵分析_stale-source")'),false);
  });
  await step('changing conversation scope during review rejects the stale confirmation and keeps the chosen scope',async()=>{
-  const run=await sendPending('qa-context-conversation','qa-context-source','stale-context');assert.equal(run.status,'awaiting-approval');await bindConversation('qa-context-conversation',holdId);const before=await domain(),done=await approve(run);
-  assert.equal(done.status,'cancelled');assert.match(done.error,/归属已变化/);assert.equal(await domain(),before);assert.equal(await evaluate('currentConversation().projectId'),holdId);assert.equal(await evaluate('state.imports.find(x=>x.id==="qa-context-source").projectId'),null);
+  const run=await sendPending('qa-context-conversation','qa-context-source','stale-context');assert.equal(run.status,'awaiting-approval');await bindConversation('qa-context-conversation',holdId);const before=await domain(),done=await refuseStale(run);
+ assert.equal(await domain(),before);assert.equal(await evaluate('currentConversation().projectId'),holdId);assert.equal(await evaluate('state.imports.find(x=>x.id==="qa-context-source").projectId'),null);
  });
  await step('the real move and scope forms cascade only source-linked results and update both result heading and project conversations',async()=>{
   await moveMaterial(sourceId,{newProjectName:newName});newId=await evaluate('state.projects.find(x=>x.name==='+JSON.stringify(newName)+').id');

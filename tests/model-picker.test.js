@@ -48,16 +48,16 @@ function harness(options = {}) {
     getBoundingClientRect() { return { left: 500, top: 500, right: 820, bottom: 740, width: 320, height: 240 }; }
   }
   const el = id => { if (!elements.has(id)) elements.set(id, new Element(id)); return elements.get(id); };
-  el('conversationProvider').replaceChildren(new Option('API', 'api'), new Option('Account', 'openai-auth'));
+  el('conversationProvider').replaceChildren(new Option('API', 'api'), new Option('Account', 'openai-auth'), new Option('Claude', 'claude-auth'));
   const state = { conversations: options.conversations || [{ id: 'first', title: 'First conversation' }, { id: 'second', title: 'Second conversation' }] };
   let currentId = state.conversations[0].id;
   const defaults = options.defaults || { provider: 'api', model: 'api-default', effort: '' };
   const calls = [], toasts = [];
-  let saves = 0, ensureCount = 0;
+  let saves = 0, ensureCount = 0, claudeEnsureCount = 0;
   function paint(props) {
     surfaceProps=props;painting=true;
     const select=(id,values,value,disabled,onValue)=>{const control=el(id);control.replaceChildren(...values.map(entry=>Object.assign(new Option(entry.label,entry.value),{disabled:!!entry.disabled})));control.value=value;control.disabled=disabled;control.onValue=onValue;};
-    select('conversationProvider',[{value:'api',label:'API'},{value:'openai-auth',label:'Account'}],props.selection.provider,props.saving,props.onProvider);
+    select('conversationProvider',[{value:'api',label:'API'},{value:'openai-auth',label:'Account'},{value:'claude-auth',label:'Claude'}],props.selection.provider,props.saving,props.onProvider);
     select('conversationAccountModel',props.accountOptions,props.selection.model,props.accountDisabled||props.saving,props.onModel);
     select('conversationEffort',props.effortOptions,props.selection.effort,props.effortDisabled||props.saving,props.onEffort);
     el('conversationApiModel').value=props.selection.model;el('conversationApiModel').onValue=props.onModel;
@@ -74,6 +74,7 @@ function harness(options = {}) {
     innerWidth: 1200, innerHeight: 900, addEventListener() {}, ComposerUI:options.composerUI,
     fetch: (url, init) => { calls.push({ url, init }); return options.fetch ? options.fetch(url, init) : Promise.resolve(response(catalogue)); },
     OpenAIAuth: { ensureReady: async () => { ensureCount++; if (options.ensureReady) await options.ensureReady(); } },
+    ClaudeAuth: { ensureReady: async () => { claudeEnsureCount++; if (options.claudeEnsureReady) await options.claudeEnsureReady(); } },
   });
   vm.runInContext(source, context);
   const api = context.ConversationModels;
@@ -89,7 +90,7 @@ function harness(options = {}) {
     outside: attributes => documentEvents.fire('pointerdown',{target:el('outside'),...attributes}),
     provider: async value => { el('conversationProvider').focus(); el('conversationProvider').value = value; await el('conversationProvider').fire('change'); },
     switchConversation: id => { currentId = id; api.sync(); },
-    get surface(){return surfaceProps;}, get saves() { return saves; }, get focused() { return focused; }, get ensureCount() { return ensureCount; },
+    get surface(){return surfaceProps;}, get saves() { return saves; }, get focused() { return focused; }, get ensureCount() { return ensureCount; }, get claudeEnsureCount(){return claudeEnsureCount;},
   };
 }
 
@@ -372,4 +373,25 @@ test('composer synchronization delegates to the Kit owner instead of replacing i
 });
 test('a failed reset restores an explicit selection and never rewrites immutable run snapshots',async()=>{
  const h=harness({save:async()=>false}),conversation=h.state.conversations[0];conversation.messages=[{role:'agent',modelConfig:{provider:'api',model:'executed',effort:'high'}}];h.api.setSelection(conversation,{provider:'api',model:'override',effort:'low'});const before=plain(conversation);await h.open();await h.el('resetModelSelection').fire('click');assert.deepEqual(plain(conversation),before);assert.equal(h.el('modelPicker').hidden,false);assert.match(h.surface.error,/未能保存/);
+});
+
+test('Claude official default is a real provider selection with aliases, no catalogue and no API model fallback',async()=>{
+ const h=harness({defaults:{provider:'claude-auth',model:'',effort:''},fetch:()=>{throw Error('Claude must not fetch OpenAI catalogue');}});await h.open();
+ assert.equal(h.surface.selection.provider,'claude-auth');assert.equal(h.surface.selection.model,'');assert.equal(h.surface.accountDisabled,false);assert.equal(h.surface.effortDisabled,true);
+ assert.deepEqual(Array.from(h.surface.accountOptions,x=>x.value),['','sonnet','opus','haiku']);assert.match(h.el('composerModel').title,/Claude/);await h.submit();
+ assert.deepEqual(plain(h.state.conversations[0].modelConfig),{provider:'claude-auth',model:'',effort:''});assert.equal(h.calls.length,0);
+ assert.deepEqual(plain(await h.api.resolve(h.api.current())),{provider:'claude-auth',model:'',effort:''});assert.equal(h.claudeEnsureCount,1);assert.equal(h.ensureCount,0);
+ assert.equal(h.api.forNewConversation(h.state,h.defaults).provider,'claude-auth');
+});
+test('Claude defaults skip empty unconfigured levels and preserve independent unsaved API/OpenAI/Claude choices',async()=>{
+ const h=harness({conversations:[{id:'first',modelConfig:{}},{id:'second'}],defaults:{provider:'claude-auth',model:'opus',effort:''}});assert.equal(h.api.current().provider,'claude-auth');await h.open();
+ h.el('conversationAccountModel').value='haiku';await h.provider('api');h.el('conversationApiModel').value='api-personal';h.el('conversationEffort').value='high';
+ await h.provider('openai-auth');await new Promise(r=>setImmediate(r));h.el('conversationAccountModel').value='account-fast';h.el('conversationEffort').value='low';
+ await h.provider('claude-auth');assert.equal(h.el('conversationAccountModel').value,'haiku');assert.equal(h.surface.selection.effort,'');await h.submit();
+ assert.deepEqual(plain(h.state.conversations[0].modelChoices),{api:{model:'api-personal',effort:'high'},'openai-auth':{model:'account-fast',effort:'low'},'claude-auth':{model:'haiku',effort:''}});
+});
+test('Claude run snapshots survive model changes and reject unsupported alias/reasoning before auth or transport',async()=>{
+ const ready=deferred();const h=harness({claudeEnsureReady:()=>ready.promise});const input={provider:'claude-auth',model:'sonnet',effort:''};const run=h.api.resolve(input);input.model='haiku';ready.resolve();assert.equal((await run).model,'sonnet');
+ await assert.rejects(h.api.resolve({provider:'claude-auth',model:'arbitrary-model',effort:''}),/别名/);
+ await assert.rejects(h.api.resolve({provider:'claude-auth',model:'opus',effort:'high'}),/默认推理/);assert.equal(h.claudeEnsureCount,1);assert.equal(h.calls.length,0);
 });

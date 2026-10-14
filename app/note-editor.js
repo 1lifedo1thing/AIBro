@@ -594,6 +594,8 @@
           ui.readingHandle?.destroy?.(); ui.readingHandle = null;
           if (typeof renderMarkdown === 'function') ui.previewBody.innerHTML = renderMarkdown(session.content, { noteId: session.id, variant: documentVariant() });
           else { const pre = node('pre', '', markdownBody(session.content) || '这篇笔记还没有正文。'); ui.previewBody.replaceChildren(pre); }
+          // Selection actions (explain / translate / ask) know which note this text belongs to.
+          Object.assign(ui.previewBody.dataset, { selectionSource: 'note', selectionId: String(session.id || ''), selectionTitle: String(session.title || '') });
           ui.readingHandle = environment.DocumentReading?.mount?.(ui.previewBody);
         }
       }
@@ -794,6 +796,14 @@
       cancelSaveFocus?.();
       if (!session) return true;
       if (!inputReady()) return false;
+      // A decision is already pending, possibly inside a reader parked since it
+      // opened. The flush promise below stays pending until it settles, so
+      // show the prompt again here rather than returning it hidden.
+      if (leavePromise) {
+        environment.ReadingPane?.resume?.();
+        ui.stay.focus?.({ preventScroll: true }); ui.leave.scrollIntoView?.({ block: 'nearest' });
+        return leavePromise;
+      }
       if (ui?.modern && activeEditor()?.flushPending && !saving) {
         const owner = ui;
         if (owner.leaveFlushPromise) return owner.leaveFlushPromise;
@@ -1080,7 +1090,17 @@
       prepareExport: async () => { const owner = ui, editing = session; if (!await flushEditor() || owner !== ui || editing !== session || !session) return null; return { id: session.id, title: session.title, content: session.content, dirty: dirty(session) }; },
       rewriteSelection,
       flushDrafts: async () => { if (!await flushEditor()) return false; remember(); return recovery?.flushAll() ?? true; },
-      edit(id) { if (!session || session.id !== id || saving || loading || !inputReady()) return false; void setMode(ui.modern || environment.MarkdownEditor ? 'rich' : 'edit'); return true; },
+      edit(id) {
+        if (!session || session.id !== id || saving || !inputReady()) return false;
+        const enter = () => void setMode(ui.modern || environment.MarkdownEditor ? 'rich' : 'edit');
+        if (!loading) { enter(); return true; }
+        // A just-opened note may still be loading its local draft (as suspend()
+        // waits for). Enter edit mode once that settles, if it is still this note.
+        const owner = ui, generation = epoch, ready = owner?.recoveryReady;
+        if (!ready) return false;
+        void Promise.resolve(ready).then(() => { if (owner === ui && generation === epoch && session?.id === id && !loading && !saving) enter(); });
+        return true;
+      },
       isActive: id => !!session && session.id === id && !!surface && surface.parentElement === container,
       getDraft: id => { if (session?.id === id) remember(); return drafts.has(id) ? { ...drafts.get(id) } : null; },
       snapshot: () => ({ id: session?.id || null, mode, dirty: isDirty(), saving, mounted: !!surface }) };

@@ -194,3 +194,9 @@ test('a stale authenticated status cannot undo logout or re-enable the model sel
   assert.match(h.nodes.openaiAuthStatus.textContent, /尚未登录/);
   assert.equal(h.toasts.length, 1);
 });
+
+test('third Claude provider persists via existing preference while hiding both API and OpenAI account panels without touching API drafts',async()=>{
+ const h=harness({integration:true,stored:{'workstation-provider':'claude-auth'}});h.init();assert.equal(h.api.provider(),'claude-auth');assert.equal(h.nodes.apiCredentials.hidden,true);assert.equal(h.nodes.openaiAuthPanel.hidden,true);assert.equal(h.calls.length,0);
+ h.nodes.apiBase.value='https://draft.example.invalid/v1';h.nodes.apiKey.value='public-synthetic-key';h.nodes.model.value='draft-api-model';await h.change('provider','api');await h.change('provider','claude-auth');
+ assert.equal(h.storage.get('workstation-provider'),'claude-auth');assert.equal(h.nodes.apiBase.value,'https://draft.example.invalid/v1');assert.equal(h.nodes.apiKey.value,'public-synthetic-key');assert.equal(h.nodes.model.value,'draft-api-model');assert.equal(h.calls.length,0);
+});

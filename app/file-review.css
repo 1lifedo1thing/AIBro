@@ -6,7 +6,7 @@
 @media(prefers-reduced-motion:reduce){.file-review-file{transition:none}}
 
 /* A compact, persistent shelf above the composer, using the surrounding theme. */
-#conversationOutputs{flex:none;width:min(100%,920px);align-self:center;box-sizing:border-box;margin:0 auto 8px;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--text);overflow:hidden}
+#conversationOutputs{flex:none;width:min(100%,800px);align-self:center;box-sizing:border-box;margin:0 auto 8px;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--text);overflow:hidden}
 #conversationOutputs[hidden]{display:none}
 #conversationOutputs summary{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;font-size:12px;list-style:none}
 #conversationOutputs summary::before{content:'›';font-size:17px;transform:rotate(0);transition:transform .16s ease}

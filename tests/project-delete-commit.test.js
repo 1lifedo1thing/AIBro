@@ -12,7 +12,7 @@ test('the host commits cascade membership while keeping the live receipt convers
   run.projectSnapshots = Core.projectSnapshots(state,{projectIds:['p']});
   let serial=0;
   const context = vm.createContext({Core,state,window:{},uid:prefix=>`${prefix}-${++serial}`,normalizeStateShape:()=>{},addRunStep:()=>{},save:()=>{},renderAll:()=>{}});
-  const start=source.indexOf('function executeActions('),end=source.indexOf('function fallbackWorkflow(',start);
+  const start=source.indexOf('function executeActions('),end=source.indexOf('function actionsNeedApproval(',start);
   vm.runInContext(source.slice(start,end),context);
   context.executeActions([{type:'delete_project',projectId:'p'}],run);
   assert.deepEqual(state.projects,[]); assert.deepEqual(state.imports,[]);

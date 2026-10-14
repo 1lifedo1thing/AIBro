@@ -469,6 +469,8 @@
   "连接方式": "Connection type",
   "自定义 API": "Custom API",
   "OpenAI 账号登录": "Sign in with OpenAI",
+  "Claude 官方账号（本机 CLI）": "Claude account (local CLI)",
+  "Claude 官方账号": "Claude account",
   "默认模型": "Default model",
   "API 地址": "API URL",
   "测试连接": "Test connection",
@@ -1408,6 +1410,7 @@
   { "source": "^本轮按需读取 · (\\d+) 次$", "replacement": "On-demand reads this turn · $1" },
   { "source": "^检索摘录 · (\\d+) 条 · (\\d+) 项资料$", "replacement": "Retrieved excerpts · $1 excerpts · $2 records" },
   { "source": "^本轮提供原件 · (\\d+) 份$", "replacement": "Originals included this turn · $1 files" },
+  { "source": "^(\\d+) 项工具已发出但未收到结果，可能已经产生效果。重试会重新规划，不会自动重放；请先核对实际效果。$", "replacement": "$1 tool requests were sent without a result and may already have taken effect. Retrying plans a new turn and does not replay them; check their effects first." },
   {
     "source": "^(\\d+) 份资料待 AI 分析$",
     "replacement": "$1 sources ready for AI analysis"

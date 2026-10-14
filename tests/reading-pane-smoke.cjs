@@ -24,6 +24,9 @@ async function run(){
  async function click(selector){const p=await evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e)throw Error("Missing "+'+JSON.stringify(selector)+');e.scrollIntoView({block:"nearest",behavior:"instant"});const r=e.getBoundingClientRect(),x=Math.round(r.x+r.width/2),y=Math.round(r.y+r.height/2),hit=document.elementFromPoint(x,y);if(!r.width||!r.height||e.disabled||!(e===hit||e.contains(hit)))throw Error("Hidden/covered "+'+JSON.stringify(selector)+');return{x,y}})()');win.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,...p});win.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,...p});await wait(100);}
  const tab=id=>".reading-tab-select[data-reading-key='"+JSON.stringify([id==='qa-reading-pdf'?'import':'note',id])+"']";
  const tabClose=id=>'.reading-tab:has('+tab(id)+') .reading-tab-close';
+ // Current note editing: Kit DocumentToolbar modes; 编辑 is the Crepe/ProseMirror canvas.
+ const modeButton=label=>'[...document.querySelectorAll("#previewDialog .document-toolbar-kit [role=radio]")].find(n=>n.textContent.trim()==='+JSON.stringify(label)+')';
+ const retainedPage=async()=>await evaluate('ReadingPane.snapshot().tabs.find(t=>t.kind==="import"&&t.id==="qa-reading-pdf")?.page||1');
  async function readyPdf(page){await until(()=>evaluate('(()=>{const i=$(".pdf-sheet img");return !!i&&i.complete&&i.naturalWidth>0&&$("[data-pdf-page]").value==='+JSON.stringify(String(page))+'})()'),'PDF page '+page);}
  async function step(label,fn){try{await fn();passed.push(label);console.log('PASS',label);}catch(error){failures.push({label,error:error.stack});console.error('FAIL',label,error.message);}}
  async function snapshot(name){await settle();fs.writeFileSync(path.join(ROOT,'design',name),(await win.webContents.capturePage()).toPNG());}
@@ -67,24 +70,43 @@ async function run(){
   await click('#readingCollapse');await evaluate('showView("agent","持续对话")');await click('#readingToggle');await click('.reading-tab.active [role=tab]');assert.equal(await evaluate('document.activeElement.classList.contains("reading-tab-select")'),true,'selected tab keeps DOM focus after repaint');win.webContents.sendInputEvent({type:'keyDown',keyCode:'Escape'});win.webContents.sendInputEvent({type:'keyUp',keyCode:'Escape'});await wait(100);assert.equal(await evaluate('$("#readingPane").hidden'),true);await click('#readingToggle');
  });
  await step('task modal opens nonmodal source then returns with unsaved fields intact',async()=>{
-  await evaluate('ReadingPane.hide();openTask("qa-reading-task");$("#taskDescriptionInput").value="未保存的任务草稿"');assert.equal(await evaluate('$("#taskDialog").matches(":modal")'),true);
-  await click('#taskDialog [data-open-import="qa-reading-pdf"]');await readyPdf(1);assert.equal(await evaluate('$("#taskDialog").open'),false);assert.equal(await evaluate('document.querySelectorAll("dialog:modal").length'),0);
-  await click('#previewBack');assert.equal(await evaluate('$("#taskDialog").matches(":modal")'),true);assert.equal(await evaluate('$("#taskDescriptionInput").value'),'未保存的任务草稿');await evaluate('$("#taskDialog").close()');
+  // Task sources live in the Kit TaskDetailSurface's collapsed "关联材料与知识" group (app/ui/task-detail.jsx Source buttons).
+  await evaluate('ReadingPane.hide();openTask("qa-reading-task")');await until(()=>evaluate('!!$("#taskDescriptionInput")'),'task detail surface');
+  await evaluate('(()=>{const n=$("#taskDescriptionInput"),proto=n.tagName==="TEXTAREA"?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,"value").set.call(n,"未保存的任务草稿");n.dispatchEvent(new Event("input",{bubbles:true}));})()');await settle();
+  assert.equal(await evaluate('$("#taskDialog").matches(":modal")'),true);assert.equal(await evaluate('$("#taskDescriptionInput").value'),'未保存的任务草稿');
+  // The task form keeps a sticky action footer; scroll each control to the middle of the dialog, as a user would, before pointing at it.
+  const reveal=selector=>evaluate('document.querySelector('+JSON.stringify(selector)+').scrollIntoView({block:"center",behavior:"instant"})');
+  const sources='#taskDialog [data-task-group="sources"] > summary';await reveal(sources);await click(sources);const source='#taskDialog [data-task-source-type="import"][data-task-source-id="qa-reading-pdf"]';await until(()=>evaluate('!!document.querySelector('+JSON.stringify(source)+')?.getClientRects().length'),'task source entry');
+  // A source entry without a page resumes the PDF's retained reading position.
+  const page=await retainedPage();await reveal(source);await click(source);await readyPdf(page);assert.equal(await evaluate('$("#taskDialog").open'),false);assert.equal(await evaluate('document.querySelectorAll("dialog:modal").length'),0);
+  assert.equal(await evaluate('ReadingPane.snapshot().tabs.find(t=>t.id==="qa-reading-pdf").origin?.view'),'task');
+  await click('#previewBack');await until(()=>evaluate('$("#taskDialog").matches(":modal")&&state.openTaskId==="qa-reading-task"'),'task restored');await settle();
+  assert.equal(await evaluate('$("#taskDescriptionInput").value'),'未保存的任务草稿');assert.equal(await evaluate('state.tasks.find(t=>t.id==="qa-reading-task").description'),'原始任务详情');
+  await reveal('#cancelTask');await click('#cancelTask');if(await evaluate('!!$("#taskDiscardChanges")')){await reveal('#taskDiscardChanges');await click('#taskDiscardChanges');}await until(()=>evaluate('!$("#taskDialog").open'),'task form closed');
  });
  await step('individual tab close and delayed original load never reopen a closed reader',async()=>{
   await evaluate('openNote("qa-reading-note-a");openNote("qa-reading-note-b")');await click(tabClose('qa-reading-note-a'));assert.equal(await evaluate('!!document.querySelector('+JSON.stringify(tab('qa-reading-note-a'))+')'),false);assert.match(await evaluate('$("#previewTitle").textContent'),/第二篇笔记/);
-  await evaluate('window.__qaOriginalGet=fileStoreGet;fileStoreGet=id=>id==="qa-reading-pdf"?new Promise(resolve=>window.__qaResolveBlob=resolve):window.__qaOriginalGet(id);void openImport("qa-reading-pdf")');
-  await until(()=>evaluate('typeof __qaResolveBlob==="function"'),'pending source');await click('#readingCollapse');await evaluate('__qaResolveBlob(new Blob(["late response"],{type:"application/pdf"}));fileStoreGet=__qaOriginalGet;true');await wait(180);
-  assert.equal(await evaluate('$("#readingPane").hidden'),true);assert.equal(await evaluate('$("#previewDialog").hidden'),true);assert.equal(await evaluate('$("#previewVisual").children.length'),0);
-  await click('#readingToggle');await readyPdf(1);await click(tabClose('qa-reading-pdf'));assert.match(await evaluate('$("#previewTitle").textContent'),/第二篇笔记/);
+  // PDF originals stay in the local preview service; the reader's first load is its preview-info request
+  // (docs/PDF_ORIGINAL_PRIVACY_DELIVERY_20261001.md). Hold that real request until the reader is closed.
+  await evaluate('window.__qaOriginalFetch=window.fetch;window.__qaInfoRequests=0;window.fetch=(input,init)=>{const url=String(typeof input==="string"?input:input.url);if(url.includes("/__files/qa-reading-pdf/preview-info")&&!window.__qaResolveInfo){window.__qaInfoRequests++;return new Promise(resolve=>{window.__qaResolveInfo=()=>resolve(window.__qaOriginalFetch(input,{...init,signal:undefined}));});}return window.__qaOriginalFetch(input,init);};void openImport("qa-reading-pdf");true');
+  await until(()=>evaluate('typeof __qaResolveInfo==="function"'),'pending source');await click('#readingCollapse');await evaluate('__qaResolveInfo();window.fetch=__qaOriginalFetch;true');await wait(180);
+  assert.equal(await evaluate('$("#readingPane").hidden'),true);assert.equal(await evaluate('$("#previewDialog").hidden'),true);assert.equal(await evaluate('$("#previewVisual").children.length'),0);assert.equal(await evaluate('document.querySelector(".pdf-reader")'),null);
+  const page=await retainedPage();await click('#readingToggle');await readyPdf(page);await click(tabClose('qa-reading-pdf'));assert.match(await evaluate('$("#previewTitle").textContent'),/第二篇笔记/);
  });
  await step('inline dirty note keeps the section and download intact until close is approved',async()=>{
-  await evaluate('openNote("qa-reading-note-a")');await click('#editPreviewNote');await click('[data-note-action="edit"]');
-  await evaluate('window.__qaNoteDownload=$("#previewDownload").href;window.__qaNoteContent=state.notes.find(n=>n.id==="qa-reading-note-a").content;const textarea=$(".note-document-source textarea");textarea.value="未保存的编辑器草稿";textarea.dispatchEvent(new Event("input",{bubbles:true}));true');
+  // The local draft store only accepts notes that already exist on disk.
+  assert.equal(await evaluate('saveDocumentDurably()'),true);
+  await evaluate('openNote("qa-reading-note-a")');await until(()=>evaluate('NoteEditor.inlineActive("qa-reading-note-a")&&!!'+modeButton('编辑')+'&&!'+modeButton('编辑')+'.disabled'),'note editor ready');
+  await click('#editPreviewNote');await until(()=>evaluate('$(".note-document").dataset.mode==="rich"&&!!$(".document-visual-canvas .ProseMirror[contenteditable=true]")'),'visual editor from 编辑 Markdown');
+  await evaluate('window.__qaNoteDownload=$("#previewDownload").href;window.__qaNoteContent=state.notes.find(n=>n.id==="qa-reading-note-a").content;true');
+  // Type through ProseMirror's real input path.
+  await evaluate('(()=>{const e=$(".document-visual-canvas .ProseMirror");e.focus();const r=document.createRange();r.selectNodeContents(e.querySelector("p"));const s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand("insertText",false,"未保存的编辑器草稿");})()');
+  await until(()=>evaluate('NoteEditor.currentContent()?.content.includes("未保存的编辑器草稿")&&NoteEditor.currentContent().dirty'),'visual draft');
+  // Collapsing the reader is an explicit close, so it asks this document's own Save / Discard / Continue decision.
   await click('#readingCollapse');
   assert.equal(await evaluate('!$("#previewDialog").hidden&&!$(".note-document-leave").hidden&&$("#previewDownload").href===__qaNoteDownload&&state.previewRecord.id==="qa-reading-note-a"'),true);
   assert.equal(await evaluate('document.querySelectorAll("dialog:modal").length'),0);
-  await click('[data-note-action="stay"]');assert.equal(await evaluate('$("#previewDialog").hidden'),false);assert.equal(await evaluate('$(".note-document-source textarea").value'),'未保存的编辑器草稿');
+  await click('[data-note-action="stay"]');assert.equal(await evaluate('$("#previewDialog").hidden'),false);assert.equal(await evaluate('NoteEditor.currentContent()?.content.includes("未保存的编辑器草稿")&&NoteEditor.currentContent().dirty&&$(".note-document-leave").hidden'),true);
   await click('#readingCollapse');await click('[data-note-action="discard"]');
   await until(()=>evaluate('$("#readingPane").hidden&&$("#previewDialog").hidden'),'approved reader close');
   assert.equal(await evaluate('state.previewRecord===null&&$("#previewDownload").hidden&&!$("#previewDownload").hasAttribute("href")&&$("#previewContent").textContent===""'),true);

@@ -23,8 +23,11 @@
   if(announce)announce.textContent=label;
   return true;
  }
+ // The Kit DocumentToolbar renders Save as the last action button with no data
+ // attribute; the legacy controls keep theirs.
+ const saveButton='[data-note-action="save"],[data-local-document-action="save"],.document-toolbar-kit-actions button:last-child';
  function saved(surface){
-  const button=surface?.querySelector?.('[data-note-action="save"],[data-local-document-action="save"]');
+  const button=surface?.querySelector?.(saveButton);
   return success(button,{label:root.WorkstationI18n?.getLanguage?.()==='en'?'Saved':'已保存'});
  }
  function init(){
@@ -44,7 +47,7 @@
    }
   });
   observer.observe(doc.body,{childList:true,characterData:true,subtree:true});
-  const editing=event=>{const surface=event.target.closest?.('.note-document');const button=surface?.querySelector('[data-note-action="save"],[data-local-document-action="save"]');if(button)clear(button);};
+  const editing=event=>{const surface=event.target.closest?.('.note-document');const button=surface?.querySelector(saveButton);if(button)clear(button);};
   doc.addEventListener('input',editing);
   dispose=()=>{observer.disconnect();doc.removeEventListener('input',editing);live.remove();doc.querySelectorAll('.feedback-confirmed').forEach(clear);};
   return {destroy:dispose};

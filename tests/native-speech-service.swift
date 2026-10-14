@@ -103,6 +103,22 @@ actor SpeechSecretFixture {
         try await access.save(config,"synthetic-key")
         let restoredConfig=try await access.load(),restoredKey=try await access.read(config)
         check(restoredConfig==config && restoredKey=="synthetic-key","dedicated encrypted store round-trips exact configuration and synthetic Key")
+        let exporter=NativeCredentials(folder:directory,legacy:nil,service:"dev.aibro.synthetic.speech")
+        let exported=try exporter.exportSavedSpeech([:]),profile=exported["profile"] as! [String:Any]
+        check(profile["provider"] as? String=="aliyun" && profile["apiFormat"] as? String=="aliyun-multimodal" && profile["purpose"] as? String=="speech","speech export maps independent Aliyun protocol without chat fallback")
+        check(profile["baseUrl"] as? String==config.endpoint?.absoluteString && profile["apiKey"] as? String=="synthetic-key","speech export retains normalized endpoint and its own secret")
+        check(try exporter.exportSavedSpeech(["sourceDigest":exported["sourceDigest"]!],verify:true)["valid"] as? Bool==true,"speech unchanged snapshot verifies")
+        var updated=config;updated.language="zh";try await access.save(updated,"synthetic-key")
+        await rejects("language change invalidates reviewed snapshot"){_=try exporter.exportSavedSpeech(["sourceDigest":exported["sourceDigest"]!],verify:true)}
+        check((try exporter.exportSavedSpeech([:])["profile"] as? [String:Any])?["language"] as? String=="zh","speech profile retains explicit language")
+        let gate=NativeConnectionAccess.Gate(),lease=gate.capture();gate.invalidate()
+        await rejects("revoked page cannot export speech"){_=try exporter.exportSavedSpeech([:],access:lease)}
+        try await access.save(open,"synthetic-openai-speech")
+        let openProfile=try exporter.exportSavedSpeech([:])["profile"] as! [String:Any]
+        check(openProfile["apiFormat"] as? String=="audio-transcriptions" && openProfile["baseUrl"] as? String==open.endpoint?.absoluteString,"OpenAI speech uses full endpoint without duplicate suffix")
+        try await access.remove()
+        await rejects("removed source cannot export an old speech Key"){_=try exporter.exportSavedSpeech([:])}
+        try await access.save(config,"synthetic-key")
         var other=config;other.baseURL="https://other.invalid/compatible-mode/v1"
         await rejects("another origin cannot reuse the saved speech Key",.credential){_=try await access.read(other)}
         var otherProtocol=config;otherProtocol.provider = .openAI

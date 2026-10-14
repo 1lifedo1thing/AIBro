@@ -66,6 +66,19 @@ test('mutation observer ignores streamed user text and touches only changed UI s
   h.mutate([{type:'characterData',target:message.childNodes[0]}]);assert.equal(h.microtasks.length,0);
   other.childNodes[0].nodeValue='取消';h.mutate([{type:'characterData',target:other.childNodes[0]}]);h.flush();assert.equal(other.textContent,'Cancel');assert.equal(message.textContent,'设置');
 });
+test('nested pending roots are translated once through their outermost root',()=>{
+  const h=harness('en'),host=h.add('div',{class:'message-steps'});h.init();
+  // One rendered message queues its host and every descendant it added.
+  let parent=host;const added=[];for(let i=0;i<40;i++){const row=h.add('span',{'data-i18n':''},i%2?'取消':'设置',parent);added.push(row);parent=row;}
+  let queries=0;const count=node=>{const original=node.querySelectorAll.bind(node);node.querySelectorAll=selector=>{queries++;return original(selector);};};
+  count(host);added.forEach(count);
+  h.mutate([{type:'childList',target:h.document.body,addedNodes:[host]},...added.map(row=>({type:'childList',target:row.parent,addedNodes:[row]}))]);h.flush();
+  assert.equal(queries,2,'one UI and one attribute query for the outermost root');
+  assert.deepEqual(added.slice(0,4).map(row=>row.childNodes[0].nodeValue),['Settings','Cancel','Settings','Cancel']);
+  // Separate subtrees remain independent roots.
+  const a=h.add('span',{'data-i18n':''},'保存'),b=h.add('span',{'data-i18n':''},'任务');
+  h.mutate([{type:'childList',target:h.document.body,addedNodes:[a,b]}]);h.flush();assert.deepEqual([a.textContent,b.textContent],['Save','Task']);
+});
 test('placeholders and aria labels are localized without changing values or internal Chinese space IDs',()=>{
   const h=harness('en'),option=h.add('option',{'data-i18n':'',value:'日常'},'日常'),field=h.add('input',{'data-i18n-attrs':'placeholder',placeholder:'搜索名称','aria-label':'任务'});field.value='日常';h.init();
   assert.equal(option.textContent,'Personal');assert.equal(option.getAttribute('value'),'日常');assert.equal(field.value,'日常');assert.equal(field.getAttribute('aria-label'),'Task');

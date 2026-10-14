@@ -22,7 +22,7 @@ let server, win;
 async function run(){
   await new Promise((resolve,reject)=>{const probe=sockets.createServer();probe.once('error',()=>reject(new Error('Port 18892 already belongs to another process; refusing to reuse it.')));probe.listen(PORT,'127.0.0.1',()=>probe.close(resolve));});
   const log=fs.openSync(path.join(TEMP,'server.log'),'a');
-  server=spawn(process.env.PYTHON||'python3',[path.join(ROOT,'server.py')],{cwd:ROOT,env:{...process.env,AI_WORKSTATION_PORT:String(PORT),AI_WORKSTATION_DATA_DIR:STORE},stdio:['ignore',log,log]});
+  server=spawn(process.env.PYTHON||'python3',[path.join(ROOT,'app','server.py')],{cwd:ROOT,env:{...process.env,AI_WORKSTATION_PORT:String(PORT),AI_WORKSTATION_DATA_DIR:STORE},stdio:['ignore',log,log]});
   await until(async()=>{try{return(await request('/__health')).status===200;}catch{return false;}},'isolated server');
   await app.whenReady();
   win=new BrowserWindow({show:false,width:1440,height:960,webPreferences:{sandbox:true,backgroundThrottling:false}});
@@ -37,12 +37,19 @@ async function run(){
   });
   const evaluate=script=>win.webContents.executeJavaScript(script);
   const click=async selector=>{
-    const point=await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)throw Error('Missing control: '+${JSON.stringify(selector)});e.scrollIntoView({block:'nearest'});const r=e.getBoundingClientRect();if(!r.width||!r.height||e.disabled)throw Error('Control unavailable: '+${JSON.stringify(selector)});return{x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()`);
+    const point=await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)throw Error('Missing control: '+${JSON.stringify(selector)});e.scrollIntoView({block:'nearest'});const r=e.getBoundingClientRect(),x=Math.round(r.x+r.width/2),y=Math.round(r.y+r.height/2),hit=document.elementFromPoint(x,y);if(!r.width||!r.height||e.disabled)throw Error('Control unavailable: '+${JSON.stringify(selector)});if(!(hit===e||e.contains(hit)))throw Error('Control covered: '+${JSON.stringify(selector)}+' by '+(hit?.id||hit?.className||hit?.tagName));return{x,y}})()`);
     win.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,...point});win.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,...point});await wait(120);
   };
   const settled=async()=>{assert.notEqual(await evaluate('flushWorkspace()'),false,'persist workspace');await until(()=>evaluate('!serverSaveInFlight && !serverSaveQueued && !state._pendingLocalSave'),'autosave');assert.equal(await evaluate('serverConflict'),false,'no CAS conflict');};
   const search=async(token,count)=>{await evaluate(`openSearchDialog();document.querySelector('#globalSearchInput').value=${JSON.stringify(token)};document.querySelector('#globalSearchInput').dispatchEvent(new Event('input',{bubbles:true}))`);assert.equal(await evaluate(`document.querySelectorAll('#searchResults [data-search-result]').length`),count,'global search count');await evaluate(`document.querySelector('#searchDialog').close()`);};
-  const space=async group=>{await click(`[data-view="${group.route}"]`);await click(`#${group.route} [data-space-tab="content"]`);};
+  // Spaces split the former mixed "content" panel into 资料 (notes/sources/papers) and 任务 tabs
+  // (resolveSpaceSection in app.js; docs/GLOBAL_WORKSPACE_DELIVERY_20260930.md section 2). The list view
+  // shows every record; the tree nests a paper under its analysis note.
+  const space=async(group,tab='knowledge')=>{await click(`[data-view="${group.route}"]`);await click(`#${group.route} [data-space-tab="${tab}"]`);if(tab==='knowledge'&&!await evaluate(`!!document.querySelector('#${group.route}Collection [data-cui-view="list"][aria-pressed="true"]')`))await click(`#${group.route}Collection [data-cui-view="list"]`);};
+  const rows=selector=>evaluate(`[...document.querySelectorAll(${JSON.stringify(selector+' [data-cui-key]')})].map(e=>e.dataset.cuiKey).sort().join(',')`);
+  const checked=selector=>evaluate(`document.querySelectorAll(${JSON.stringify(selector+' [data-cui-check]:checked')}).length`);
+  const projectTab=async(project,tab)=>{await evaluate(`openProject(${JSON.stringify(project)})`);await click(`#workspace-tab-${tab}`);};
+  const ownedTrash=ids=>evaluate(`state.trash.filter(e=>['tasks','notes','imports','papers'].some(key=>(e.data?.[key]||[]).some(item=>${JSON.stringify(ids)}.includes(item.id)))).map(e=>e.id)`);
   const snapshot=async(name,width,theme)=>{win.setSize(width,960);await evaluate(`state.ui.theme=${JSON.stringify(theme)};applyUiPreferences()`);await wait(300);fs.writeFileSync(path.join(TEMP,name),(await win.webContents.capturePage()).toPNG());};
   const confirmPurge=async(ids)=>{
     await until(()=>evaluate(`!!document.querySelector('#trashPurgeDialog[open]')`),'permanent-delete confirmation');
@@ -58,36 +65,42 @@ async function run(){
     await click('#trashPurgeDialog .secondary');await until(()=>evaluate('!purgeTrash.confirming'),'cancel purge');
     assert.equal(await evaluate('JSON.stringify(state.trash)'),before,'cancel preserves all trash records');assert.equal(purgeRequests.length,requests,'cancel must not contact purge endpoint');
   };
-  const deleteOne=async(group,type,id)=>{await space(group);await click(`#${group.route}Collection [data-cui-key="${type}:${id}"] [data-cui-delete]`);await click('#confirmContentDelete');await settled();return evaluate(`state.trash.find(entry=>entry.data?.[${JSON.stringify({task:'tasks',note:'notes',import:'imports'}[type])}]?.some(item=>item.id===${JSON.stringify(id)})).id`);};
-  await win.loadURL(ORIGIN);await until(()=>evaluate('storageHydrated'),'hydrate');
+  const deleteOne=async(group,type,id)=>{await space(group,type==='task'?'tasks':'knowledge');await click(`#${group.route}${type==='task'?'TaskCollection':'Collection'} [data-cui-key="${type}:${id}"] [data-cui-delete]`);await click('#confirmContentDelete');await settled();return evaluate(`state.trash.find(entry=>entry.data?.[${JSON.stringify({task:'tasks',note:'notes',import:'imports'}[type])}]?.some(item=>item.id===${JSON.stringify(id)})).id`);};
+  // First-run onboarding/tour cards float over the page; dismiss them as a returning user would.
+  const dismissOnboarding=()=>evaluate("WorkstationOnboarding?.close();WorkspaceTour?.close();state.ui.onboarding={version:WorkstationOnboarding.VERSION,status:'skipped'};state.ui.workspaceTour={version:WorkspaceTour.VERSION,status:'skipped'};true");
+  await win.loadURL(ORIGIN);await until(()=>evaluate('storageHydrated'),'hydrate');await dismissOnboarding();
   await evaluate(`(()=>{const groups=${JSON.stringify(groups)},now=Date.now();for(const g of groups){state.projects.push({id:g.project,name:'验收项目 · '+g.workspace,workspace:g.workspace,createdAt:now,localFolder:{id:'local_qa',rootId:'root_qa',name:'原始代码',path:${JSON.stringify(LOCAL)}}});state.tasks.push({id:g.task,title:g.token+' 任务',projectId:g.project,workspace:g.workspace,status:'done',completedAt:now,sourceAttachmentIds:[g.import],createdAt:now});state.notes.push({id:g.note,title:g.token+' 笔记',projectId:g.project,workspace:g.workspace,content:'保留人工分析内容',userEdited:true,paperId:g.paper,sourceAttachmentIds:[g.import],createdAt:now});state.imports.push({id:g.import,name:g.token+' 原件.txt',projectId:g.project,workspace:g.workspace,content:'来源正文',mimeType:'text/plain',parser:'local',createdAt:now});state.papers.push({id:g.paper,title:g.token+' 论文',projectId:g.project,workspace:g.workspace,noteId:g.note,year:'2026',authors:['QA Author'],structured:{tldr:'QA evidence'},sourceAttachmentIds:[g.import],createdAt:now});}normalizeStateShape(state);save();renderAll()})()`);
   for(const group of groups)assert.equal(await evaluate(`(async()=>{const r=await fetch('/__files/${group.import}',{method:'POST',headers:{'Content-Type':'text/plain','X-Filename':'source.txt'},body:'ORIGINAL_${group.import}'});return r.status})()`),200);
   await settled();
   const initial=JSON.parse((await request('/__state')).body);assert.equal(initial.tasks.length,3);assert.equal(initial.papers.length,3);
   const vault=path.join(STORE,'vault');assert.ok(fs.existsSync(vault),'paper notes materialized in vault');
   for(const group of groups){
-    await space(group);assert.equal(await evaluate(`document.querySelectorAll('#${group.route}Collection [data-cui-key]').length`),4);
+    const knowledge=`#${group.route}Collection`,tasks=`#${group.route}TaskCollection`,ownKnowledge=[`import:${group.import}`,`note:${group.note}`,`paper:${group.paper}`].sort().join(',');
+    await space(group);assert.equal(await rows(knowledge),ownKnowledge);await space(group,'tasks');assert.equal(await rows(tasks),`task:${group.task}`);
     await search(group.token,4);
-    await evaluate(`openProject(${JSON.stringify(group.project)})`);await click('[data-project-tab="knowledge"]');
-    assert.equal(await evaluate(`document.querySelectorAll('#projectCollection [data-cui-key]').length`),4);
-    await space(group);await click(`#${group.route}Collection [data-cui-all]`);
-    assert.equal(await evaluate(`!!document.querySelector('#${group.route}Collection [data-cui-reopen]')`),true,'completed tasks can reopen');
-    await click(`#${group.route}Collection [data-cui-delete-selected]`);await until(()=>evaluate(`!!document.querySelector('#contentDeleteDialog[open]')`),'content confirmation');
-    assert.match(await evaluate(`document.querySelector('#contentDeleteTitle').textContent`),/4 项/);
+    await projectTab(group.project,'knowledge');assert.equal(await rows('#projectCollection'),ownKnowledge);await projectTab(group.project,'tasks');assert.equal(await evaluate(`document.querySelectorAll('#projectTasks [data-board-task]').length`),1);
+    await space(group,'tasks');await click(`${tasks} [data-cui-all]`);assert.equal(await evaluate(`!!document.querySelector('${tasks} [data-cui-reopen]')`),true,'completed tasks can reopen');
+    await space(group);await click(`${knowledge} [data-cui-all]`);
+    await click(`${knowledge} [data-cui-delete-selected]`);await until(()=>evaluate(`!!document.querySelector('#contentDeleteDialog[open]')`),'content confirmation');
+    assert.match(await evaluate(`document.querySelector('#contentDeleteTitle').textContent`),/3 项/);
     if(group.route==='daily')await snapshot('qa-content-delete-confirm-light.png',1440,'light');
     if(group.route==='research')await snapshot('qa-content-delete-confirm-dark.png',650,'dark');
     const dialogLayout=await evaluate(`(()=>{const d=document.querySelector('#contentDeleteDialog'),r=d.getBoundingClientRect(),b=document.querySelector('#confirmContentDelete').getBoundingClientRect();return{overflow:d.scrollWidth>d.clientWidth,visible:b.left>=0&&b.right<=innerWidth&&b.bottom<=innerHeight}})()`);assert.equal(dialogLayout.overflow,false);assert.equal(dialogLayout.visible,true);
-    await click('#contentDeleteDialog .secondary');assert.equal(await evaluate(`document.querySelectorAll('#${group.route}Collection [data-cui-check]:checked').length`),4,'cancel keeps selection');
-    await click(`#${group.route}Collection [data-cui-delete-selected]`);await click('#confirmContentDelete');await settled();
-    assert.equal(await evaluate(`document.querySelectorAll('#${group.route}Collection [data-cui-key]').length`),0,'removed from collection');await search(group.token,0);
-    await evaluate(`openProject(${JSON.stringify(group.project)})`);await click('[data-project-tab="knowledge"]');assert.equal(await evaluate(`document.querySelectorAll('#projectCollection [data-cui-key]').length`),0);
+    await click('#contentDeleteDialog .secondary');assert.equal(await checked(knowledge),3,'cancel keeps selection');
+    await click(`${knowledge} [data-cui-delete-selected]`);await click('#confirmContentDelete');await settled();assert.equal(await rows(knowledge),'','removed from collection');
+    await space(group,'tasks');assert.equal(await checked(tasks),1,'task selection survives the other tab');await click(`${tasks} [data-cui-delete-selected]`);await until(()=>evaluate(`!!document.querySelector('#contentDeleteDialog[open]')`),'task confirmation');
+    assert.match(await evaluate(`document.querySelector('#contentDeleteTitle').textContent`),/1 项/);await click('#confirmContentDelete');await settled();assert.equal(await rows(tasks),'','task removed from collection');
+    await search(group.token,0);
+    await projectTab(group.project,'knowledge');assert.equal(await rows('#projectCollection'),'');await projectTab(group.project,'tasks');assert.equal(await evaluate(`document.querySelectorAll('#projectTasks [data-board-task]').length`),0);
     const other=groups.filter(item=>item.route!==group.route);for(const item of other)assert.equal(await evaluate(`state.tasks.some(t=>t.id===${JSON.stringify(item.task)})`),true,'other spaces preserved');
     assert.equal((await request(`/__files/${group.import}`)).body.toString(),`ORIGINAL_${group.import}`,'soft delete keeps blob');
-    await evaluate(`showView('trash','回收站')`);const trashId=await evaluate(`state.trash.find(e=>e.data?.tasks?.some(t=>t.id===${JSON.stringify(group.task)})).id`);await click(`[data-restore-trash="${trashId}"]`);await settled();
-    await space(group);assert.equal(await evaluate(`document.querySelectorAll('#${group.route}Collection [data-cui-key]').length`),4);await search(group.token,4);
+    await evaluate(`showView('trash','回收站')`);const trashIds=await ownedTrash([group.task,group.note,group.import,group.paper]);assert.equal(trashIds.length,2,'one trash bundle per confirmed deletion');
+    for(const trashId of trashIds){await click(`[data-restore-trash="${trashId}"]`);await settled();}
+    assert.deepEqual(await ownedTrash([group.task,group.note,group.import,group.paper]),[]);
+    await space(group);assert.equal(await rows(knowledge),ownKnowledge);await space(group,'tasks');assert.equal(await rows(tasks),`task:${group.task}`);await search(group.token,4);
     console.log('PASS mixed delete/cancel/restore and scope/search/project consistency:',group.workspace);
   }
-  win.setSize(1440,960);await settled();await win.loadURL(ORIGIN);await until(()=>evaluate('storageHydrated'),'reload restored workspace');
+  win.setSize(1440,960);await settled();await win.loadURL(ORIGIN);await until(()=>evaluate('storageHydrated'),'reload restored workspace');await dismissOnboarding();
   for(const group of groups)assert.equal(await evaluate(`state.imports.some(i=>i.id===${JSON.stringify(group.import)})&&state.papers.some(i=>i.id===${JSON.stringify(group.paper)})`),true);
   console.log('PASS restore survives reload');
   // Delete one original while keeping the task/note/paper that cite it. Permanent
@@ -98,9 +111,12 @@ async function run(){
   assert.equal(await evaluate(`state.trash.some(e=>e.id===${JSON.stringify(trashId)})`),false);assert.equal((await request(`/__files/${daily.import}`)).status,200,'still referenced original retained');
   console.log('PASS permanent deletion retains referenced original');
   // Full independent bundle can release its managed blob after explicit purge.
+  // Knowledge and tasks are deleted from their own tabs, so the bundle is two trash entries purged in one batch.
   const research=groups[2];await space(research);await click('#researchCollection [data-cui-all]');await click('#researchCollection [data-cui-delete-selected]');await click('#confirmContentDelete');await settled();
-  trashId=await evaluate(`state.trash.find(e=>e.data?.imports?.some(i=>i.id===${JSON.stringify(research.import)})).id`);await evaluate(`showView('trash','回收站')`);await click(`[data-purge-trash="${trashId}"]`);await confirmPurge([trashId]);
-  assert.equal(await evaluate(`state.trash.some(e=>e.id===${JSON.stringify(trashId)})`),false);assert.equal((await request(`/__files/${research.import}`)).status,404,'unreferenced managed blob removed');
+  await space(research,'tasks');await click('#researchTaskCollection [data-cui-all]');await click('#researchTaskCollection [data-cui-delete-selected]');await click('#confirmContentDelete');await settled();
+  const researchTrash=await ownedTrash([research.task,research.note,research.import,research.paper]);assert.equal(researchTrash.length,2);
+  await evaluate(`showView('trash','回收站')`);for(const id of researchTrash)await click(`[data-trash-select="${id}"]`);await click('#trashDeleteSelected');await confirmPurge(researchTrash);
+  assert.deepEqual(await ownedTrash([research.task,research.note,research.import,research.paper]),[]);assert.equal((await request(`/__files/${research.import}`)).status,404,'unreferenced managed blob removed');
   assert.equal(fs.readFileSync(path.join(LOCAL,'keep.txt'),'utf8'),'USER_ORIGINAL_MUST_SURVIVE');assert.ok(fs.existsSync(vault),'research vault preserved');
 
   // Build three genuine trash bundles through the collection's soft-delete UI.
@@ -131,10 +147,10 @@ async function run(){
   await click('#trashEmpty');await cancelPurge(3);await click('#trashEmpty');await confirmPurge(emptyTrash);
   assert.equal(await evaluate('state.trash.length'),0);assert.equal(await evaluate(`document.querySelector('#trashToolbar').hidden`),true);assert.match(await evaluate(`document.querySelector('#trashList').textContent`),/回收站为空/);
   const emptyRequests=purgeRequests.length;await evaluate('purgeTrash([])');assert.equal(purgeRequests.length,emptyRequests);assert.equal(await evaluate(`!!document.querySelector('#trashPurgeDialog[open]')`),false,'empty purge opens no dialog');
-  await win.loadURL(ORIGIN);await until(()=>evaluate('storageHydrated'),'reload purged workspace');assert.equal(await evaluate(`state.papers.some(p=>p.id===${JSON.stringify(research.paper)})`),false);assert.equal((await request(`/__files/${research.import}`)).status,404);
+  await win.loadURL(ORIGIN);await until(()=>evaluate('storageHydrated'),'reload purged workspace');await dismissOnboarding();assert.equal(await evaluate(`state.papers.some(p=>p.id===${JSON.stringify(research.paper)})`),false);assert.equal((await request(`/__files/${research.import}`)).status,404);
   assert.equal(await evaluate('state.trash.length'),0);assert.equal(await evaluate(`state.notes.filter(item=>item.id===${JSON.stringify(batch.note)}).length`),1);assert.equal(await evaluate(`${JSON.stringify(emptyTasks)}.some(id=>state.tasks.some(item=>item.id===id))`),false);assert.equal((await request(`/__files/${batch.source}`)).body.toString(),'BATCH_ORIGINAL_KEEP');
   console.log('PASS clear-all cancellation/confirmation, empty state, and restored source references survive reload');
-  await space(groups[1]);for(const [width,theme] of [[1440,'light'],[650,'dark']]){win.setSize(width,960);await evaluate(`state.ui.theme=${JSON.stringify(theme)};applyUiPreferences()`);await wait(200);const layout=await evaluate(`(()=>{const t=document.querySelector('#coursesCollection .collection-table'),r=t.getBoundingClientRect();return{overflow:t.scrollWidth>t.clientWidth,visible:[...t.querySelectorAll('[data-cui-delete]')].every(b=>{const x=b.getBoundingClientRect();return x.left>=r.left&&x.right<=r.right})}})()`);assert.equal(layout.overflow,false);assert.equal(layout.visible,true);}
+  await space(groups[1]);for(const [width,theme] of [[1440,'light'],[650,'dark']]){win.setSize(width,960);await evaluate(`state.ui.theme=${JSON.stringify(theme)};applyUiPreferences()`);await wait(200);const layout=await evaluate(`(()=>{const t=document.querySelector('#coursesCollection .library-data-table'),r=t.getBoundingClientRect(),buttons=[...t.querySelectorAll('[data-cui-delete]')];return{overflow:t.scrollWidth>t.clientWidth,buttons:buttons.length,visible:buttons.every(b=>{const x=b.getBoundingClientRect();return x.left>=r.left&&x.right<=r.right})}})()`);assert.equal(layout.overflow,false);assert.equal(layout.buttons,3);assert.equal(layout.visible,true);}
   assert.deepEqual(forbidden,[],'no model or external request attempted');assert.deepEqual(rendererErrors,[],'no renderer errors');
   console.log('PASS purge persistence, original local folder/vault retention, full-app 1440/650 layout; no external/model calls or renderer errors.');
   console.log('QA store:',TEMP);

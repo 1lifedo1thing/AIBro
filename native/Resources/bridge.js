@@ -7,6 +7,11 @@ const syncVisibility=()=>document.body.classList.toggle('native-background-rende
 syncVisibility();document.addEventListener('visibilitychange',syncVisibility);
 window.addEventListener('aibro:presentation-visibility',syncVisibility);
 let previousNativeView=null;let entranceTimer=null;
+// Page entrance: start it in the same frame as the view swap. snapshot() also
+// calls this, but it runs on a 500ms interval, so it alone would apply the
+// entrance after the new page had already appeared.
+function nativeEntrance(view){if(!view||view===previousNativeView)return;const depth=v=>({project:2,agent:2,wiki:2,history:2}[v]??1);const direction=previousNativeView&&depth(view)<depth(previousNativeView)?'back':'forward';previousNativeView=view;if(!document.body.classList.remove)return;document.body.classList.remove('native-enter');if(document.body.dataset)document.body.dataset.nativeEnterDirection=direction;void document.body.offsetWidth;document.body.classList.add('native-enter');clearTimeout(entranceTimer);entranceTimer=setTimeout(()=>document.body.classList.remove('native-enter'),600);}
+if(window.MutationObserver&&document.body)new MutationObserver(()=>nativeEntrance(document.body.dataset.view)).observe(document.body,{attributes:true,attributeFilter:['data-view']});
 let commandSearchNavigationVersion=0;
 // A posted snapshot is not a receipt. Keep one latest projection until this
 // document/sequence is acknowledged; never replay old workspace mutations.
@@ -104,7 +109,7 @@ function conversationPreview(item){
  const value=summarize?.(item,{maxLength:900,language})||{};
  conversationPreviewCache.set(item,{inputs,title:item.title,language,summarize,value});return value;
 }
-function snapshot(){refreshNativeChoices();tidyReaderHeading();const view=document.body.dataset.view;document.body.classList.toggle('aibro-native-space-navigation',!!window.__aibroSpaceNavigationView&&(view===window.__aibroSpaceNavigationView||(view==='wiki'&&window.__aibroSpaceNavigationView==='research')));if(view!==previousNativeView){previousNativeView=view;if(document.body.classList.remove){document.body.classList.remove('native-enter');void document.body.offsetWidth;document.body.classList.add('native-enter');clearTimeout(entranceTimer);entranceTimer=setTimeout(()=>document.body.classList.remove('native-enter'),500);}}if(typeof storageHydrated==='undefined'||!storageHydrated)return;const active=x=>!x.deletedAt&&!x.deleted&&!x.archivedAt&&!x.archived&&!x.private&&!x.ephemeral&&!x.incognito&&!(["archived","deleted"].includes(x.status));
+function snapshot(){refreshNativeChoices();tidyReaderHeading();const view=document.body.dataset.view;document.body.classList.toggle('aibro-native-space-navigation',!!window.__aibroSpaceNavigationView&&(view===window.__aibroSpaceNavigationView||(view==='wiki'&&window.__aibroSpaceNavigationView==='research')));nativeEntrance(view);if(typeof storageHydrated==='undefined'||!storageHydrated)return;const active=x=>!x.deletedAt&&!x.deleted&&!x.archivedAt&&!x.archived&&!x.private&&!x.ephemeral&&!x.incognito&&!(["archived","deleted"].includes(x.status));
  const date=x=>{if(x==null||x==='')return null;const n=typeof x==='number'?x:Date.parse(x);return Number.isFinite(n)?n:null;};
  const spaceName=value=>typeof workspaceName==='function'?workspaceName(value):(value||'日常');
  const projectOwners=new Map();for(const project of state.projects){const owners=projectOwners.get(project.id)||[];owners.push(project);projectOwners.set(project.id,owners);}

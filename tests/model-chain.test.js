@@ -49,3 +49,25 @@ test('legacy shape keeps working: no project or workspace config behaves exactly
   // 未配置任何模型（未填全局默认）时也不能凭空造一个模型名出来。
   assert.deepEqual(Chain.resolve({}, {}), { provider: 'api', model: '', effort: '', source: 'default' });
 });
+
+test('explicit account provider with an empty model is an official default at each inheritance level',()=>{
+ for(const provider of ['openai-auth','claude-auth']){
+  const selected={provider,model:'',effort:''};const settings={workspaceModelConfig:{科研:selected}};
+  assert.deepEqual(Chain.resolve({conversation:{modelConfig:selected},project:{modelConfig:{model:'other'}},settings,workspace:'科研'},defaults),{...selected,source:'conversation'});
+  assert.deepEqual(Chain.resolve({conversation:{modelConfig:{}},project:{modelConfig:selected},settings,workspace:'科研'},defaults),{...selected,source:'project'});
+  assert.deepEqual(Chain.resolve({conversation:{modelConfig:{}},project:{modelConfig:{provider:'api',model:''}},settings,workspace:'科研'},defaults),{...selected,source:'workspace'});
+  assert.deepEqual(Chain.resolve({conversation:{modelConfig:{}}},selected),{...selected,source:'default'});
+ }
+});
+
+test('actual app defaults and resolveRunModel carry Claude official default through conversation/project/workspace/global',()=>{
+ const fs=require('node:fs'),vm=require('node:vm'),source=fs.readFileSync(require.resolve('../app/app.js'),'utf8');
+ const cut=name=>{const start=source.indexOf('function '+name+'('),rest=source.slice(start),end=rest.search(/\n(?:async )?function /);return rest.slice(0,end<0?undefined:end);};
+ const settings={workspaceModelConfig:{科研:{provider:'claude-auth',model:'',effort:''}}};const state={settings,projects:[{id:'p',workspace:'科研',modelConfig:{provider:'claude-auth',model:'opus'}}]};
+ const context=vm.createContext({state,ModelChain:Chain,workspaceName:v=>v,OpenAIAuth:{provider:()=> 'claude-auth'},ClaudeAuth:{model:()=>''},$:()=>{throw Error('Claude default must not read API field');},localStorage:{getItem:()=>{throw Error('must not read API storage');}}});context.window=context;
+ vm.runInContext(cut('defaultModelConfiguration')+cut('resolveRunModel'),context);
+ const resolve=conversation=>JSON.parse(JSON.stringify(context.resolveRunModel(conversation)));
+ assert.deepEqual(resolve({modelConfig:{provider:'claude-auth',model:'haiku'},projectId:'p',workspace:'科研'}),{provider:'claude-auth',model:'haiku',effort:'',source:'conversation'});
+ assert.equal(resolve({modelConfig:{},projectId:'p',workspace:'科研'}).model,'opus');state.projects[0].modelConfig={};assert.equal(resolve({projectId:'p',workspace:'科研'}).source,'workspace');
+ assert.deepEqual(resolve({workspace:'日常'}),{provider:'claude-auth',model:'',effort:'',source:'default'});
+});

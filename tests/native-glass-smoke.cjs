@@ -7,7 +7,7 @@ const guard=setTimeout(()=>finish(1),30000);
 function finish(code){clearTimeout(guard);try{win?.destroy()}catch{}try{fs.rmSync(profile,{recursive:true,force:true})}catch{}app.exit(code);}
 app.whenReady().then(async()=>{
   app.dock?.hide();
-  const native=require(path.join(root,'native-glass.node'));
+  const native=require(process.env.AI_BRO_GLASS_DIAGNOSTIC||path.join(root,'native-glass.node'));
   assert.equal(native.isSupported(),true);
   win=new BrowserWindow({show:false,width:720,height:500,frame:false,transparent:true,backgroundColor:'#00000000',webPreferences:{contextIsolation:true,sandbox:true,backgroundThrottling:false}});
   win.webContents.session.webRequest.onBeforeRequest({urls:['http://*/*','https://*/*']},(_,callback)=>callback({cancel:true}));

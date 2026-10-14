@@ -13,9 +13,9 @@ AI Bro uses a light silver and dark graphite appearance. Materials belong mainly
 
 ## macOS 系统玻璃 / Native macOS glass
 
-在 macOS 26 及以上，且原生组件可用时，AI Bro 使用 Apple 公开的 [NSGlassEffectView](https://developer.apple.com/documentation/appkit/nsglasseffectview)。系统材质覆盖侧栏、对话列表、顶栏、输入框及阅读区工具栏。网页菜单与弹窗仍使用 CSS 材质，不被标称为原生控件。
+在 macOS 26 及以上，且原生组件可用时，AI Bro 使用 Apple 公开的 [NSGlassEffectView](https://developer.apple.com/documentation/appkit/nsglasseffectview)。系统材质只覆盖侧栏与对话列表；输入框使用页面内的 CSS 折射效果，阅读区工具栏、网页菜单与弹窗仍使用 CSS 材质，不被标称为原生控件（详见 [GLASS_MATERIAL.md](GLASS_MATERIAL.md)）。
 
-On macOS 26+, when the native component is available, the public `NSGlassEffectView` supplies material for the sidebar, conversation navigator, top bar, composer, and reader controls. Web menus and dialogs retain CSS materials; they are not presented as native controls.
+On macOS 26+, when the native component is available, the public `NSGlassEffectView` supplies material for the sidebar and conversation navigator only. The composer uses an in-page CSS refraction effect, and reader controls, web menus and dialogs retain CSS materials; they are not presented as native controls (see [GLASS_MATERIAL.md](GLASS_MATERIAL.md)).
 
 原生视图位于 WebContents 后方，不能折射同一 WebContents 中的文字。应用在非材质区域保留不透明底板，在材质内加入中性的文字承载层；输入框下方的聊天内容会渐隐，避免背景与输入文字重叠。系统明暗外观跟随应用设置，玻璃不依赖私有 AppKit 样式。
 

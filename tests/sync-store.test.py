@@ -45,6 +45,23 @@ class SyncStoreTests(unittest.TestCase):
         self.directory = Path(temporary.name)
         self.store = SyncStore(self.directory / 'device-a')
 
+    def test_history_keeps_the_newest_thirty_baselines_and_unchanged_checkpoints_add_none(self):
+        for size in ('octet_length(value)', 'length(CAST(value AS BLOB))'):
+            with self.subTest(size=size), patch.object(SyncStore, '_HISTORY_BYTES', size):
+                store = SyncStore(self.directory / ('history-' + str(len(size))))
+                for revision in range(1, 37):
+                    store.capture(workspace(notes=[note('body %d' % revision)], _revision=revision))
+                with store.db() as db:
+                    keys = [row['key'] for row in db.execute("SELECT key FROM meta WHERE key LIKE 'history:%'")]
+                self.assertEqual(sorted(int(key[8:]) for key in keys), list(range(6, 36)))
+                self.assertEqual(store.snapshot_at(35)['notes'][0]['content'], 'body 35')
+                self.assertIsNone(store.snapshot_at(5))
+                # Re-saving the same revision archives nothing and keeps every baseline.
+                store.capture(workspace(notes=[note('body 36 again')], _revision=36))
+                with store.db() as db:
+                    self.assertEqual(db.execute("SELECT count(*) FROM meta WHERE key LIKE 'history:%'").fetchone()[0], 30)
+                self.assertEqual(store.snapshot()['notes'][0]['content'], 'body 36 again')
+
     def test_cached_privacy_filter_keeps_nested_secrets_off_wire_after_eviction(self):
         unsafe = ['API_Key', 'provider-access-token', 'userPassword', 'Client_Secret', '_private', 'localFolder', 'absolutePath']
         value = {'content': 'public note', 'nested': [{key: 'private fixture' for key in unsafe} | {'title': 'keep'}]}
@@ -100,6 +117,30 @@ class SyncStoreTests(unittest.TestCase):
         self.store.capture(result)
         self.assertEqual(self.store.snapshot_at(1)['notes'][0]['content'], 'first')
         self.assertEqual(self.store.snapshot_at(2), result)
+
+    def test_baseline_archive_key_matches_the_stored_revision_whatever_its_json_type(self):
+        # _save_snapshot reads the stored revision in SQLite; the history key
+        # must equal what decoding the stored row would have produced.
+        for stored, key in ((7, 'history:7'), (None, 'history:0'), ('legacy-7', 'history:legacy-7'), (7.5, 'history:7.5'), (True, 'history:True')):
+            with self.subTest(stored=stored):
+                store = SyncStore(self.directory / ('revision-' + str(stored)))
+                store.capture(workspace(notes=[note('first')], _revision=1))
+                with store.db() as db:
+                    row = json.loads(db.execute("SELECT value FROM meta WHERE key='snapshot'").fetchone()['value'])
+                    if stored is None: row.pop('_revision')
+                    else: row['_revision'] = stored
+                    baseline = dump(row)
+                    db.execute("UPDATE meta SET value=? WHERE key='snapshot'", (baseline,))
+                store.capture(workspace(notes=[note('second')], _revision=8))
+                with store.db() as db:
+                    keys = {r['key'] for r in db.execute("SELECT key FROM meta WHERE key LIKE 'history:%'")}
+                    self.assertIn(key, keys)
+                    self.assertEqual(db.execute('SELECT value FROM meta WHERE key=?', (key,)).fetchone()['value'], baseline)
+
+    def test_shared_encoder_dump_matches_json_dumps_byte_for_byte(self):
+        value = {'z': [1.5, -0.0, 10 ** 20, None, True], 'a': {'中文': '引号"与\\反斜杠\n', 'e': 1e-7}, 'm': [{'b': 2, 'a': 1}]}
+        self.assertEqual(dump(value), json.dumps(value, ensure_ascii=False, separators=(',', ':'), sort_keys=True, allow_nan=False))
+        with self.assertRaises(ValueError): dump({'x': float('nan')})
 
     def test_multiple_skills_and_frozen_turn_instructions_survive_peer_sync(self):
         snapshot = [{'id': 'builtin-materials', 'name': '资料归档', 'command': 'materials', 'description': '', 'instructions': 'Preserve original turn instructions.'}]

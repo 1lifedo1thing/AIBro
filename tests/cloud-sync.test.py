@@ -119,6 +119,7 @@ class Remote:
                 if path == '/v1/auth/login': return {'accessToken': TOKEN, 'account': {'id': remote.account_id, 'username': 'student', 'accessToken': 'discard'}, 'device': {'id': 'device-one', 'name': 'Test desktop', 'password': 'discard'}}
                 if path == '/v1/devices': return {'devices': [{'id': 'device-one', 'name': 'Test desktop', 'accessToken': TOKEN}]}
                 if path in ('/v1/auth/logout', '/v1/devices/device-one'): return {'ok': True}
+                if path == '/v1/sync/capabilities': return False
                 if method == 'HEAD': return path.rsplit('/', 1)[1] in remote.blobs
                 if path == '/v1/sync/push':
                     remote.push_started.set()

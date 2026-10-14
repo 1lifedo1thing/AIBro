@@ -3,6 +3,27 @@
   'use strict';
   const reads=new Set(['agenda_list','agenda_read','project_list','task_list','list','search','neighbors','read','read_page','read_file','wiki_list','memory_read','delegate','capabilities','history_search','history_read','library_overview','evidence_log']);
   const pending=new Set(['queued','running','awaiting-approval']);
+  // A tool that settles without a receipt gets one of two recorded outcomes.
+  // "unknown": it was dispatched (or a provider reported it running), so it may
+  // have taken effect; it must be verified and is never replayed automatically.
+  // "not-started": it never ran. Without local knowledge, a saved "running"
+  // record counts as dispatched: it is saved immediately before dispatch.
+  // Reads and provider-run tools cannot change local data, so a missing
+  // receipt only means the read failed; there is nothing to verify.
+  // Opening a panel or reading a page is not an effect to verify either. Any
+  // type not listed here (terminal, browser_click/type, future tools) is
+  // treated as able to act.
+  const viewOnly=new Set(['quick_panel_open','web_read','web_search','browser_open','browser_snapshot','browser_screenshot','browser_scroll','browser_handoff','browser_close']);
+  const readOnly=call=>reads.has(call?.type)||viewOnly.has(call?.type)||String(call?.id||'').startsWith('provider:');
+  const LEGACY_UNRECEIVED='未收到工具完成结果，请核对执行记录。';
+  const UNKNOWN_TEXT='已发出请求但未收到结果，无法确认是否已执行。请核对实际效果；不会自动重跑。';
+  const NOT_STARTED_TEXT='尚未开始执行，没有产生效果。';
+  function unreceived(entry,status,{dispatched=!!entry.dispatchedAt||entry.status==='running',reason}={}){
+    entry.status=status;entry.finishedAt=Date.now();
+    if(!dispatched){entry.outcome='not-started';entry.error=reason||NOT_STARTED_TEXT;}
+    else if(!readOnly(entry)){entry.outcome='unknown';entry.error=UNKNOWN_TEXT;}
+    else entry.error=LEGACY_UNRECEIVED;
+  }
   const clone=x=>JSON.parse(JSON.stringify(x));
   const cancelled=()=>Object.assign(Error('已停止工具执行'),{code:'CANCELLED'});
   const label=type=>({agenda_list:'查询日程',agenda_read:'读取日程',quick_panel_open:'打开灵动岛',evidence_log:'读取账本',library_overview:'资料概览',capabilities:'操作说明',history_search:'搜索对话',history_read:'读取对话',project_list:'\u9879\u76ee\u76ee\u5f55',task_list:'任务目录',list:'资料目录',search:'检索',neighbors:'相邻证据',read:'读取正文',read_page:'读取原件',read_file:'工作区文件',wiki_list:'Wiki 目录',memory_read:'项目记忆',delegate:'子代理',terminal:'终端',web_read:'网页读取',web_search:'网页搜索'})[type]||type;
@@ -45,6 +66,10 @@
       // 判据是机械的（参数逐字相同 + 计数达阈值），参数变化的分页读取不会被误伤。
       const guard=root.ToolLoopGuard?.inspect(run.toolCalls.filter(call=>(call.parentId||null)===(parentId||null)),undefined,requests);
       if(guard&&guard.repeated.length){const item=guard.repeated[0];throw Object.assign(Error(root.ToolLoopGuard.describe(item,guard.limit)),{code:'REPEATED_TOOL',toolType:item.type,toolCount:item.count});}
+      // Before that stop, warn the model on the result it receives (not on the
+      // durable record) so it can change course while calls are still allowed.
+      const Guard=root.ToolLoopGuard,prior=Guard?.reminder?Guard.tally(run.toolCalls.filter(call=>(call.parentId||null)===(parentId||null))):null;
+      const notices=requests.map(request=>prior?Guard.reminder(request,prior.get(Guard.signature(request))?.count||0,Guard.LIMIT):'');
       const entries=requests.map(request=>{if(!request||typeof request.type!=='string')throw Error('无效工具请求');return {id:'tool_'+Date.now()+'_'+Math.random().toString(36).slice(2),parentId,type:request.type,request:safeRequest(request),status:'queued',createdAt:Date.now()};});
       // A control or persistence failure stops this batch, including workers
       // already waiting for their pre-execution checkpoint. Received results
@@ -53,12 +78,12 @@
       const stop=error=>{stopped ||= error;};
       const checkBatch=()=>{if(stopped)throw stopped;try{check();}catch(error){stop(error);throw error;}};
       const save=async()=>{try{await persist();}catch(error){stop(error);throw error;}};
-      run.toolCalls.push(...entries);try{await save();checkBatch();}catch(error){for(const entry of entries){entry.status=error.code==='CANCELLED'||signal?.aborted?'cancelled':'failed';entry.error=error.message;entry.finishedAt=Date.now();}throw error;}const results=new Array(entries.length);
+      run.toolCalls.push(...entries);try{await save();checkBatch();}catch(error){for(const entry of entries)unreceived(entry,error.code==='CANCELLED'||signal?.aborted?'cancelled':'failed',{dispatched:false,reason:error.message});throw error;}const results=new Array(entries.length);
       async function invoke(i){
         const entry=entries[i];
         try{
           checkBatch();entry.status='running';entry.startedAt=Date.now();await save();checkBatch();
-          let result,received=false;
+          let result,received=false;entry.dispatchedAt=Date.now();
           // Only an execute rejection is an ordinary tool failure. Scope checks
           // and durable-save failures must escape and stop later operations.
           try{result=await (entry.type==='quick_panel_open'?openQuickPanel(clone(entry.request),entry):execute(clone(entry.request),{signal,entry}));received=true;}
@@ -68,7 +93,8 @@
             Object.assign(entry,resultSnapshot(value));results[i]=value;
             entry.status=['cancelled','rejected'].includes(value.status)?'cancelled':value.error||['failed','timed_out','interrupted'].includes(value.status)?'failed':'completed';
           }
-        }catch(error){stop(error);if(pending.has(entry.status)){entry.status=error.code==='CANCELLED'||signal?.aborted?'cancelled':'failed';entry.error=error.message;}throw error;}
+          if(notices[i]&&results[i]&&typeof results[i]==='object')results[i]={...results[i],loopNotice:notices[i]};
+        }catch(error){stop(error);if(pending.has(entry.status))unreceived(entry,error.code==='CANCELLED'||signal?.aborted?'cancelled':'failed',{dispatched:!!entry.dispatchedAt,reason:error.message});throw error;}
         finally{entry.finishedAt=Date.now();await save();}
         // Persist the authoritative returned outcome before honoring a stop or
         // scope change. Cancellation is not evidence that effects rolled back.
@@ -84,7 +110,7 @@
         }
         return results;
       }finally{
-        for(const entry of entries)if(pending.has(entry.status)){entry.status='cancelled';entry.error='本批中止，未执行或未完成';entry.finishedAt=Date.now();}
+        for(const entry of entries)if(pending.has(entry.status))unreceived(entry,'cancelled',{dispatched:!!entry.dispatchedAt,reason:'本批中止，未执行。'});
         await save();
       }
     }
@@ -100,7 +126,7 @@
     entry.status=activity.status==='pending'?'queued':activity.status||'running';entry.summary=activity.text;
     if(entry.status==='running')entry.startedAt ||= Date.now();if(!pending.has(entry.status))entry.finishedAt=Date.now();return true;
   }
-  function finish(run,status){for(const entry of run.toolCalls||[])if(pending.has(entry.status)){entry.status=status==='cancelled'?'cancelled':'interrupted';entry.finishedAt=Date.now();entry.error='未收到工具完成结果，请核对执行记录。';}}
+  function finish(run,status){for(const entry of run.toolCalls||[])if(pending.has(entry.status))unreceived(entry,status==='cancelled'?'cancelled':'interrupted');}
   function recover(state,instanceId){
     if(!instanceId)return false;let changed=false;
     for(const run of state.agentRuns||[])if(run.status==='running'&&run.executionInstanceId&&run.executionInstanceId!==instanceId){
@@ -116,7 +142,23 @@
   }
   // A deliberate stop/decline is not a failed tool. Historical timeouts and
   // interruptions still deserve an inspectable issue even if the run recovered.
-  const isIssue=call=>['failed','interrupted','timed_out'].includes(call?.status);
+  // One reading of every tool record's effect. Records saved before outcomes
+  // were kept only say "interrupted"; for a tool that can act that cannot
+  // prove it never ran, so it reads as unknown. Read-only tools have no
+  // effect to doubt: without a receipt they simply failed.
+  function outcome(call){
+    const status=call?.status;
+    if(pending.has(status))return 'pending';
+    if(['unknown','not-started'].includes(call?.outcome))return call.outcome;
+    if(status==='completed')return 'completed';
+    if(['failed','timed_out'].includes(status))return 'failed';
+    // Earlier versions marked a stopped run's unanswered tools cancelled with
+    // this exact host text; that was not the tool reporting a cancellation.
+    if(['cancelled','rejected'].includes(status))return !readOnly(call)&&call?.error===LEGACY_UNRECEIVED?'unknown':'cancelled';
+    return readOnly(call)?'failed':'unknown';
+  }
+  const unconfirmed=run=>(run?.toolCalls||[]).filter(call=>outcome(call)==='unknown');
+  const isIssue=call=>['failed','interrupted','timed_out'].includes(call?.status)||outcome(call)==='unknown';
   const issueCount=run=>(run?.toolCalls||[]).filter(isIssue).length;
   const issueText=call=>{
     const result=call?.result?.result??call?.result;
@@ -283,7 +325,8 @@
       const subject=call.request?.title||data?.title||call.request?.query||call.request?.name||call.request?.id||'';
       const title=[(en?call.type:label(call.type))||(en?'Tool operation':'工具操作'),subject].filter(Boolean).join(' · ');
       const heading=el('summary');
-      heading.append(el('span',`${call.parentId?'↳ ':''}${title} · ${names[call.status]||(en?'Unconfirmed':'未确认')}`,'tool-ledger-title'));
+      const stateKey=call.outcome==='not-started'?'not-started':call.status&&outcome(call)==='unknown'?'unknown':call.status||'unconfirmed';const titleNode=el('span',`${call.parentId?'↳ ':''}${title}`,'tool-ledger-title');// The status stays in the title text for assistive technology and copying; a timeline marker may present it visually.
+      const stateNode=el('span',` · ${call.outcome==='not-started'?(en?'Not started':'未执行'):call.status&&outcome(call)==='unknown'?(en?'Outcome unknown':'结果未知'):names[call.status]||(en?'Unconfirmed':'未确认')}`,'tool-ledger-state');stateNode.dataset.state=stateKey;titleNode.append(stateNode);heading.append(titleNode);
       if(isIssue(call)&&issueText(call))heading.append(el('span',issueText(call),'tool-ledger-error-preview'));
       row.append(heading);
       list(row,en?'Parameters':'参数',call.request,'parameters',call);
@@ -302,5 +345,5 @@
       box.append(row);
     }return box;
   }
-  return {create,provider,finish,recover,card,safeRequest,resultSnapshot,isIssue,issueCount,inspectingCall,prepareText};
+  return {create,provider,finish,recover,outcome,unconfirmed,card,safeRequest,resultSnapshot,isIssue,issueCount,inspectingCall,prepareText};
 });

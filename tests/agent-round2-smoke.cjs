@@ -97,15 +97,16 @@ async function run(){
    const run={id:'qa_run_allow',conversationId:'qa_r2',status:'awaiting-approval',startedAt:now,goal:'创建任务',steps:[],pendingActions:[{type:'create_task',title:'验收任务',workspace:'日常'}]};
    state.agentRuns=[run];
    currentConversation().messages.push({id:'qa_pending_msg',role:'agent',at:now,text:'准备执行以下动作，请确认：',pendingRunId:run.id,runStatus:'awaiting-approval'});
-   save();renderConversation();
-   const card=document.querySelector('[data-message-id="qa_pending_msg"]');
-   const button=card.querySelector('[data-session-allow]');
-   return {hasButton:!!button,label:button?.textContent||'',hasApprove:!!card.querySelector('[data-approve-run]')};})()`);
-  assert.equal(before.hasApprove,true,'审批卡仍保留「批准并执行」');
-  assert.equal(before.hasButton,true,'应提供「本会话允许同类动作」');
-  assert.match(before.label,/本会话允许/);
-  await evaluate(`document.querySelector('[data-session-allow]').click()`);
-  await wait(500);
+   save();renderConversation();return true;})()`);
+  await wait(300);
+  // 待审批运行由计划审阅卡片承载（plan-review-surfaces.jsx）：「批准 N 步」与「本会话允许同类动作」都在卡片上；旧的 [data-approve-run]/[data-session-allow] 只在 PlanReview 不可用时出现（app.js renderMessage）。
+  const planButton=prefix=>`[...document.querySelectorAll('[data-message-id="qa_pending_msg"] .plan-review button')].find(b=>b.textContent.trim().startsWith(${JSON.stringify(prefix)}))`;
+  const card=await evaluate(`(()=>{const approve=${planButton('批准')},allow=${planButton('本会话允许')};return {hasApprove:!!approve&&!approve.disabled,hasButton:!!allow&&!allow.disabled,label:allow?.textContent||''};})()`);
+  assert.equal(card.hasApprove,true,'审批卡仍保留「批准并执行」');
+  assert.equal(card.hasButton,true,'应提供「本会话允许同类动作」');
+  assert.match(card.label,/本会话允许/);
+  await evaluate(`${planButton('本会话允许')}.click()`);
+  await until(()=>evaluate(`!!state.conversations.find(c=>c.id==='qa_r2')?.sessionAllows`),'session allow saved');
   const after=await evaluate(`(()=>{const conversation=state.conversations.find(c=>c.id==='qa_r2');return {allows:conversation.sessionAllows||null};})()`);
   assert.equal(!!after.allows?.create_task,true,'点击后应登记该动作类型');
  });

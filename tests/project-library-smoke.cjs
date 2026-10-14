@@ -48,11 +48,13 @@ async function run(){
   fs.writeFileSync(path.join(OUT,'dimensions.json'),JSON.stringify(metrics,null,2));
  });
  await step('task and overview columns contain their own content without the sources rail',async()=>{
-  win.setSize(1100,840);await click('[data-workspace-route=tasks]');assert.equal(await evaluate(`document.querySelector('#projectTreePanel').getClientRects().length`),0);assert.equal(await evaluate(`document.querySelector('#projectAddSource').getClientRects().length`),0);assert.ok(await evaluate(`document.querySelector('#projectAddTask').getClientRects().length`));assert.match(await evaluate(`document.querySelector('#projectTasks').textContent`),/只属于导航项目的任务/);await shot('tasks-1100');
-  await click('[data-workspace-route=overview]');assert.ok(await evaluate(`document.querySelector('#projectMemoryControls').getClientRects().length`));await shot('overview-1100');
+  win.setSize(1100,840);await click('[data-workspace-route=tasks]');await until(()=>evaluate(`state.ui.projectTab==='tasks'&&!document.querySelector('[data-project-panel=tasks]').hidden`),'tasks route');assert.equal(await evaluate(`document.querySelector('#projectTreePanel').getClientRects().length`),0);assert.equal(await evaluate(`document.querySelector('#projectAddSource').getClientRects().length`),0);
+  assert.deepEqual(await evaluate(`[...document.querySelectorAll('button')].filter(b=>b.getClientRects().length&&b.textContent.trim()==='添加任务').map(b=>b.closest('#projectTasks')?.dataset.halaskaRoot||b.id)`),['ProjectBoard'],'tasks keep one visible add entry, owned by the Kit task board');assert.equal(await evaluate(`document.querySelector('#projectAddTask')?.getClientRects().length||0`),0);assert.match(await evaluate(`document.querySelector('#projectTasks').textContent`),/只属于导航项目的任务/);await shot('tasks-1100');
+  await click('[data-workspace-route=overview]');await until(()=>evaluate(`state.ui.projectTab==='overview'&&!document.querySelector('[data-project-panel=overview]').hidden`),'overview route');assert.ok(await evaluate(`document.querySelector('#projectMemoryControls').getClientRects().length`));await shot('overview-1100');
  });
  await step('the source picker imports directly into the project without creating or consuming a conversation draft',async()=>{
-  await click('[data-workspace-route=knowledge]');const before=await evaluate(`({id:state.currentConversationId,conversations:state.conversations.length,draft:currentConversation().draft})`);
+  await click('[data-workspace-route=knowledge]');await until(()=>evaluate(`state.ui.projectTab==='knowledge'&&!!document.querySelector('#projectAddSource')?.getClientRects().length`),'sources route');const before=await evaluate(`({id:state.currentConversationId,conversations:state.conversations.length,draft:currentConversation().draft})`);
+  assert.deepEqual(await evaluate(`(()=>{const original=HTMLInputElement.prototype.click,calls=[];HTMLInputElement.prototype.click=function(...args){if(this.type==='file'){calls.push({id:this.id,projectId:this.dataset.projectId||null});return;}return original.apply(this,args);};try{document.querySelector('#projectAddSource').click();}finally{HTMLInputElement.prototype.click=original;}return calls;})()`),[{id:'projectLibraryInput',projectId:'nav-p'}],'Add sources opens the hidden picker for this project');
   await evaluate(`(()=>{const input=document.querySelector('#projectLibraryInput'),data=new DataTransfer();data.items.add(new File(['# Imported into the current project\\n'], 'project-source.md',{type:'text/markdown'}));input.files=data.files;input.dispatchEvent(new Event('change',{bubbles:true}))})()`);
   await until(()=>evaluate(`!importMaterials.busy&&state.imports.some(i=>i.name==='project-source.md')`),'project source import');
   assert.equal(await evaluate(`state.imports.find(i=>i.name==='project-source.md').projectId`),'nav-p');assert.deepEqual(await evaluate(`({id:state.currentConversationId,conversations:state.conversations.length,draft:currentConversation().draft})`),before);
@@ -75,28 +77,30 @@ async function run(){
   assert.equal(await evaluate(`librarySearch.value`),'');assert.equal(await evaluate(`document.activeElement===librarySearch`),true);
  });
  await step('Kit view and project tabs activate by keyboard without remounting the selected control',async()=>{
-  await evaluate(`document.querySelector('#projectCollection [data-cui-view=list]').focus()`);
+  await evaluate(`window.cardsViewControl=document.querySelector('#projectCollection [data-cui-view=cards]');document.querySelector('#projectCollection [data-cui-view=list]').focus()`);
   win.webContents.sendInputEvent({type:'keyDown',keyCode:'Right'});win.webContents.sendInputEvent({type:'keyUp',keyCode:'Right'});await wait(100);
-  assert.equal(await evaluate(`document.activeElement.dataset.cuiView`),'cards');assert.ok(await evaluate(`document.querySelector('#projectCollection .collection-cards')!==null`));
-  await evaluate(`document.querySelector('[data-workspace-route=knowledge]').focus()`);
-  win.webContents.sendInputEvent({type:'keyDown',keyCode:'Right'});win.webContents.sendInputEvent({type:'keyUp',keyCode:'Right'});await wait(100);
-  assert.equal(await evaluate(`document.activeElement.dataset.workspaceRoute`),'tasks');assert.equal(await evaluate(`state.ui.projectTab`),'tasks');
-  await evaluate(`WorkspaceNavigation.go('overview','nav-p')`);assert.equal(await evaluate(`document.querySelector('#projectMetrics').dataset.halaskaRoot`),'ProjectMetrics');
-  assert.equal(await evaluate(`document.querySelector('#projectMetrics [role=progressbar]').getAttribute('aria-valuenow')`),'0');
+  assert.equal(await evaluate(`document.activeElement.dataset.cuiView`),'cards');assert.equal(await evaluate(`document.activeElement===cardsViewControl&&cardsViewControl.isConnected`),true,'view control is not remounted');assert.ok(await evaluate(`document.querySelector('#projectCollection .collection-cards')!==null`));
+  await evaluate(`window.outputsTabControl=document.querySelector('[data-workspace-route=outputs]');document.querySelector('[data-workspace-route=knowledge]').focus()`);
+  win.webContents.sendInputEvent({type:'keyDown',keyCode:'Right'});win.webContents.sendInputEvent({type:'keyUp',keyCode:'Right'});await until(()=>evaluate(`state.ui.projectTab==='outputs'&&!document.querySelector('[data-project-panel=outputs]').hidden`),'keyboard tab route');
+  assert.equal(await evaluate(`document.activeElement.dataset.workspaceRoute`),'outputs');assert.equal(await evaluate(`document.activeElement===outputsTabControl&&outputsTabControl.isConnected&&outputsTabControl.getAttribute('aria-selected')`),'true','project tab is not remounted');
+  await evaluate(`WorkspaceNavigation.go('overview','nav-p')`);assert.equal(await evaluate(`document.querySelector('#projectOverview').dataset.halaskaRoot`),'ProjectOverview');
+  assert.equal(await evaluate(`document.querySelector('#projectOverview [data-overview-nav=tasks]').textContent`),'待办1');
  });
  await step('zero-task overview uses one start action and restores analytics after a task is added',async()=>{
-  await evaluate(`state.ui.theme='light';applyUiPreferences();window.libraryOriginalTasks=state.tasks;state.tasks=[];WorkspaceNavigation.go('overview','nav-p');renderProject('nav-p');WorkspaceNavigation.afterRoute()`);
-  for(const selector of ['#projectMetrics','#projectSummary','#projectPlanning','#projectActivity','#projectAddTask'])assert.equal(await evaluate(`document.querySelector('${selector}')?.getClientRects().length||0`),0,selector+' is collapsed');
-  assert.ok(await evaluate(`document.querySelector('#projectFirstInput').getClientRects().length`));assert.match(await evaluate(`document.querySelector('#projectOnboarding').textContent`),/把资料变成下一步行动/);
-  assert.equal(await evaluate(`document.querySelector('#projectOnboarding').dataset.halaskaRoot`),'EmptyState');
-  assert.equal(await evaluate(`document.querySelector('#projectFirstInput').type`),'button');
+  await evaluate(`state.ui.theme='light';applyUiPreferences();window.libraryOriginalTasks=state.tasks;state.tasks=[];`);await evaluate(`WorkspaceNavigation.go('overview','nav-p')`);await evaluate(`renderProject('nav-p');WorkspaceNavigation.afterRoute()`);
+  const overview=()=>evaluate(`(()=>{const host=document.querySelector('#projectOverview');return {owner:host.dataset.halaskaRoot,text:host.textContent,starts:[...document.querySelectorAll('#project button')].filter(b=>b.getClientRects().length&&b.textContent.trim()==='添加任务').map(b=>b.closest('[data-halaska-root]')?.dataset.halaskaRoot||b.id),legacy:!!document.querySelector('#projectMetrics,#projectSummary,#projectOnboarding,#projectFirstInput'),insightsOpen:document.querySelector('#projectInsights').open,charts:document.querySelector('#projectPlanning').children.length};})()`);
+  const zero=await overview();assert.equal(zero.owner,'ProjectOverview');assert.deepEqual(zero.starts,['ProjectOverview'],'one start action, inside the task section');assert.equal(zero.legacy,false);assert.match(zero.text,/暂无待办/);assert.match(zero.text,/交互改造计划/,'saved outputs stay visible without tasks');assert.equal(zero.insightsOpen,false);assert.equal(zero.charts,0,'analytics are not drawn while collapsed');
   win.setSize(1100,840);await shot('overview-no-tasks-1100');win.setSize(620,840);await shot('overview-no-tasks-620');
-  await click('#projectFirstInput');assert.equal(await evaluate(`document.body.dataset.view`),'agent');assert.equal(await evaluate(`currentConversation().projectId`),'nav-p');
-  await evaluate(`state.tasks=window.libraryOriginalTasks;WorkspaceNavigation.go('overview','nav-p');renderProject('nav-p');WorkspaceNavigation.afterRoute()`);
-  assert.equal(await evaluate(`document.querySelector('#projectOnboarding').hidden`),true);assert.ok(await evaluate(`document.querySelector('#projectMetrics').getClientRects().length`));assert.ok(await evaluate(`document.querySelector('#projectPlanning').getClientRects().length`));
+  await evaluate(`[...document.querySelectorAll('#projectOverview button')].find(b=>b.textContent.trim()==='添加任务').click()`);await until(()=>evaluate(`!!document.querySelector('#planningCreateDialog')?.open`),'scoped add task dialog');
+  assert.equal(await evaluate(`document.querySelector('#planningCreateForm .task-create-location').textContent`),'导航连续性');
+  await evaluate(`[...document.querySelectorAll('#planningCreateForm .task-create-actions button')].find(b=>b.textContent.trim()==='取消').click()`);await until(()=>evaluate(`!document.querySelector('#planningCreateDialog').open`),'add task cancelled');assert.equal(await evaluate(`state.tasks.length`),0);
+  await evaluate(`state.tasks=window.libraryOriginalTasks;`);await evaluate(`WorkspaceNavigation.go('overview','nav-p')`);await evaluate(`renderProject('nav-p');WorkspaceNavigation.afterRoute()`);
+  const restored=await overview();assert.match(restored.text,/只属于导航项目的任务/);assert.doesNotMatch(restored.text,/暂无待办/);assert.deepEqual(restored.starts,[]);
+  await click('#projectInsights > summary');await until(()=>evaluate(`document.querySelector('#projectPlanning').children.length>0`),'analytics after a task is added');assert.ok(await evaluate(`document.querySelector('#projectPlanning').getClientRects().length`));
  });
  await step('new Kit controls switch languages without changing user content or search focus',async()=>{
-  await evaluate(`WorkspaceNavigation.go('knowledge','nav-p');window.languageSearch=document.querySelector('#projectCollection [data-cui-search]');languageSearch.focus();WorkstationI18n.setLanguage('en')`);await wait(80);
+  await evaluate(`WorkspaceNavigation.go('knowledge','nav-p')`);await until(()=>evaluate(`state.ui.projectTab==='knowledge'&&!!document.querySelector('#projectCollection [data-cui-search]')?.getClientRects().length`),'sources route');
+  await evaluate(`window.languageSearch=document.querySelector('#projectCollection [data-cui-search]');languageSearch.focus();WorkstationI18n.setLanguage('en')`);await wait(80);
   assert.equal(await evaluate(`document.activeElement===languageSearch`),true);
   const labels=await evaluate(`({sort:document.querySelector('#projectCollection [data-cui-sort]').textContent,count:document.querySelector('#projectCollection .collection-count').textContent,views:[...document.querySelectorAll('#projectCollection [data-cui-view]')].map(x=>x.textContent),title:state.notes.find(n=>n.id==='ui-plan').title})`);
   assert.match(labels.sort,/Updated/);assert.match(labels.count,/items/);assert.deepEqual(labels.views,['Tree','List','Cards']);assert.equal(labels.title,'交互改造计划');

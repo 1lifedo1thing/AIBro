@@ -33,7 +33,11 @@
       elapsed: Number.isFinite(ms) && ms > 0 ? root.AgentProgress?.duration(0, ms) || '' : '', detail: String(detail || '') };
   }
 
+  const keyboardBound = new WeakSet();
   function bindSummaryKeyboard(summary) {
+    // A summary can be bound while plain and again when its root mounts.
+    if (keyboardBound.has(summary)) return;
+    keyboardBound.add(summary);
     summary.addEventListener('keydown', event => {
       if (event.target !== summary || event.key !== 'Enter' || event.repeat || event.isComposing || event.metaKey || event.ctrlKey || event.altKey) return;
       event.preventDefault(); summary.click();
@@ -49,6 +53,59 @@
       host.dataset.halaskaConversation = name;
       records.set(host, { name, props, actions: [], deferred: true });
     } else mount(host, name, props);
+  }
+
+  // A summary inside a closed disclosure has no box and no accessibility node.
+  // It keeps the timeline's own plain markup and its React root waits until
+  // that disclosure opens. A settled message keeps its whole feed closed, so
+  // history no longer pays one root per hidden activity row.
+  const waitingProps = new WeakMap();
+  function concealed(summary, opening = null) {
+    // Skip the summary's own <details>: a closed disclosure still shows it.
+    for (let node = summary?.parentElement?.parentElement; node; node = node.parentElement) {
+      if (node.nodeName === 'DETAILS' && node !== opening && !node.open) return true;
+    }
+    return false;
+  }
+  function reveal(details) {
+    // A discarded render holder may still receive its queued toggle event; a
+    // root mounted there would never be connected, so prune could not free it.
+    if (!details?.isConnected || !details.querySelectorAll) return;
+    for (const summary of details.querySelectorAll('summary')) {
+      const props = waitingProps.get(summary);
+      if (!props || concealed(summary, details)) continue;
+      waitingProps.delete(summary);
+      enhanceActivitySummary(summary, props, null);
+    }
+  }
+
+  // AgentProgress.patchLive keeps the connected summary. When it meets a
+  // plain/mounted pair (a caller patched without passing `previous`), the
+  // connected owner wins: a mounted root takes the new props, and a plain
+  // summary inherits the pending props for its later reveal.
+  function patchSummary(previous, next) {
+    const props = waitingProps.get(next);
+    if (!props) {
+      const fresh = next.querySelector(':scope > [data-halaska-conversation]');
+      if (!fresh) return false;
+      waitingProps.delete(previous);
+      // A plain summary revealed by this paint (a closed group auto-opening for
+      // a new running call): adopt the new root whole. A generic diff would
+      // move React's children into an unrelated plain span.
+      if (!previous.querySelector(':scope > [data-halaska-conversation]')) {
+        previous.replaceChildren(fresh); bindSummaryKeyboard(previous); return true;
+      }
+      return false;
+    }
+    waitingProps.delete(next);
+    const host = previous.querySelector(':scope > [data-halaska-conversation]'), record = host && records.get(host);
+    if (record?.name === 'AgentActivitySummary') {
+      if (!record.deferred) root.HalaskaUI.update(host, props);
+      records.set(host, { ...record, props });
+      return true;
+    }
+    waitingProps.set(previous, props); bindSummaryKeyboard(previous);
+    return false;
   }
 
   function previousSummaries(wrapper) {
@@ -193,21 +250,30 @@
     const entries = new Map((root.ConversationProcess?.hasFlow(message)
       ? root.ConversationProcess.flowEntries(message, run).map(item => ({ ...item, id: root.ConversationProcess.flowKey(item) }))
       : root.AgentProgress?.entries(message) || []).map(item => [item.id, item]));
+    // A summary with a connected root keeps it (staged for patchIsland). A new
+    // or still-plain one stays plain while this paint conceals it.
+    const summarize = (key, summary, props, parent) => {
+      if (!summary) return;
+      const prior = priorSummaries.get(key);
+      if (!prior && concealed(summary) && !summary.querySelector(':scope > [data-halaska-conversation]')) {
+        waitingProps.set(summary, props); bindSummaryKeyboard(summary); return;
+      }
+      enhanceActivitySummary(summary, props, prior && (parent === undefined || prior.parent === parent) ? prior.host : null);
+    };
     for (const row of progress?.querySelectorAll('.progress-item[data-activity-id]') || []) {
       const item = entries.get(row.dataset.activityId);
-      const prior = item && priorSummaries.get(`item:${item.id}`);
       // A row entering/leaving a group changes DOM parent. The host's keyed
       // patch is sibling-local, so that row must be mounted normally instead
       // of inserting an empty deferred host into a newly created subtree.
       const parent = row.closest('.progress-group[data-progress-group-id]')?.dataset.progressGroupId || null;
-      if (item) enhanceActivitySummary(row.querySelector(':scope > .progress-item-content > details > summary'), activityProps(item, message), prior?.parent === parent ? prior.host : null);
+      if (item) summarize(`item:${item.id}`, row.querySelector(':scope > .progress-item-content > details > summary'), activityProps(item, message), parent);
     }
     for (const group of progress?.querySelectorAll('.progress-group[data-progress-group-id]') || []) {
       const summary = group.querySelector(':scope > .progress-group-details > summary');
       // Preserve the aggregate's truthful breakdown supplied by its owner.
       const previous = summary?.querySelector(':scope > [data-halaska-conversation]');
       const detail = summary?.querySelector('.progress-group-status')?.textContent || records.get(previous)?.props?.detail || '';
-      enhanceActivitySummary(summary, groupProps(group.dataset, message, detail), priorSummaries.get(`group:${group.dataset.progressGroupId}`)?.host);
+      summarize(`group:${group.dataset.progressGroupId}`, summary, groupProps(group.dataset, message, detail));
     }
     const pending = wrapper.querySelector(':scope > .pending-actions');
     if (pending && run.status === 'awaiting-approval') {
@@ -284,6 +350,18 @@
     }
   }
 
-  root.HalaskaConversation = { enhance, summaryProps, activityProps, groupProps, patchIsland, discard, setProcessView };
+  // Mount before the disclosure opens: the click runs ahead of the native
+  // toggle and of the open animation's height measurement. The toggle listener
+  // covers programmatic opens (pins, patches); both are no-ops once mounted.
+  const doc = root.document;
+  if (doc?.addEventListener) {
+    doc.addEventListener('click', event => {
+      const details = event.target?.closest?.('summary')?.parentElement;
+      if (details?.nodeName === 'DETAILS' && !details.open) reveal(details);
+    }, true);
+    doc.addEventListener('toggle', event => { if (event.target?.nodeName === 'DETAILS' && event.target.open) reveal(event.target); }, true);
+  }
+
+  root.HalaskaConversation = { enhance, summaryProps, activityProps, groupProps, patchIsland, patchSummary, discard, setProcessView, reveal };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.HalaskaConversation;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -14,13 +14,14 @@ const cut = (start, end) => source.slice(source.indexOf(start), source.indexOf(e
 const empty = () => ({ projects: [{id:'research', name:'控制实验', workspace:'科研'}], tasks:[], notes:[], imports:[], papers:[], links:[], trash:[], agentRuns:[], conversations:[{id:'conversation',title:'Existing conversation',projectId:'research',workspace:'科研',messages:[],attachments:[]}], currentConversationId:'conversation', settings:{permissions:{'日常':'auto','课程':'auto','科研':'approval'}} });
 function executionContext() {
   let next=0; const toasts=[];
-  const c=vm.createContext({structuredClone,state:empty(),Core,AttachmentContext,AttachmentDelivery,AttachmentAnalysis,window:{AttachmentAnalysis},workspaceName:v=>v==='科研'||v==='课程'?v:'日常',uid:prefix=>`${prefix}-${++next}`,normalizeStateShape:()=>{},addRunStep:()=>{},save:()=>{},renderAll:()=>{},toasts,toast:message=>toasts.push(String(message))});
-  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function commitAttachmentAnalysis(', '\nfunction executeActions(')+cut('function executeActions(', '\nfunction fallbackWorkflow(')+cut('function actionsNeedApproval(', '\nfunction actionSummary('),c);
+  const c=vm.createContext({apiProfiles:null,structuredClone,state:empty(),Core,AttachmentContext,AttachmentDelivery,AttachmentAnalysis,window:{AttachmentAnalysis},workspaceName:v=>v==='科研'||v==='课程'?v:'日常',uid:prefix=>`${prefix}-${++next}`,normalizeStateShape:()=>{},addRunStep:()=>{},save:()=>{},renderAll:()=>{},toasts,toast:message=>toasts.push(String(message))});
+  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function commitAttachmentAnalysis(', '\nfunction executeActions(')+cut('function executeActions(', '\nfunction actionsNeedApproval(')+cut('function actionsNeedApproval(', '\nfunction actionSummary('),c);
   installConversationPathHost(c);
   c.window.TaskWorkflow = require('../app/task-workflow');
   c.window.ApprovalIntent = require('../app/approval-intent');
   c.queueMicrotask = queueMicrotask;
   c.KnowledgeAccess = c.window.KnowledgeAccess = require('../app/knowledge-access');
+  c.window.ReadTools = require('../app/read-tools');
   installRunCheckpointHost(c);
   c.prepareApproval = () => {
     const controller = PlanReview.createController({ getState: () => c.state, getRun: id => c.state.agentRuns.find(run => run.id === id), contextForRun: run => c.approvalContext(run), applyPlan: Core.applyPlan, save: c.saveDocumentDurably, isBusy: () => !!c.approveRun.busy?.size });
@@ -86,15 +87,6 @@ test('archiving the bound project invalidates a running operation even if its co
   assert.throws(()=>c.assertRunActive(run),/项目|归档|取消/);
 });
 
-test('local fallback preserves an explicitly bound project instead of resetting the task to unassigned', () => {
-  const c=executionContext();c.state.projects[0].workspace='日常';c.state.conversations[0].workspace='日常';
-  Object.assign(c,{currentAttachments:()=>[],classifyWorkspace:()=> '日常',normalize:value=>String(value).toLowerCase(),actionSummary:()=>''});
-  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function fallbackWorkflow(', '\nfunction actionsNeedApproval('),c);
-  const run={id:'local-run',conversationId:'conversation',projectId:'research',workspace:'日常'};
-  c.fallbackWorkflow('创建任务：本周整理进度',run);
-  assert.equal(c.state.tasks[0]?.projectId,'research');
-});
-
 test('captured context never retargets and scope changes cancel the final commit', { timeout: 4000 }, async () => {
   const c=executionContext(); const nodes=new Map();
   const node=key=>{if(!nodes.has(key)) nodes.set(key,{value:'',textContent:'',disabled:false,scrollHeight:0,scrollTop:0,clientHeight:0,classList:{remove(){},add(){}},setAttribute(){},querySelector(){return null},appendChild(){},firstElementChild:{}});return nodes.get(key);};
@@ -150,18 +142,6 @@ test('a valid pending plan can be approved while an unrelated request controller
   c.prepareApproval();
   await c.approveRun('pending');
   assert.equal(run.status,'completed',run.error);assert.equal(c.state.tasks.length,1);assert.equal(c.state.tasks[0].projectId,'research');
-});
-
-test('local fallback checks its actual queued actions under request and inherited space permissions',()=>{
- for (const permissionMode of ['request','legacy']) {
-  const c=executionContext();c.WorkstationPermissionPolicy=require('../app/permission-policy');
-  c.state.projects[0].workspace='日常';c.state.conversations[0].workspace='日常';c.state.settings.permissions['日常']='approval';
-  Object.assign(c,{classifyWorkspace:()=> '日常',actionSummary:()=>'',makeProject:()=>{},norm:v=>v});
-  vm.runInContext(cut('function activeResultRecord(', '\nfunction conversationProjectIds(') + cut('function dedupeResultEntries(', '\nfunction groupedEntities(') + cut('function fallbackWorkflow(', '\nfunction actionsNeedApproval('),c);
-  const run={id:'queued',conversationId:'conversation',projectId:'research',workspace:'日常',permissionMode,attachmentIds:[]};
-  c.fallbackWorkflow('创建下一步任务',run);
-  assert.equal(run.status,'awaiting-approval');assert.ok(run.pendingActions.length>0);assert.equal(c.state.tasks.length,0);
- }
 });
 
 test('archiving a preflight-matched project cancels approval instead of creating a same-name replacement from an unbound conversation', { timeout: 4000 }, async () => {

@@ -176,11 +176,11 @@ with SyncStore(sys.argv[1]).db() as db:
                 draft = copy.deepcopy(before); original = self.store.sync._save_snapshot; count = 0
                 if mode == 'changed-entity': draft['notes'][0]['content'] = 'Must roll back'
                 else: draft['ui']['expanded'] = 'Must roll back'
-                def fail_second(db, snapshot):
+                def fail_second(db, snapshot, *rest):
                     nonlocal count
                     count += 1
                     if count == 2: raise OSError('Synthetic failure after mirror publication')
-                    return original(db, snapshot)
+                    return original(db, snapshot, *rest)
                 with patch.object(self.store.sync, '_save_snapshot', side_effect=fail_second):
                     with self.assertRaises(OSError): self.store.save(draft)
                 self.assertEqual(self.database(), database); self.assertEqual(self.store.load(), before)

@@ -37,6 +37,45 @@
     if (text !== undefined) node.textContent = text;
     return node;
   };
+  // A completed search or list step shows the records it returned as small
+  // chips under the step, like the reference timeline. Presentation only: the
+  // full result stays in the tool record. A chip opens its record only when the
+  // workspace still exposes it (privacy and deletion are checked again on click
+  // by the app's open handlers); otherwise it is plain text. At most four chips
+  // are shown, then "+N".
+  const chipKinds = { note: ['openNote', 'note'], import: ['openImport', 'file'], task: ['openTask', 'note'], paper: ['openPaper', 'file'] };
+  function resultChips(call, state) {
+    if (!call || call.status !== 'completed' || !['search', 'list', 'history_search', 'library_overview'].includes(call.type)) return null;
+    const data = call.result && typeof call.result === 'object' && call.result.result !== undefined ? call.result.result : call.result;
+    const rows = Array.isArray(data?.entries) ? data.entries : Array.isArray(data?.hits) ? data.hits : Array.isArray(data?.items) ? data.items : [];
+    const seen = new Set(), chips = [];
+    for (const entry of rows) {
+      const title = typeof entry?.title === 'string' ? entry.title.trim() : typeof entry?.name === 'string' ? entry.name.trim() : '';
+      if (!title) continue;
+      const key = (entry.type || '') + ':' + (entry.id || entry.recordId || title);
+      if (seen.has(key)) continue;
+      seen.add(key); chips.push(entry);
+    }
+    if (!chips.length) return null;
+    const box = element('div', 'conversation-flow-chips');
+    box.dataset.liveKey = 'flow-chips:' + call.id;
+    for (const entry of chips.slice(0, 4)) {
+      const title = (entry.title || entry.name).trim();
+      const kind = chipKinds[entry.type];
+      const id = typeof entry.id === 'string' ? entry.id : typeof entry.recordId === 'string' ? entry.recordId : '';
+      // Without the workspace state (or the access check) a chip stays plain text.
+      const readable = !!(kind && id && state && root.CitationEvidence?.recordFor?.(state, entry.type, id));
+      const chip = element(readable ? 'button' : 'span', 'conversation-flow-chip');
+      if (readable) { chip.type = 'button'; chip.dataset[kind[0]] = id; chip.title = title; }
+      chip.dataset.userContent = '';
+      const icon = element('span', 'conversation-flow-chip-icon'); icon.setAttribute('aria-hidden', 'true');
+      icon.innerHTML = root.WorkstationIcons?.icon(kind?.[1] || 'file') || '';
+      chip.append(icon, element('span', 'conversation-flow-chip-label', title));
+      box.append(chip);
+    }
+    if (chips.length > 4) box.append(element('span', 'conversation-flow-chip-more', '+' + (chips.length - 4)));
+    return box;
+  }
   function disclosure(node, message, key, auto = false) {
     node.dataset.progressKey = key;
     const pins = message.progressPins || {};
@@ -78,6 +117,8 @@
       const row = element('li', 'conversation-flow-item conversation-flow-' + item.kind);
       row.dataset.liveKey = flowKey(item); row.dataset.flowId = item.id;
       row.dataset.flowKind = item.kind;
+      // Presentation only: the timeline marker reflects the recorded status.
+      row.dataset.flowStatus = String(item.status || 'unknown');
       if (item.parentId) {
         const owners = (run.delegations || []).filter(child => child.id === item.parentId);
         const title = owners.length === 1 && typeof owners[0].title === 'string' ? owners[0].title.trim() : '';
@@ -93,6 +134,7 @@
         }
         const ledger = root.ToolScheduler?.card(run, { embedded: true, callIds: [call.id] });
         if (!ledger) continue;
+        if (call.status) row.dataset.flowStatus = String(call.status);
         ledger.dataset.liveKey = 'flow-tool-ledger:' + call.id;
         // Explicit closes outrank the reconciler's temporary reading protection,
         // just as they do for reasoning and the outer process disclosure.
@@ -101,6 +143,8 @@
           if (Object.prototype.hasOwnProperty.call(run.toolLedgerPins || {}, key)) detail.dataset.progressUserOpen = String(run.toolLedgerPins[key] === true);
         }
         row.append(ledger);
+        const chips = resultChips(call, options.state);
+        if (chips) row.append(chips);
       } else if (['reasoning', 'response', 'commentary'].includes(item.kind) && typeof item.text === 'string' && item.text.trim()) {
         const body = element('div', 'conversation-flow-text');
         body.dataset.liveKey = 'flow-text';
@@ -121,7 +165,10 @@
           row.className += ' progress-item'; row.dataset.activityId = flowKey(item); row.dataset.activityState = item.status || 'unknown';
           const content = element('div', 'progress-item-content');
           const details = element('details', 'conversation-flow-reasoning-details');
-          disclosure(details, message, flowKey(item));
+          // Reasoning is visible while it streams and folds away once that
+          // segment ends. An explicit user open/close (a pin) always wins.
+          const streaming = !!message.live && ['running', 'pending', 'queued'].includes(item.status);
+          disclosure(details, message, flowKey(item), streaming);
           const summary = element('summary');
           summary.append(element('span', 'conversation-flow-reasoning-title', t('模型思考', 'Model reasoning')),
             element('span', 'conversation-flow-reasoning-preview', preview(item.text)));

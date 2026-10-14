@@ -91,3 +91,7 @@ test('cancellation and persistence failures remain fatal even with graceful web-
   await assert.rejects(Web.acquire({goal:'https://a.example/',fetch:async()=>response(),onSource:()=>{throw new TypeError('disk failure');},onFailure:()=>failures++}),/disk failure/);
   assert.equal(failures,0);
 });
+
+test('Claude never inherits web search from a previously configured OpenAI API base',()=>{
+ for(const base of ['https://api.openai.com/v1','https://example.invalid/v1',''])assert.equal(Web.searchSupported('claude-auth',base,'搜索最新信息'),false);
+});

@@ -745,8 +745,8 @@
   "assets": [
     {
       "name": "document-editors-bundle.js",
-      "bytes": 1958079,
-      "sha256": "4dfc6b167c3c00b428fe9a367ecbe7111563ec460454cf80640a0a79e5a65e34"
+      "bytes": 1959892,
+      "sha256": "38d6bb44f5a28ffaef8fed704c95934ebaf702cac07d5114d4cc643817d8f573"
     },
     {
       "name": "document-editors.css",

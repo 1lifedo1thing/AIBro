@@ -24,9 +24,9 @@ function harness(options = {}) {
     remove: async () => { calls.push(['remove']); Object.assign(persisted, { base: '', token: '', model: '' }); return status(); },
   };
   const state = { tasks: [], notes: [], projects: [], settings: { permissions: {} } };
-  const window = { workstationDesktop: { apiCredentials: bridge }, OpenAIAuth: { provider: () => 'api', persist() {}, render() {} }, confirm: () => options.confirm !== false };
-  const c = vm.createContext({ $, $$: () => [], window, Core, URL, AbortController,
-    apiSettingsDirty: false, apiCredentialReady: null, apiCredentialState: null, apiCredentialError: '', apiCredentialVersion: 0, settingsHydrated: false,
+  const window = { dispatchEvent(){}, workstationDesktop: { apiCredentials: bridge }, OpenAIAuth: { provider: () => 'api', persist() {}, render() {} }, confirm: () => options.confirm !== false };
+  const c = vm.createContext({ $, $$: () => [], window, Core, URL, AbortController, Event,
+    apiProfiles: null, apiSettingsDirty: false, apiCredentialReady: null, apiCredentialState: null, apiCredentialError: '', apiCredentialVersion: 0, settingsHydrated: false,
     state, localStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
     save: () => snapshots.push(JSON.stringify(state)), saveDocumentDurably: async () => { snapshots.push(JSON.stringify(state)); return true; }, syncComposerModel() {},
     setTimeout: () => 1, clearTimeout() {}, fetch: async (url, init) => { calls.push(['fetch', url, init]); return new Response(JSON.stringify({ data: [{ id: 'fixture-model' }] }), { headers: { 'content-type': 'application/json' } }); },
@@ -47,7 +47,7 @@ test('testing an unsaved key is explicit and never persists it or creates worksp
 
 test('save then a fresh renderer restores metadata and obtains a key only through secure read', async () => {
   const h = harness(); h.$('#apiBase').value = 'https://gateway.example.invalid/v1'; h.$('#model').value = 'fixture-model'; h.$('#apiKey').value = TOKEN; h.c.apiSettingsDirty = true;
-  assert.equal(await h.c.saveApiSettings(), true);
+  assert.equal(await h.c.saveApiSettings(), true,h.$('#apiStatus').textContent);
   assert.equal(h.$('#apiKey').value, '');
   assert.equal(h.storage.has('workstation-api-key'), false);
   assert.equal(h.snapshots.some(snapshot => snapshot.includes(TOKEN)), false);
@@ -100,7 +100,7 @@ test('an in-flight settings save cannot clear a newer key or leak it into worksp
   h.$('#apiBase').value = 'https://gateway.example.invalid/v1'; h.$('#model').value = 'fixture-model'; h.$('#apiKey').value = TOKEN; h.c.apiSettingsDirty = true;
   const done = h.c.saveApiSettings(); await tick();
   h.$('#apiKey').value = 'synthetic-new-draft-token';
-  saving.resolve(); assert.equal(await done, true);
+  saving.resolve(); assert.equal(await done, true,h.$('#apiStatus').textContent);
   assert.equal(h.persisted.token, TOKEN);
   assert.equal(h.$('#apiKey').value, 'synthetic-new-draft-token');
   assert.equal(h.c.apiSettingsDirty, true);

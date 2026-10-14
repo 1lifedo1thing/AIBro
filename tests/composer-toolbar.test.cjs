@@ -63,3 +63,16 @@ test('reinitialization and destroy retain extensions and do not duplicate contro
  second.destroy();assert.equal(h.footer.querySelector('.composer-primary-row'),null);assert.ok(h.node('lateExtension'));assert.equal(h.node('composerModel').parentElement,h.records.get('composerModel').host);
  h.api.init();assert.equal(h.footer.querySelectorAll('.composer-primary-row').length,1);h.node('composerModel').fire('click');assert.deepEqual(h.actions,['composerModel']);assert.equal(h.input.value,'尚未提交的输入法草稿');
 });
+
+test('More closes one layer per Escape and only returns focus from inside the menu',()=>{
+ const h=fixture();h.api.init();const more=h.node('composerMore'),extras=h.node('composerExtraTools');
+ // A layer above the menu (a source preview) already took this Escape.
+ more.fire('click');h.document.fire('keydown',{key:'Escape',defaultPrevented:true});assert.equal(extras.hidden,false);
+ h.document.fire('keydown',{key:'Escape',isComposing:true});assert.equal(extras.hidden,false,'an IME Escape belongs to the input method');
+ // Escape with focus outside the menu closes it without pulling focus away.
+ h.input.focus();h.document.fire('keydown',{key:'Escape'});assert.equal(extras.hidden,true);assert.equal(h.document.activeElement,h.input);
+ // Keyboard focus leaving for another control closes it; focus with no new owner keeps it.
+ more.fire('click');h.document.fire('focusout',{target:h.contextButton,relatedTarget:null});assert.equal(extras.hidden,false);
+ h.document.fire('focusout',{target:h.contextButton,relatedTarget:more});assert.equal(extras.hidden,false,'More itself owns its menu');
+ h.document.fire('focusout',{target:more,relatedTarget:h.node('composerModel')});assert.equal(extras.hidden,true);assert.equal(more.attributes['aria-expanded'],'false');
+});

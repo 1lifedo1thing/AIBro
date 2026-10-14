@@ -22,15 +22,19 @@ async function run(){
  await wait(600);
  assert.equal(await evaluate('!!window.MessageRail'),true,'刻度导航模块必须加载');
 
- const seed=async count=>evaluate(`(()=>{const now=Date.now();
+ const seed=async (count,long=true)=>evaluate(`(()=>{const now=Date.now();
   state.projects=[];state.notes=[];state.tasks=[];state.imports=[];state.agentRuns=[];
   const messages=[];
-  for(let i=0;i<${count};i++) messages.push({id:'m'+i,role:i%2?'agent':'user',at:now-(100-i)*60000,text:(i%2?'AI 的第 ':'我的第 ')+(i+1)+' 条消息：'+'内容'.repeat(8+(i%5)*4)});
+  for(let i=0;i<${count};i++) messages.push({id:'m'+i,role:i%2?'agent':'user',at:now-(100-i)*60000,text:(i%2?'AI 的第 ':'我的第 ')+(i+1)+' 条消息：'+'内容'.repeat(${long?'80+(i%5)*20':'8'})});
   state.conversations=[{id:'qa_r4',title:'隔离验收 · 第 4 轮',workspace:'日常',permissionMode:'auto',attachments:[],draftAttachmentIds:[],draft:'',createdAt:now,updatedAt:now,messages}];
   state.currentConversationId='qa_r4';state.settings.permissions={'日常':'auto','课程':'auto','科研':'auto'};
   normalizeStateShape(state);state.ui.inspectorOpen=false;save();applyUiPreferences();showView('agent','持续对话');renderAll();})()`);
 
  await step('刻度导航：消息少时逐条一个刻度，且不覆盖消息正文',async()=>{
+  // 一屏放得下的对话没有可去的位置，刻度收起；超出一屏才显示。
+  await seed(2,false);
+  await wait(700);
+  assert.equal(await evaluate(`$('#messageRail')?.hidden`),true,'整段对话都在屏幕上时收起刻度');
   await seed(6);
   await wait(700);
   const probe=await evaluate(`(()=>{const rail=$('#messageRail');const ticks=[...document.querySelectorAll('.message-rail-tick')];

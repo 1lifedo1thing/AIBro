@@ -28,6 +28,8 @@ MAX_BLOB = 64 * 1024 * 1024
 MAX_OPERATIONS = 100
 MAX_PULL = 500
 MAX_PULL_BYTES = 4 * 1024 * 1024
+ATOMIC_GROUP_VERSION = 1
+MAX_GROUP_READS = 100
 TOKEN_LIFETIME = 30 * 24 * 60 * 60
 ENTITY_TYPES = frozenset(('projects', 'tasks', 'notes', 'imports', 'attachments', 'papers', 'conversations', 'messages', 'links', 'trash', 'folders', 'skills'))
 PASSWORD_N = 32768
@@ -82,7 +84,7 @@ class LoginLimiter:
 
 
 class CloudStore:
-    def __init__(self, directory, token_lifetime=TOKEN_LIFETIME):
+    def __init__(self, directory, token_lifetime=TOKEN_LIFETIME, connection_origin=None):
         if not hasattr(hashlib, 'scrypt'):
             raise APIError(503, 'unsupported_runtime', '此 Python 不支持 scrypt，请使用带 OpenSSL 的 Python 3.12 或所附 Docker 镜像。')
         raw = Path(directory).expanduser()
@@ -140,9 +142,38 @@ class CloudStore:
                     request_hash TEXT NOT NULL, result TEXT NOT NULL,
                     PRIMARY KEY(account_id, op_id)
                 );
+                CREATE TABLE IF NOT EXISTS atomic_groups (
+                    account_id TEXT NOT NULL REFERENCES accounts(id), group_id TEXT NOT NULL,
+                    request_hash TEXT NOT NULL, result TEXT NOT NULL,
+                    first_seq INTEGER, last_seq INTEGER,
+                    PRIMARY KEY(account_id, group_id)
+                );
+                CREATE TABLE IF NOT EXISTS atomic_group_members (
+                    account_id TEXT NOT NULL, op_id TEXT NOT NULL, group_id TEXT NOT NULL,
+                    PRIMARY KEY(account_id, op_id),
+                    FOREIGN KEY(account_id, group_id) REFERENCES atomic_groups(account_id, group_id)
+                );
+                CREATE INDEX IF NOT EXISTS atomic_groups_sequence ON atomic_groups(account_id, first_seq, last_seq);
                 PRAGMA user_version=1;
             ''')
         os.chmod(self.path, 0o600)
+        # Opt-in until native pairing/secure-store acceptance is complete. The
+        # configured public origin, never a request Host header, binds AEAD data.
+        self.connections = None
+        if connection_origin:
+            from connection_sync_store import ConnectionSyncStore
+            self.connections = ConnectionSyncStore(self.db, connection_origin,
+                self.verify_connection_session, error_cls=APIError)
+
+    def verify_connection_session(self, db, identity):
+        # Called again inside the same SQLite write transaction as a credential
+        # operation, so logout/revocation cannot race a previously accepted token.
+        row = db.execute('SELECT t.account_id,t.device_id FROM tokens t JOIN devices d ON d.id=t.device_id '
+            'WHERE t.token_hash=? AND t.account_id=? AND t.device_id=? AND t.expires_at>? AND d.revoked_at IS NULL',
+            (identity.get('tokenHash'), identity.get('accountId'), identity.get('deviceId'), int(time.time()))).fetchone()
+        if not row:
+            raise APIError(401, 'unauthorized', '登录已失效，请重新登录。')
+        return {'accountId': row['account_id'], 'sessionId': row['device_id']}
 
     @contextmanager
     def db(self):
@@ -293,6 +324,8 @@ class CloudStore:
                 # credentials have been withdrawn between operations.
                 if not db.execute('SELECT 1 FROM tokens t JOIN devices d ON d.id=t.device_id WHERE t.token_hash=? AND t.account_id=? AND t.expires_at>? AND d.revoked_at IS NULL', (identity['tokenHash'], account_id, int(time.time()))).fetchone():
                     raise APIError(401, 'unauthorized', '登录已失效，请重新登录。')
+                if db.execute('SELECT 1 FROM atomic_group_members WHERE account_id=? AND op_id=?', (account_id, op_id)).fetchone():
+                    raise APIError(409, 'atomic_group_required', '此操作属于原子操作组，请重试完整操作组。')
                 previous = db.execute('SELECT request_hash,result FROM operations WHERE account_id=? AND op_id=?', (account_id, op_id)).fetchone()
                 if previous:
                     if previous['request_hash'] != hashes[op_id]:
@@ -316,6 +349,138 @@ class CloudStore:
             if 'accepted' in result: accepted.append(result['accepted'])
             else: conflicts.append(result['conflict'])
         return {'accepted': accepted, 'conflicts': conflicts}
+
+    def capabilities(self):
+        result = {'protocol': PROTOCOL,
+                'atomicOperationGroups': {'version': ATOMIC_GROUP_VERSION, 'maxOperations': MAX_OPERATIONS,
+                                          'maxReadSet': MAX_GROUP_READS, 'maxBytes': MAX_JSON},
+                'atomicGroupPull': {'version': ATOMIC_GROUP_VERSION, 'maxGroupBytes': MAX_JSON}}
+        if self.connections:
+            result['encryptedConnectionProfiles'] = {'version': 1, 'maxProfiles': 32, 'maxDevices': 16,
+                'maxBytes': 2 * 1024 * 1024, 'origin': self.connections.origin}
+        return result
+
+    def push_group(self, identity, payload):
+        required = {'version', 'groupId', 'operations', 'readSet'}
+        if not isinstance(payload, dict) or not required <= payload.keys() or payload.keys() - required - {'expectedCursor'}:
+            raise APIError(400, 'invalid_group', '原子操作组格式无效。')
+        if type(payload['version']) is not int or payload['version'] != ATOMIC_GROUP_VERSION:
+            raise APIError(400, 'unsupported_group_version', '原子操作组协议版本不受支持。')
+        group_id = identifier(payload['groupId'], '操作组 ID')
+        if not isinstance(payload['operations'], list) or not 1 <= len(payload['operations']) <= MAX_OPERATIONS:
+            raise APIError(400, 'invalid_group', '原子操作组必须包含 1 到 100 项操作。')
+        if not isinstance(payload['readSet'], list) or len(payload['readSet']) > MAX_GROUP_READS:
+            raise APIError(400, 'invalid_group', '原子操作组的读取条件过多或格式无效。')
+        if 'expectedCursor' in payload and (type(payload['expectedCursor']) is not int or not 0 <= payload['expectedCursor'] <= 9007199254740991):
+            raise APIError(400, 'invalid_group', '原子操作组的基线游标无效。')
+        operations = [self.validate_operation(item) for item in payload['operations']]
+        if len({op['opId'] for op in operations}) != len(operations) or len({(op['entityType'], op['entityId']) for op in operations}) != len(operations):
+            raise APIError(400, 'invalid_group', '原子操作组不能包含重复操作或目标。')
+        reads = []
+        for item in payload['readSet']:
+            if not isinstance(item, dict) or set(item) != {'entityType', 'entityId', 'version', 'deleted', 'data'}:
+                raise APIError(400, 'invalid_group', '原子操作组的读取条件无效。')
+            # A version-zero live null represents an absent row, not a tombstone.
+            absent = type(item['version']) is int and item['version'] == 0 and item['deleted'] is False and item['data'] is None
+            checked = self.validate_operation({'opId': 'read', 'entityType': item['entityType'], 'entityId': item['entityId'],
+                                               'baseVersion': item['version'], 'deleted': item['deleted'],
+                                               'data': {} if absent else item['data']})
+            reads.append({**item, 'entityType': checked['entityType'], 'entityId': checked['entityId']})
+        if len({(item['entityType'], item['entityId']) for item in reads}) != len(reads):
+            raise APIError(400, 'invalid_group', '原子操作组不能包含重复读取条件。')
+        canonical_payload = {**payload, 'operations': operations, 'readSet': reads}
+        request = encoded(canonical_payload)
+        if len(request) > MAX_JSON:
+            raise APIError(413, 'group_too_large', '原子操作组超过 16 MiB，不能拆分传输。')
+        digest = hashlib.sha256(request).hexdigest()
+        account_id = identity['accountId']
+        with self.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            if not db.execute('SELECT 1 FROM tokens t JOIN devices d ON d.id=t.device_id WHERE t.token_hash=? AND t.account_id=? AND t.expires_at>? AND d.revoked_at IS NULL', (identity['tokenHash'], account_id, int(time.time()))).fetchone():
+                raise APIError(401, 'unauthorized', '登录已失效，请重新登录。')
+            prior = db.execute('SELECT request_hash,result FROM atomic_groups WHERE account_id=? AND group_id=?', (account_id, group_id)).fetchone()
+            if prior:
+                if prior['request_hash'] != digest:
+                    raise APIError(409, 'group_id_reuse', '同一个操作组 ID 不能用于不同内容。')
+                return json.loads(prior['result'])
+            for op in operations:
+                if (db.execute('SELECT 1 FROM operations WHERE account_id=? AND op_id=?', (account_id, op['opId'])).fetchone()
+                        or db.execute('SELECT 1 FROM atomic_group_members WHERE account_id=? AND op_id=?', (account_id, op['opId'])).fetchone()):
+                    raise APIError(409, 'op_id_reuse', '操作 ID 已用于其他请求，未写入此操作组。')
+            cursor = db.execute('SELECT change_seq FROM accounts WHERE id=?', (account_id,)).fetchone()[0]
+            rows = {}
+            for item in [*operations, *reads]:
+                key = (item['entityType'], item['entityId'])
+                if key not in rows:
+                    rows[key] = db.execute('SELECT version,deleted,data FROM entities WHERE account_id=? AND entity_type=? AND entity_id=?', (account_id, *key)).fetchone()
+            conflicts = []
+            for check, items in (('write', operations), ('read', reads)):
+                for item in items:
+                    row = rows[item['entityType'], item['entityId']]
+                    version, deleted, data = (row['version'], bool(row['deleted']), json.loads(row['data']) if row['data'] is not None else None) if row else (0, False, None)
+                    expected = item['baseVersion'] if check == 'write' else item['version']
+                    if version != expected or (check == 'read' and (deleted != item['deleted'] or encoded(data) != encoded(item['data']))):
+                        conflicts.append({'entityType': item['entityType'], 'entityId': item['entityId'], 'check': check,
+                                          'expectedVersion': expected, 'remote': {'version': version, 'deleted': deleted}})
+            cursor_conflict = 'expectedCursor' in payload and payload['expectedCursor'] != cursor
+            result = {'version': ATOMIC_GROUP_VERSION, 'groupId': group_id, 'status': 'conflict' if conflicts or cursor_conflict else 'accepted',
+                      'accepted': [], 'conflicts': conflicts, 'cursor': cursor}
+            if cursor_conflict: result['cursorConflict'] = {'expected': payload['expectedCursor'], 'actual': cursor}
+            changes = []
+            if result['status'] == 'accepted':
+                for index, op in enumerate(operations, 1):
+                    changes.append({'seq': cursor + index, 'entityType': op['entityType'], 'entityId': op['entityId'],
+                                    'version': op['baseVersion'] + 1, 'deleted': op['deleted'], 'data': op['data']})
+                envelope = {'type': 'atomic-group', 'groupId': group_id, 'firstSeq': changes[0]['seq'], 'lastSeq': changes[-1]['seq'], 'changes': changes}
+                # Limit the complete pull response too: no accepted group can
+                # become impossible to receive within the advertised hard cap.
+                if len(encoded({'version': ATOMIC_GROUP_VERSION, 'changes': [envelope], 'cursor': changes[-1]['seq'], 'hasMore': True})) > MAX_JSON:
+                    raise APIError(413, 'group_too_large', '原子操作组结果超过 16 MiB，不能拆分传输。')
+                for op, change in zip(operations, changes):
+                    content = encoded(op['data']).decode() if not op['deleted'] else None
+                    db.execute('INSERT INTO entities VALUES(?,?,?,?,?,?) ON CONFLICT(account_id,entity_type,entity_id) DO UPDATE SET version=excluded.version,deleted=excluded.deleted,data=excluded.data',
+                               (account_id, op['entityType'], op['entityId'], change['version'], int(op['deleted']), content))
+                    db.execute('INSERT INTO changes VALUES(?,?,?,?,?,?,?)', (account_id, change['seq'], op['entityType'], op['entityId'], change['version'], int(op['deleted']), content))
+                    ack = {'opId': op['opId'], 'entityType': op['entityType'], 'entityId': op['entityId'], 'version': change['version']}
+                    db.execute('INSERT INTO operations VALUES(?,?,?,?)', (account_id, op['opId'], hashlib.sha256(encoded(op)).hexdigest(), encoded({'accepted': ack}).decode()))
+                    result['accepted'].append(ack)
+                result['cursor'] = changes[-1]['seq']
+                db.execute('UPDATE accounts SET change_seq=? WHERE id=?', (result['cursor'], account_id))
+            db.execute('INSERT INTO atomic_groups VALUES(?,?,?,?,?,?)', (account_id, group_id, digest, encoded(result).decode(), changes[0]['seq'] if changes else None, changes[-1]['seq'] if changes else None))
+            db.executemany('INSERT INTO atomic_group_members VALUES(?,?,?)', [(account_id, op['opId'], group_id) for op in operations])
+            db.commit()
+            return result
+
+    @staticmethod
+    def _change(row):
+        return {'seq': row['seq'], 'entityType': row['entity_type'], 'entityId': row['entity_id'], 'version': row['version'],
+                'deleted': bool(row['deleted']), 'data': json.loads(row['data']) if row['data'] is not None else None}
+
+    def pull_group(self, identity, cursor=0, limit=100):
+        if type(cursor) is not int or not 0 <= cursor <= 9007199254740991 or type(limit) is not int or not 1 <= limit <= MAX_PULL:
+            raise APIError(400, 'invalid_cursor', '同步游标或分页数量无效。')
+        account_id = identity['accountId']; changes = []; size = 0; count = 0; next_cursor = cursor
+        with self.db() as db:
+            db.execute('BEGIN')
+            maximum = db.execute('SELECT change_seq FROM accounts WHERE id=?', (account_id,)).fetchone()[0]
+            if cursor > maximum:
+                raise APIError(409, 'cursor_ahead', '同步游标超出账号历史，请重新初始化同步。')
+            while next_cursor < maximum:
+                row = db.execute('SELECT * FROM changes WHERE account_id=? AND seq>? ORDER BY seq LIMIT 1', (account_id, next_cursor)).fetchone()
+                if row is None: raise sqlite3.DatabaseError('Missing change sequence')
+                group = db.execute('SELECT group_id,first_seq,last_seq FROM atomic_groups WHERE account_id=? AND first_seq<=? AND last_seq>=?', (account_id, row['seq'], row['seq'])).fetchone()
+                if group:
+                    members = [self._change(item) for item in db.execute('SELECT * FROM changes WHERE account_id=? AND seq BETWEEN ? AND ? ORDER BY seq', (account_id, group['first_seq'], group['last_seq']))]
+                    if len(members) != group['last_seq'] - group['first_seq'] + 1: raise sqlite3.DatabaseError('Incomplete atomic group')
+                    value = {'type': 'atomic-group', 'groupId': group['group_id'], 'firstSeq': group['first_seq'], 'lastSeq': group['last_seq'], 'changes': members}
+                    amount, end = len(members), group['last_seq']
+                else:
+                    value, amount, end = self._change(row), 1, row['seq']
+                length = len(encoded(value))
+                if changes and (count + amount > limit or size + length > MAX_PULL_BYTES): break
+                changes.append(value); size += length; count += amount; next_cursor = end
+                if count >= limit or size >= MAX_PULL_BYTES: break
+        return {'version': ATOMIC_GROUP_VERSION, 'changes': changes, 'cursor': next_cursor, 'hasMore': next_cursor < maximum}
 
     def pull(self, identity, cursor=0, limit=100):
         if isinstance(cursor, bool) or not isinstance(cursor, int) or not 0 <= cursor <= 9007199254740991 or isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= MAX_PULL:
@@ -498,8 +663,8 @@ class CloudHandler(BaseHTTPRequestHandler):
         if length > maximum: raise APIError(413, 'body_too_large', '请求内容过大。')
         return length
 
-    def json_body(self):
-        length = self.content_length(MAX_JSON)
+    def json_body(self, maximum=MAX_JSON):
+        length = self.content_length(maximum)
         raw = self.rfile.read(length)
         if len(raw) != length: raise APIError(400, 'invalid_json', '请求内容不完整。')
         try:
@@ -517,7 +682,9 @@ class CloudHandler(BaseHTTPRequestHandler):
         if path == '/v1/auth/login' and self.command == 'POST':
             self.send_json(store.login(self.json_body(), self.client_address[0])); return
         identity = store.authenticate(self.headers.get('Authorization'))
-        if path == '/v1/web/relay' and self.command == 'POST':
+        if path.startswith('/v1/connections/'):
+            self.connection_route(store, identity, request_url)
+        elif path == '/v1/web/relay' and self.command == 'POST':
             from cloud_web import relay
             self.send_json(relay(self.json_body(), APIError))
         elif path == '/v1/devices' and self.command == 'GET':
@@ -530,14 +697,19 @@ class CloudHandler(BaseHTTPRequestHandler):
             self.send_json(store.revoke_device(identity, path.removeprefix('/v1/devices/')))
         elif path == '/v1/sync/push' and self.command == 'POST':
             self.send_json(store.push(identity, self.json_body()))
-        elif path == '/v1/sync/pull' and self.command == 'GET':
+        elif path == '/v1/sync/capabilities' and self.command == 'GET':
+            self.send_json(store.capabilities())
+        elif path == '/v1/sync/push-group' and self.command == 'POST':
+            self.send_json(store.push_group(identity, self.json_body()))
+        elif path in ('/v1/sync/pull', '/v1/sync/pull-group') and self.command == 'GET':
             query = parse_qs(request_url.query, keep_blank_values=True)
             if set(query) - {'cursor', 'limit'} or any(len(values) != 1 for values in query.values()):
                 raise APIError(400, 'invalid_cursor', '同步分页参数无效。')
             cursor = query.get('cursor', ['0'])[0]; limit = query.get('limit', ['100'])[0]
             if not re.fullmatch(r'[0-9]{1,16}', cursor) or not re.fullmatch(r'[0-9]{1,3}', limit):
                 raise APIError(400, 'invalid_cursor', '同步分页参数无效。')
-            self.send_json(store.pull(identity, int(cursor), int(limit)))
+            pull = store.pull_group if path == '/v1/sync/pull-group' else store.pull
+            self.send_json(pull(identity, int(cursor), int(limit)))
         elif path.startswith('/v1/blobs/') and self.command in ('HEAD', 'PUT', 'GET'):
             digest = path.removeprefix('/v1/blobs/')
             if self.command == 'PUT':
@@ -560,6 +732,44 @@ class CloudHandler(BaseHTTPRequestHandler):
                             self.wfile.write(chunk)
         else:
             raise APIError(404, 'not_found', '接口不存在。')
+
+    def connection_route(self, store, identity, request_url):
+        service = store.connections
+        operation = request_url.path.removeprefix('/v1/connections/')
+        allowed = ('initialize', 'register', 'status', 'read', 'owner_state',
+                   'commit', 'approve', 'rotate_and_revoke', 'operation_result')
+        if service is None or operation not in allowed:
+            raise APIError(404, 'not_found', '此服务尚未提供连接配置同步。')
+        if self.command != 'POST' or request_url.query or request_url.fragment:
+            raise APIError(400, 'invalid_request', '连接配置请求格式无效。')
+        # Never accept device credentials in a URL, cookie or synchronized body.
+        if (len(self.headers.get_all('X-AIBro-Connection-Secret', [])) != 1
+                or len(self.headers.get_all('X-AIBro-Connection-Device', [])) != 1):
+            raise APIError(401, 'unauthorized', '连接设备认证失败。')
+        if self.headers.get('Content-Type', '').split(';')[0].strip().lower() != 'application/json':
+            raise APIError(415, 'invalid_request', '连接配置请求必须使用 JSON。')
+        device = self.headers['X-AIBro-Connection-Device']
+        secret = self.headers['X-AIBro-Connection-Secret']
+        payload = self.json_body(2 * 1024 * 1024)
+        if type(payload) is not dict:
+            raise APIError(400, 'invalid_request', '连接配置请求格式无效。')
+        if operation in ('initialize', 'register'):
+            # The stable identifier is derived from the validated public key.
+            _, fingerprint = service._public_key(payload.get('publicJwk'))
+            if device != fingerprint:
+                raise APIError(401, 'unauthorized', '连接设备认证失败。')
+            result = getattr(service, operation)(identity, secret, payload)
+        elif operation == 'status':
+            if payload:
+                raise APIError(400, 'invalid_request', '连接配置请求格式无效。')
+            result = service.status(identity, device, secret)
+        elif operation in ('read', 'owner_state'):
+            if set(payload) != {'epoch'}:
+                raise APIError(400, 'invalid_request', '连接配置请求格式无效。')
+            result = getattr(service, operation)(identity, device, secret, payload['epoch'])
+        else:
+            result = getattr(service, operation)(identity, device, secret, payload)
+        self.send_json(result)
 
     def dispatch(self):
         try: self.route()
@@ -588,9 +798,11 @@ def main(argv=None):
     serve = commands.add_parser('serve')
     serve.add_argument('--host', default=os.environ.get('CLOUD_HOST', '127.0.0.1'))
     serve.add_argument('--port', type=int, default=int(os.environ.get('CLOUD_PORT', '8787')))
+    serve.add_argument('--connection-origin', default=os.environ.get('CLOUD_CONNECTION_ORIGIN'),
+                       help='Opt-in encrypted connection sync, bound to this exact public HTTPS origin')
     args = parser.parse_args(argv)
     try:
-        store = CloudStore(args.data_dir)
+        store = CloudStore(args.data_dir, connection_origin=getattr(args, 'connection_origin', None))
         if args.command in ('init', 'add-user'):
             raw = sys.stdin.buffer.read(4097)
             if len(raw) > 4096: raise APIError(400, 'invalid_password', '密码输入过长。')

@@ -64,5 +64,17 @@
     return `检测到重复调用：${item.type} 已用相同参数调用 ${item.count} 次（上限 ${limit}）。已停止本轮以免继续空转——每一步都会重新发送完整上下文，继续下去只会消耗额度。请调整指令或参数后重发；若确实需要多次读取同一对象，请在指令中说明原因。`;
   }
 
-  return Object.freeze({ LIMIT, KEY_FIELDS, signature, tally, inspect, describe });
+  // 停止之前先提醒（参考 DeepSeek Harness 的重复调用提醒、ZCode 的软警告）：
+  // 本次调用之前已用相同参数执行过 prior 次，且再执行即接近上限时，返回一段
+  // 附在本次结果上的说明，让模型有机会自行换方向。只是提醒，不阻止本次调用。
+  function reminder(request, prior, limit = LIMIT) {
+    const threshold = Number.isFinite(limit) && limit > 0 ? limit : LIMIT;
+    if (!request || !Number.isSafeInteger(prior) || prior < threshold - 2) return '';
+    // inspect() stops a call once `threshold` identical calls have already run,
+    // so after `done` calls, `threshold - done` more are allowed.
+    const done = prior + 1, left = threshold - done;
+    return `提醒：${request.type} 已用相同参数执行 ${done} 次。${left > 0 ? `最多还能相同调用 ${left} 次，再多将停止本轮。` : '再次相同调用将停止本轮。'}结果没有变化时，请换用其他参数或工具，或基于已有结果提交最终答复。`;
+  }
+
+  return Object.freeze({ LIMIT, KEY_FIELDS, signature, tally, inspect, describe, reminder });
 }));

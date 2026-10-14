@@ -91,9 +91,16 @@
     return conversation.goalLoop;
   }
 
-  function stop(reason) {
-    const conversation = hooks.getConversation?.();
+  // In-flight verdict requests by conversation, so stopping a loop also stops
+  // the request that would otherwise decide its next round.
+  const verdictRequests = new Map();
+
+  // The verdict for a round belongs to that round's conversation. Without an
+  // id this stops the conversation on screen (the strip's 停止循环 button).
+  function stop(reason, conversationId) {
+    const conversation = conversationId ? (state()?.conversations || []).find(item => item && item.id === conversationId) : hooks.getConversation?.();
     if (!conversation?.goalLoop) return null;
+    verdictRequests.get(conversation.id)?.abort();
     conversation.goalLoop.active = false;
     conversation.goalLoop.stopped = String(reason || '已停止');
     hooks.save?.();
@@ -101,55 +108,70 @@
     return conversation.goalLoop;
   }
 
-  function advance(round) {
-    const conversation = hooks.getConversation?.();
+  function advance(round, conversationId) {
+    const conversation = conversationId ? (state()?.conversations || []).find(item => item && item.id === conversationId) : hooks.getConversation?.();
     if (!conversation?.goalLoop) return;
     conversation.goalLoop.round = round;
     hooks.save?.();
   }
 
+  // A verdict failure is shown with its real cause, never swallowed: a broken
+  // connection and an unclear answer need different next steps from the user.
+  function failureReason(error) {
+    if (error?.code === 'CANCELLED') return '';
+    const text = String(error?.message || error || '').replace(/\s+/g, ' ').trim();
+    return text ? text.slice(0, 160) : '自证请求失败';
+  }
+
   async function onRoundFinished(run) {
-    const loop = loopFor(run?.conversationId);
+    const conversationId = run?.conversationId;
+    const loop = loopFor(conversationId);
     if (!loop?.active) return;
     if (run.status !== 'completed') {
-      const conversation = hooks.getConversation?.();
-      if (conversation?.id === run.conversationId) stop(run.status === 'cancelled' ? '本轮被停止' : '本轮未成功完成');
-      hooks.toast?.(`目标循环已停止：${run.status === 'cancelled' ? '本轮被停止' : '本轮未成功完成'}。`);
+      const reason = run.status === 'cancelled' ? '本轮被停止' : '本轮未成功完成';
+      stop(reason, conversationId);
+      hooks.toast?.(`目标循环已停止：${reason}。`);
       return;
     }
     const round = Number(loop.round) + 1;
-    advance(round);
-    let parsed = null;
+    advance(round, conversationId);
+    let parsed = null, failure = '';
+    const controller = new AbortController();
+    verdictRequests.get(conversationId)?.abort();
+    verdictRequests.set(conversationId, controller);
     try {
       const config = await root.ConversationModels?.resolve?.(hooks.getCurrentModel?.()) || null;
       const credentials = config?.provider === 'api' ? await hooks.getApiConnection?.(hooks.captureApiConnection?.()) : {};
       if (config?.provider === 'api' && (!credentials?.base || !credentials?.token || !config.model)) throw Error('缺少可用的模型配置');
       const answer = await root.AgentTransport.requestPlan({
-        ...config, ...credentials,
+        ...config, ...credentials, signal: controller.signal,
         input: [{ role: 'developer', content: [{ type: 'input_text', text: prompt(loop.goal, round, loop.limit, summaryOf(run)) }] },
                 { role: 'user', content: [{ type: 'input_text', text: '请只输出判定 JSON。' }] }]
       });
       parsed = verdict(answer);
+      if (!parsed) failure = '自证回复不是有效的判定 JSON';
     } catch (error) {
-      parsed = null;
+      parsed = null; failure = failureReason(error);
+    } finally {
+      if (verdictRequests.get(conversationId) === controller) verdictRequests.delete(conversationId);
     }
-    const current = loopFor(run.conversationId);
-    if (!current?.active) return;
-    current.lastVerdict = parsed ? { ...parsed, at: Date.now() } : null;
+    const current = loopFor(conversationId);
+    if (!current?.active || controller.signal.aborted) return;
+    current.lastVerdict = parsed ? { ...parsed, at: Date.now() } : { failed: true, reason: failure, at: Date.now() };
     if (!parsed) {
-      stop('自证未给出结论');
-      hooks.toast?.('目标循环已停止：自证没有给出明确结论，需要你确认下一步。');
+      stop('自证未给出结论', conversationId);
+      hooks.toast?.(`目标循环已停止：自证没有给出明确结论（${failure}），需要你确认下一步。`);
       hooks.render?.();
       return;
     }
     if (parsed.done) {
-      stop('目标已达成');
+      stop('目标已达成', conversationId);
       hooks.toast?.(`目标循环完成（第 ${round} 轮）：${parsed.reason || '自证判定已达成'}`);
       hooks.render?.();
       return;
     }
     if (!shouldContinue(current, parsed)) {
-      stop('已达到轮数上限');
+      stop('已达到轮数上限', conversationId);
       hooks.toast?.(`目标循环已停止：已达 ${current.limit} 轮上限，目标尚未达成。${parsed.reason || ''}`);
       hooks.render?.();
       return;
@@ -191,7 +213,7 @@
     box.innerHTML = '<span class="queue-label">' + head + ' ' + info.round + '/' + info.limit + ' · ' + esc(info.goal.slice(0, 40)) + stopped + '</span>'
       + (info.active ? '<button type="button" class="queue-send" data-goal-stop="1">停止循环</button>' : '');
     const stopButton = box.querySelector('[data-goal-stop]');
-    if (stopButton) stopButton.onclick = () => { stop('你已停止'); syncStrip(settings); };
+    if (stopButton) stopButton.onclick = () => { stop('你已停止', settings.conversation?.id); syncStrip(settings); };
     return info;
   }
 

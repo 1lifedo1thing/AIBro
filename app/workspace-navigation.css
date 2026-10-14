@@ -40,7 +40,9 @@ body.workspace-navigation-ready[data-view=project] #project .project-section-hea
 body.workspace-navigation-ready[data-view=project] #project>.page-heading .page-heading-actions{flex:0 1 auto;width:auto;min-width:0;gap:6px;justify-content:flex-end;flex-wrap:wrap}
 body.workspace-navigation-ready[data-view=project] #project>.page-heading .page-heading-actions button{font-size:11px;min-height:32px;padding:6px 10px;white-space:nowrap;max-width:none}
 #project:not([data-workspace-section=knowledge]) #projectSourceActions,#project:not([data-workspace-section=knowledge]) #projectSectionCaption{display:none}
-#project[data-workspace-section=knowledge] #projectAddTask,#project[data-workspace-section=conversations] #projectAddTask,#project[data-workspace-section=outputs] #projectAddTask{display:none}
+/* The header 添加任务 only belongs to the schedule section: the tasks board and
+   overview own their single add action, and other sections have none. */
+#project:not([data-workspace-section=schedule]) #projectAddTask{display:none}
 body.workspace-navigation-ready[data-view=project] #project:not([data-workspace-section=knowledge])>.project-layout{grid-template-columns:minmax(0,1fr)}
 #project:not([data-workspace-section=knowledge]) #projectTreePanel{display:none}
 body.workspace-navigation-ready[data-view=project] #project[data-workspace-section=knowledge]>.project-layout{grid-template-columns:168px minmax(0,1fr);gap:20px}
@@ -118,4 +120,3 @@ body[data-reduced-motion=true] .project-local-directory>summary::before{transiti
 #project .project-insights[open]>summary{margin-bottom:14px;color:var(--text)}
 #project .project-insights #projectPlanning{margin-bottom:20px}
 #project .project-insights #projectActivity{margin-top:20px}
-#project[data-workspace-section=overview] #projectAddTask,#project[data-workspace-section=tasks] #projectAddTask{display:none}

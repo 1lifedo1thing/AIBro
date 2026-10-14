@@ -13,6 +13,12 @@ async function run(){
  win.webContents.session.webRequest.onBeforeRequest({urls:['http://*/*','https://*/*']},(details,cb)=>cb({cancel:!details.url.startsWith(ORIGIN+'/')}));
  const evaluate=code=>win.webContents.executeJavaScript(code,true),click=s=>evaluate(`document.querySelector(${JSON.stringify(s)}).click()`),shot=async name=>{await wait(200);fs.writeFileSync(path.join(OUT,name+'.png'),(await win.webContents.capturePage()).toPNG());};
  async function step(label,fn){try{await fn();checks.push(label);console.log('PASS',label)}catch(e){failures.push({label,error:e.stack});console.error('FAIL',label,e.message)}}
+ // The project "对话" tab is the chat list; resuming a thread is the separate "继续对话" action (docs/PROJECT_WORKSPACE_DELIVERY_20260930.md §1).
+ const section=async name=>{await click(`[data-workspace-route=${name}]`);await until(()=>evaluate(`document.body.dataset.view==='project'&&state.ui.projectTab===${JSON.stringify(name)}`),'section '+name);};
+ const resume=async id=>{await click('#workspaceResumeChat');await until(()=>evaluate(`document.body.dataset.view==='agent'&&state.currentConversationId===${JSON.stringify(id)}`),'resume '+id);};
+ // .message-list scrolls smoothly and ConversationReading only treats real input as reading intent, so scroll with a real wheel and wait for it to settle.
+ const wheelUp=async()=>{const p=await evaluate(`(()=>{const r=document.querySelector('#messageList').getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)}})()`);for(let n=0;n<3;n++){win.webContents.sendInputEvent({type:'mouseWheel',...p,deltaX:0,deltaY:400,canScroll:true});await wait(40);}let last=-1;await until(async()=>{const top=await evaluate(`document.querySelector('#messageList').scrollTop`);const settled=top===last;last=top;await wait(80);return settled;},'wheel settled');};
+ const editText=text=>evaluate(`(()=>{const e=document.querySelector('.document-visual-canvas .ProseMirror');e.focus();const r=document.createRange();r.selectNodeContents(e.querySelector('p'));const s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('insertText',false,${JSON.stringify(text)});})()`);
  await win.loadURL(ORIGIN);await until(()=>evaluate('typeof storageHydrated!=="undefined"&&storageHydrated'),'hydrate');
  await evaluate(`WorkstationOnboarding.close();state.ui.onboarding={version:WorkstationOnboarding.VERSION,status:'skipped'};`+fs.readFileSync(path.join(ROOT,'tests/fixtures/agent-workbench.js'),'utf8'));
  assert.equal(await evaluate(`!!window.WorkspaceNavigation&&!!document.querySelector('#workspaceNavigation')`),true,'navigation is loaded and initialized by the application');
@@ -28,22 +34,34 @@ async function run(){
   await click('#workspaceConversationsToggle');assert.match(await evaluate(`document.querySelector('[data-workspace-conversation="ui-conversation"]').textContent`),/自动归属/);await evaluate(`document.querySelector('.workspace-conversation-search').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));state.projects.find(p=>p.id==='nav-p').workspace='日常';WorkspaceNavigation.afterRoute()`);
  });
  await step('chat to sources to tasks returns to the exact conversation with its draft, selection and scroll',async()=>{
-  await evaluate(`(()=>{const i=document.querySelector('#agentInput');i.value='保留这段尚未发送的项目草稿';i.dispatchEvent(new Event('input',{bubbles:true}));i.setSelectionRange(2,7);const m=document.querySelector('#messageList');m.scrollTop=260;window.navExpectedScroll=m.scrollTop;})()`);
-  await click('[data-workspace-route=knowledge]');assert.equal(await evaluate(`document.body.dataset.view`),'project');assert.equal(await evaluate(`state.currentProjectId`),'nav-p');assert.equal(await evaluate(`state.ui.projectTab`),'knowledge');
+  await evaluate(`(()=>{const i=document.querySelector('#agentInput');i.value='保留这段尚未发送的项目草稿';i.dispatchEvent(new Event('input',{bubbles:true}));i.setSelectionRange(2,7);})()`);
+  await wheelUp();const expectedScroll=await evaluate(`document.querySelector('#messageList').scrollTop`);
+  assert.ok(await evaluate(`InteractionSystem.distanceFromEnd(document.querySelector('#messageList'))>200`),'the reader scrolled into history before leaving');
+  await section('knowledge');assert.equal(await evaluate(`state.currentProjectId`),'nav-p');
   assert.equal(await evaluate(`document.querySelector('[data-project-panel=knowledge]').hidden`),false);
-  await shot('project-sources');await click('[data-workspace-route=tasks]');assert.equal(await evaluate(`state.ui.projectTab`),'tasks');assert.match(await evaluate(`document.querySelector('#projectTasks').textContent`),/只属于导航项目/);
-  await click('[data-workspace-route=conversation]');await wait(100);
-  assert.equal(await evaluate(`state.currentConversationId`),'ui-conversation');
-  assert.deepEqual(await evaluate(`(()=>{const i=document.querySelector('#agentInput');return [i.value,i.selectionStart,i.selectionEnd,document.querySelector('#messageList').scrollTop]})()`),['保留这段尚未发送的项目草稿',2,7,await evaluate('window.navExpectedScroll')]);
+  await shot('project-sources');await section('tasks');assert.match(await evaluate(`document.querySelector('#projectTasks').textContent`),/只属于导航项目/);
+  await resume('ui-conversation');
+  const resumed=()=>evaluate(`(()=>{const i=document.querySelector('#agentInput');return [i.value,i.selectionStart,i.selectionEnd,document.querySelector('#messageList').scrollTop]})()`);
+  // The reading position is restored from a text anchor, so allow sub-pixel rounding.
+  for(let n=0;n<20&&Math.abs((await resumed())[3]-expectedScroll)>1;n++)await wait(50);
+  const [value,start,end,scrollTop]=await resumed();
+  assert.deepEqual([value,start,end],['保留这段尚未发送的项目草稿',2,7]);assert.ok(Math.abs(scrollTop-expectedScroll)<=1,JSON.stringify({scrollTop,expectedScroll}));
   await shot('resumed-chat');
  });
  await step('project navigation retains the exact reader and an unsaved rich document',async()=>{
-  await evaluate(`openPreview('note','ui-notes')`);await click('[data-note-action=rich]');
-  await evaluate(`(()=>{window.navEditor=document.querySelector('.markdown-editor-paragraph');window.navEditor.querySelector('p').textContent='尚未保存的连续编辑内容';window.navEditor.dispatchEvent(new InputEvent('input',{bubbles:true}));window.navReader=document.querySelector('#previewDialog');})()`);
-  await click('[data-workspace-route=tasks]');await click('[data-workspace-route=knowledge]');await click('[data-workspace-route=conversation]');await wait(100);
-  assert.equal(await evaluate(`window.navReader===document.querySelector('#previewDialog')&&window.navEditor===document.querySelector('.markdown-editor-paragraph')`),true);
+  // The local draft store only accepts notes that already exist on disk.
+  assert.equal(await evaluate(`saveDocumentDurably()`),true);
+  await evaluate(`openPreview('note','ui-notes')`);await until(()=>evaluate(`[...document.querySelectorAll('.document-toolbar-kit [role=radio]')].some(n=>n.textContent.trim()==='编辑'&&!n.disabled)`),'edit mode');
+  await evaluate(`[...document.querySelectorAll('.document-toolbar-kit [role=radio]')].find(n=>n.textContent.trim()==='编辑').click()`);await until(()=>evaluate(`!!document.querySelector('.document-visual-canvas .ProseMirror[contenteditable=true]')`),'visual editor');
+  await editText('尚未保存的连续编辑内容');await until(()=>evaluate(`!!NoteEditor.currentContent()?.content.includes('尚未保存的连续编辑内容')`),'draft');
+  await evaluate(`window.navEditor=document.querySelector('.document-visual-canvas .ProseMirror');window.navReader=document.querySelector('#previewDialog');`);
+  await section('tasks');await section('knowledge');await resume('ui-conversation');
+  // Project routes park the reader instead of covering the destination (docs/PROJECT_WORKSPACE_DELIVERY_20260930.md §2); it is retained, not closed.
+  assert.equal(await evaluate(`ReadingPane.snapshot().retained&&ReadingPane.snapshot().activeKey===JSON.stringify(['note','ui-notes'])`),true);
+  await click('#readingToggle');await until(()=>evaluate(`document.body.classList.contains('reading-open')`),'reopen reader');
+  assert.equal(await evaluate(`window.navReader===document.querySelector('#previewDialog')&&window.navEditor===document.querySelector('.document-visual-canvas .ProseMirror')`),true);
   assert.equal(await evaluate(`document.body.classList.contains('reading-open')&&state.previewRecord.id==='ui-notes'`),true);
-  assert.match(await evaluate(`document.querySelector('.markdown-editor-paragraph').textContent`),/尚未保存的连续编辑内容/);
+  assert.match(await evaluate(`document.querySelector('.document-visual-canvas .ProseMirror').textContent`),/尚未保存的连续编辑内容/);
   assert.doesNotMatch(await evaluate(`state.notes.find(x=>x.id==='ui-notes').content`),/尚未保存的连续编辑内容/);
   await shot('reader-retained');
  });
@@ -53,16 +71,16 @@ async function run(){
   assert.equal(await evaluate(`document.querySelector('#workspaceChooseProject')!==null`),true);
   await evaluate(`WorkspaceNavigation.beforeRoute();openConversation('nav-other');WorkspaceNavigation.afterRoute()`);
   assert.match(await evaluate(`document.querySelector('#workspaceBreadcrumbs').textContent`),/科研\/其他项目\/另一个项目对话/);
-  await evaluate(`WorkspaceNavigation.go('tasks','nav-p')`);await click('[data-workspace-route=conversation]');
+  assert.equal(await evaluate(`WorkspaceNavigation.go('tasks','nav-p')`),true);await resume('ui-conversation');
   assert.equal(await evaluate(`state.currentConversationId`),'ui-conversation');assert.equal(await evaluate(`document.querySelector('#agentInput').value`),'保留这段尚未发送的项目草稿');
  });
  await step('project chat list is scoped and keyboard navigation remains usable',async()=>{
-  await click('#workspaceChatList');assert.equal(await evaluate(`state.ui.projectTab`),'conversations');
+  await section('conversations');assert.equal(await evaluate(`document.querySelector('[data-project-panel=conversations]').hidden`),false);
   assert.match(await evaluate(`document.querySelector('#projectConversations').textContent`),/同项目更新的对话/);
   assert.doesNotMatch(await evaluate(`document.querySelector('#projectConversations').textContent`),/另一个项目对话/);
-  await evaluate(`document.querySelector('[data-workspace-route=conversation]').focus();document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}))`);
-  assert.equal(await evaluate(`document.activeElement.dataset.workspaceRoute`),'knowledge');
-  await click('[data-workspace-route=conversation]');await evaluate(`state.ui.theme='dark';applyUiPreferences()`);await shot('dark-navigation');
+  await evaluate(`document.querySelector('[data-workspace-route=conversations]').focus();document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}))`);
+  assert.equal(await evaluate(`document.activeElement.dataset.workspaceRoute`),'knowledge');await until(()=>evaluate(`state.ui.projectTab==='knowledge'`),'arrow activates the next section');
+  await resume('ui-conversation');await evaluate(`state.ui.theme='dark';applyUiPreferences()`);await shot('dark-navigation');
  });
  await step('all chats search opens any conversation directly without a project detour',async()=>{
   await click('#workspaceConversationsToggle');assert.equal(await evaluate(`document.querySelector('#workspaceConversationsToggle').getAttribute('aria-expanded')`),'true');

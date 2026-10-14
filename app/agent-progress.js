@@ -15,6 +15,52 @@
   // Keep owned record and evidence subtrees connected. Each React adapter must
   // explicitly update its own callbacks; generic DOM reconciliation cannot.
   // Open attributes come from persisted pins, not stale DOM state.
+  // Newly appended answer text fades in over about 200 ms through CSS Custom
+  // Highlights. No DOM is split or wrapped, so selection, copy, find and the
+  // streaming diff all keep seeing exactly the same Text nodes. Skipped when
+  // the API is unavailable, motion is reduced, or the surface is not visible.
+  const freshNames=['aibro-fresh-1','aibro-fresh-2'];
+  function freshen(edits){
+    const api=root.CSS,Highlight=root.Highlight,doc=root.document;
+    if(!edits.length||!api?.highlights||typeof Highlight!=='function'||!doc?.createRange)return;
+    if(doc.hidden||root.__aibroPresentationVisible===false||doc.body?.classList.contains('reduce-motion')||root.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
+    const ranges=[];
+    for(const {node,start,inserted} of edits){
+      if(!node.isConnected)continue;const end=Math.min(start+inserted,node.length);if(end<=start)continue;
+      try{const range=doc.createRange();range.setStart(node,start);range.setEnd(node,end);ranges.push(range);}catch{}
+    }
+    if(!ranges.length)return;
+    const stage=(name,list)=>{let set=api.highlights.get(name);if(!set){set=new Highlight();api.highlights.set(name,set);}for(const range of list)set.add(range);};
+    const drop=(name,list)=>{const set=api.highlights.get(name);if(set)for(const range of list)set.delete(range);};
+    stage(freshNames[0],ranges);
+    root.setTimeout(()=>{drop(freshNames[0],ranges);stage(freshNames[1],ranges);root.setTimeout(()=>drop(freshNames[1],ranges),110);},90);
+  }
+  // Automatic open/close of a streaming reasoning segment glides instead of
+  // jumping. User clicks keep using InteractionSystem's own animation. A close
+  // keeps the element open until its height reaches the summary, guarded by
+  // _interactionDesiredOpen so the next live patch does not reopen or refold it.
+  // A click during that close cancels it and is handled as an ordinary click.
+  function disclose(details,opening){
+    const summary=details.querySelector(':scope > summary');
+    if(!summary||!root.ActivityMotion)return;
+    const closed=()=>{const style=root.getComputedStyle(details);return summary.getBoundingClientRect().height+parseFloat(style.paddingTop||0)+parseFloat(style.paddingBottom||0);};
+    if(opening){
+      const from=closed(),to=details.getBoundingClientRect().height;if(to-from<2)return;
+      details.style.overflow='hidden';
+      const animation=root.ActivityMotion.animate(details,[{height:from+'px',opacity:.6},{height:to+'px',opacity:1}],{duration:320,easing:'cubic-bezier(.2,.1,.15,1)'});
+      if(!animation){details.style.overflow='';return;}
+      const release=()=>{details.style.overflow='';};animation.onfinish=release;animation.oncancel=release;return;
+    }
+    details.open=true;const from=details.getBoundingClientRect().height,to=closed();
+    if(from-to<2){details.open=false;return;}
+    details._interactionDesiredOpen=false;details.style.overflow='hidden';
+    const animation=root.ActivityMotion.animate(details,[{height:from+'px'},{height:to+'px'}],{duration:260,easing:'cubic-bezier(.32,0,.36,1)'});
+    const settle=open=>{summary.removeEventListener('click',interrupt,true);details.style.overflow='';delete details._interactionDesiredOpen;details.open=open;};
+    const interrupt=()=>{animation?.cancel();settle(false);};
+    if(!animation){settle(false);return;}
+    summary.addEventListener('click',interrupt,true);
+    animation.onfinish=()=>settle(false);
+  }
   function patchLive(previous, next) {
     const before=previous.querySelector(':scope > .agent-progress'),after=next.querySelector(':scope > .agent-progress');
     const ledger=previous.querySelector(':scope > .tool-ledger'),nextLedger=next.querySelector(':scope > .tool-ledger');
@@ -88,11 +134,22 @@
         else transplant(child);
       }
     };
+    // Genuinely new rows and answer blocks enter softly once they are in place.
+    // Retained nodes and in-place text edits never animate, so a steady stream
+    // of tokens does not flicker; only a new paragraph, step or tool row does.
+    const entering=[];
+    const enters=node=>node?.nodeType===1&&entering.length<12&&entering.push(node);
+    const stepEnters=node=>node?.nodeType===1&&node.matches?.('.conversation-flow-item,.progress-item,.progress-group,.tool-ledger-row')&&enters(node);
+    // The process feed's first appearance (the run's first recorded event).
+    if(!before&&after)enters(after);
+    const appended=[];
+    const edited=(node,edit)=>{root.StreamingBody.remapSelection(selected,node,edit);if(edit.inserted>0&&appended.length<64)appended.push({node,start:edit.start,inserted:edit.inserted});};
     function sync(a,b){
-      if(a===body&&b===nextBody&&root.StreamingBody?.patch(a,b,{selection:selected,onTextEdit:(node,edit)=>root.StreamingBody.remapSelection(selected,node,edit)}))return;
-      if(a.dataset?.liveKey==='flow-text'&&b.dataset?.liveKey==='flow-text'&&root.StreamingBody?.patch(a,b,{selection:selected,onTextEdit:(node,edit)=>root.StreamingBody.remapSelection(selected,node,edit)}))return;
+      if(a===body&&b===nextBody&&root.StreamingBody?.patch(a,b,{selection:selected,onTextEdit:edited,onInsert:enters}))return;
+      if(a.dataset?.liveKey==='flow-text'&&b.dataset?.liveKey==='flow-text'&&root.StreamingBody?.patch(a,b,{selection:selected,onTextEdit:edited,onInsert:enters}))return;
       if(a.dataset?.citationPanel&&b.dataset?.citationPanel&&root.CitationEvidence?.patchSection?.(a,b))return;
       if(a.dataset?.halaskaConversation&&b.dataset?.halaskaConversation&&root.HalaskaConversation?.patchIsland(a,b))return;
+      if(a.nodeName==='SUMMARY'&&b.nodeName==='SUMMARY'&&root.HalaskaConversation?.patchSummary?.(a,b))return;
       // A settled receipt now lives in the retained process subtree. Its new
       // detached host is empty until attachment; diffing that empty shell would
       // erase the mounted card on the next final-state refresh.
@@ -119,17 +176,19 @@
           const remaining=[];for(let n=cursor;n;n=n.nextSibling)remaining.push(n);
           transplant(child);
           if(cursor?.parentNode!==a)cursor=remaining.find(n=>n.parentNode===a)||null;
-          a.insertBefore(child,cursor);continue;
+          a.insertBefore(child,cursor);stepEnters(child);continue;
         }
         if(match!==cursor)a.insertBefore(match,cursor);
         const following=match.nextSibling;sync(match,child);cursor=following;
       }
       while(cursor){const following=cursor.nextSibling;cursor.remove();cursor=following;}
     }
+    const priorOpen=new Map([...(before?.querySelectorAll('details.conversation-flow-reasoning-details')||[])].map(node=>[node,node.open]));
     for(const [newNode,oldNode] of preserved){
       root.ToolScheduler?.prepareText?.(oldNode,newNode,{keepOpen});
       sync(oldNode,newNode);
     }
+    for(const [node,wasOpen] of priorOpen)if(node.isConnected&&node.open!==wasOpen&&node._interactionDesiredOpen===undefined)disclose(node,node.open);
     // Grouping can add a new parent around the same retained, selected row.
     // That new disclosure must not conceal the row merely because it has no
     // previous DOM identity; untouched sibling groups still settle normally.
@@ -155,6 +214,8 @@
       if(node!==cursor)previous.insertBefore(node,cursor);
       cursor=node.nextSibling;
     }
+    for(const node of entering)if(node.isConnected&&previous.contains(node))root.ActivityMotion?.animate(node,[{opacity:0,transform:'translateY(4px)'},{opacity:1,transform:'none'}],{duration:280,easing:'cubic-bezier(.2,.1,.15,1)'});
+    freshen(appended);
     if(heldView){root.ConversationProcess?.select?.(previous,heldView);root.HalaskaConversation?.setProcessView?.(previous,heldView);}
     root.ConversationProcess?.filterTools?.(previous, { readingNodes: [focused, ...(selectedText ? [selected.anchor, selected.focus] : [])] });
     // DOM reparenting a first activity into its group may blur a summary. Restore
@@ -225,7 +286,7 @@
     const active = [...items].reverse().find(item => item.status === 'running');
     const currentPhase = phase(message, active);
     const newest = items[items.length-1];
-    // 思考段与 NewMax 的“深度思考”对齐命名（Responses 的思考摘要与 chat 的
+    // 思考段统一命名为“模型思考”（Responses 的思考摘要与 chat 的
     // reasoning_content 明文思考共用此段类型，都是模型的思考内容本身）。
     const title = item => item.kind === 'step' ? item.text : item.kind === 'tool' ? (item.name || '工具操作') : item.kind === 'summary' ? t('模型思考', 'Model reasoning') : '模型进展';
     // A stage title is an actual lifecycle marker, not a recorded explanation.

@@ -77,8 +77,10 @@ body.reading-pdf.workspace-reader-focus #readingBack{display:inline-grid!importa
 .note-document[data-editor-foundation=modern] .note-document-source-host{min-width:0;height:clamp(320px,65dvh,1000px)}
 .note-document[data-editor-foundation=modern] .note-document-rich{min-width:0;min-height:320px}
 body[data-view] .note-document[data-editor-foundation=modern] .note-document-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-.note-document[data-editor-foundation=modern] .note-document-toolbar-island{flex:1 1 520px;min-width:0}
-.note-document[data-editor-foundation=modern] .note-document-count{margin-left:auto;margin-right:0;flex:0 1 auto}
+/* Content-sized basis: document info, AI rewrite and the count join the Kit row whenever they fit. */
+.note-document[data-editor-foundation=modern] .note-document-toolbar-island{flex:1 1 auto;min-width:0}
+/* Zero basis: the count takes leftover space and truncates instead of wrapping onto its own toolbar row in a narrow pane. */
+.note-document[data-editor-foundation=modern] .note-document-count{margin-left:auto;margin-right:0;flex:1 1 0;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:right}
 .note-document[data-editor-foundation=modern][data-mode] .note-document-outline:not([open]){display:none}
 .note-document[data-editor-foundation=modern][data-mode] .note-document-outline[open]{display:block}
 .note-document[data-editor-foundation=modern] .note-document-outline>summary{display:none}

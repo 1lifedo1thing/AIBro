@@ -346,7 +346,7 @@ class CloudSync:
         if not isinstance(username, str) or not username.strip() or len(username) > 256 or not isinstance(password, str) or not password or len(password) > 16384 or not isinstance(name, str) or len(name) > 128:
             raise CloudSyncError('请输入有效的账号、密码和设备名称。', 'INVALID_LOGIN')
         if not self._sync_lock.acquire(blocking=False): raise CloudSyncError('正在同步，请稍后再更改连接。', 'SYNC_BUSY', 409)
-        operation = None
+        operation = None; wake = False
         try:
             operation = self.ssh._acquire_operation()
             with self._lock:
@@ -366,11 +366,14 @@ class CloudSync:
                 except Exception: pass
                 raise CloudSyncError('此本地工作区已绑定其他账号，未混合两个账号的数据。请使用独立本地工作区。', 'TARGET_MISMATCH', 409)
             self._adopt_ssh_session(session, epoch)
-            if self._auto: self._wake.set()
+            wake = self._auto
             return self.status()
         finally:
             if operation is not None: os.close(operation)
             self._sync_lock.release()
+            # Wake only after releasing: the worker's non-blocking acquire would
+            # otherwise fail with SYNC_BUSY and the first sync wait a full interval.
+            if wake: self._wake.set()
 
     def _adopt_ssh_session(self, session, epoch):
         """Commit a verified session while the sync and operation locks are held."""
@@ -821,7 +824,13 @@ class CloudSync:
                 eligible = self._session and (self._auto or requested)
             if eligible:
                 try: self.sync_once()
-                except CloudSyncError: pass
+                except CloudSyncError as error:
+                    # connect/settings/conflict resolution can wake the worker while
+                    # still holding the sync lock. Retry shortly instead of dropping
+                    # the wake-up and waiting a full interval.
+                    if error.code == 'SYNC_BUSY' and not self._closed.wait(0.25):
+                        with self._lock: self._requested = self._requested or requested
+                        self._wake.set()
 
     def close(self):
         self._closed.set(); self._wake.set()

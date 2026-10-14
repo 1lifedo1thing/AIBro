@@ -62,15 +62,24 @@ async function run() {
     assert.equal(await evaluate(`state.ui.previewTabs?.some?.(t=>t.id==='activity-note') || document.body.textContent.includes('可追溯的结果')`), true);
   });
   await step('dirty editor navigation releases modal inertness and cancelling restores the activity list without losing edits', async () => {
-    await click('[data-note-action="edit"]');
-    await evaluate(`(()=>{const area=document.querySelector('textarea[aria-label="Markdown 正文"]');area.value+='\\n\\n尚未保存的用户修改';area.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+    // Edit through the Kit DocumentToolbar visual mode and ProseMirror's real insertText path (fixture notes were saved durably above).
+    const mode = label => `[...document.querySelectorAll('#previewDialog .document-toolbar-kit [role=radio]')].find(n=>n.textContent.trim()===${JSON.stringify(label)})`;
+    await until(() => evaluate(`NoteEditor.inlineActive('activity-note')&&!!${mode('编辑')}&&!${mode('编辑')}.disabled`), 'visual mode available'); await evaluate(`${mode('编辑')}.click()`);
+    await until(() => evaluate(`!!document.querySelector('.document-visual-canvas .ProseMirror[contenteditable=true]')`), 'visual editor');
+    await evaluate(`(()=>{const e=document.querySelector('.document-visual-canvas .ProseMirror');e.focus();const r=document.createRange();r.selectNodeContents(e.querySelector('p'));r.collapse(false);const s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('insertText',false,'尚未保存的用户修改');})()`);
+    await until(() => evaluate(`NoteEditor.currentContent()?.content.includes('尚未保存的用户修改')&&NoteEditor.currentContent().dirty`), 'visual draft');
     await click('#activityCenterButton'); await saved(); await button('打开对话 ↗', '[data-activity-id="activity:activity-success:1"]');
     await until(() => evaluate(`document.querySelector('.note-document-leave')?.hidden===false`), 'inline editor leave decision');
     assert.equal(await evaluate('ActivityCenter.isOpen()'), true); assert.equal(await evaluate(`document.querySelector('#activityCenterDialog').open`), false);
     assert.equal(await evaluate(`document.activeElement.dataset.noteAction`), 'stay'); await click('[data-note-action="stay"]');
     await until(() => evaluate(`document.querySelector('#activityCenterDialog').open&&!ActivityCenter.isBusy()`), 'activity restored after cancellation');
-    assert.match(await evaluate(`document.querySelector('.activity-center-feedback').textContent`), /没有打开来源/); assert.match(await evaluate(`document.querySelector('textarea[aria-label="Markdown 正文"]').value`), /尚未保存的用户修改/);
-    await key('Escape'); await click('[data-note-action="cancel"]'); await click('[data-note-action="discard"]');
+    assert.match(await evaluate(`document.querySelector('.activity-center-feedback').textContent`), /没有打开来源/); assert.match(await evaluate(`NoteEditor.currentContent().content`), /尚未保存的用户修改/);
+    assert.equal(await evaluate(`!state.notes.find(n=>n.id==='activity-note').content.includes('尚未保存的用户修改')`), true);
+    // Close the activity list, then leave editing through the Kit toolbar's 完成 and discard the draft.
+    await key('Escape'); await until(() => evaluate('!ActivityCenter.isOpen()'), 'activity closed');
+    await evaluate(`[...document.querySelectorAll('#previewDialog .document-toolbar-kit button')].find(b=>b.textContent.trim()==='完成').click()`);
+    await until(() => evaluate(`document.querySelector('.note-document-leave')?.hidden===false`), 'done leave decision'); await click('[data-note-action="discard"]');
+    await until(() => evaluate(`NoteEditor.currentContent()?.dirty===false&&document.querySelector('.note-document')?.dataset.mode==='read'`), 'discarded draft');
   });
   await step('opening a task preserves focus in its modal instead of returning it to the activity bell', async () => {
     await evaluate(`state.tasks.push({id:'activity-task',title:'可打开的任务',projectId:'activity-project',workspace:'科研',status:'todo',priority:'medium',checklist:[],createdAt:Date.now()});addActivity('activity-task-result','completed',[{type:'task',id:'activity-task',operation:'created'}]);`); await saved();

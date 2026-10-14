@@ -15,11 +15,14 @@ async function run(){
  win.webContents.on('console-message',(event)=>{if(event.level==='error')console.error('RENDERER',event.message);});
  const evaluate=code=>win.webContents.executeJavaScript(code,true),click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
  const shot=async name=>{await wait(200);fs.writeFileSync(path.join(OUT,name+'.png'),(await win.webContents.capturePage()).toPNG());};
+ // Awaiting-approval runs render the plan review card; its footer calls the same approveRun/rejectRun.
+ const planButton=(message,prefix)=>`[...document.querySelectorAll('[data-message-id="${message}"] .plan-review-footer button')].find(b=>b.textContent.trim().startsWith(${JSON.stringify(prefix)}))`;
+ const clickPlan=async(message,prefix)=>{await until(()=>evaluate(`!!${planButton(message,prefix)}&&!${planButton(message,prefix)}.disabled`),'plan review '+prefix);await evaluate(`${planButton(message,prefix)}.click();true`);};
  async function step(label,fn){try{await fn();passed.push(label);console.log('PASS',label);}catch(e){failures.push({label,error:e.stack});console.error('FAIL',label,e.message);}}
  await win.loadURL(ORIGIN);await until(()=>evaluate('typeof storageHydrated!=="undefined"&&storageHydrated'),'hydration');
  await evaluate(`WorkstationOnboarding.close();state.ui.onboarding={version:WorkstationOnboarding.VERSION,status:'skipped'};`+fs.readFileSync(path.join(__dirname,'fixtures/agent-workbench.js'),'utf8'));
  await step('message card selects the clicked snapshot; preview and source keep the conversation usable',async()=>{
-  await click('.file-change-row:nth-child(2)');await until(()=>evaluate(`!!document.querySelector('[data-review-file="ui-notes"][aria-pressed="true"]')`),'second file');
+  await click('.file-change-row:nth-child(2) button[aria-label^="审阅修改"]');await until(()=>evaluate(`!!document.querySelector('[data-review-file="ui-notes"][aria-pressed="true"]')`),'second file');
   await click('[data-mode="preview"]');assert.match(await evaluate(`document.querySelector('.file-review-content h1').textContent`),/设计原则/);
   await click('[data-mode="source"]');assert.match(await evaluate(`document.querySelector('.review-source').textContent`),/# 设计原则/);
   assert.equal(await evaluate(`document.querySelector('#previewDialog').matches(':modal')`),false);
@@ -76,8 +79,8 @@ async function run(){
  });
  await step('Kit approval runs the real transaction once and persists the new note',async()=>{
   await evaluate(`ReadingPane.hide();state.currentConversationId='ui-conversation';showView('agent','持续对话');(()=>{const c=currentConversation(),now=Date.now(),run={id:'kit-approval-run',conversationId:c.id,workspace:'日常',projectId:null,status:'awaiting-approval',startedAt:now-1000,goal:'记录组件验收结果',steps:[{id:'plan',text:'等待批准笔记写入',status:'pending',at:now-500}],pendingActions:[{type:'create_note',title:'Kit 真实审批验收',workspace:'日常',content:'这条笔记由真实 approveRun、executeActions 和 save 路径生成。'}]};state.agentRuns.push(run);c.messages.push({id:'kit-approval-message',role:'agent',text:'准备创建验收笔记，请确认。',pendingRunId:run.id,runId:run.id,at:now,steps:run.steps});renderAll();})()`);
-  assert.equal(await evaluate(`!!document.querySelector('[data-message-id="kit-approval-message"] [data-halaska-root="AgentLifecycleActions"]')`),true);
-  await click('[data-approve-run="kit-approval-run"]');
+  await clickPlan('kit-approval-message','批准 ');
+  assert.equal(await evaluate(`!!document.querySelector('[data-message-id="kit-approval-message"] [data-halaska-root="PlanReviewSurface"]')||state.agentRuns.find(r=>r.id==='kit-approval-run').status!=='awaiting-approval'`),true);
   await until(()=>evaluate(`state.agentRuns.find(r=>r.id==='kit-approval-run').status==='completed'`),'approval settled');
   assert.equal(await evaluate(`state.notes.filter(n=>n.title==='Kit 真实审批验收').length`),1);
   await until(()=>evaluate(`fetch('/__state',{cache:'no-store'}).then(r=>r.json()).then(s=>s.notes.some(n=>n.title==='Kit 真实审批验收'))`),'durable approval');
@@ -87,8 +90,8 @@ async function run(){
  });
  await step('Kit rejection and error controls reach the real existing handlers',async()=>{
   await evaluate(`(()=>{const c=currentConversation(),run={id:'kit-reject-run',conversationId:c.id,status:'awaiting-approval',workspace:'日常',startedAt:Date.now(),steps:[{id:'proposed',text:'等待批准',status:'pending'}],pendingActions:[{type:'create_note',title:'禁止创建的拒绝验收笔记',workspace:'日常',content:'Must not exist'}]};state.agentRuns.push(run);c.messages.push({id:'kit-reject-message',role:'agent',text:'这项操作将被拒绝。',runId:run.id,pendingRunId:run.id,steps:run.steps});renderAll()})()`);
-  await click('[data-reject-run="kit-reject-run"]');
-  assert.equal(await evaluate(`state.agentRuns.find(r=>r.id==='kit-reject-run').status`),'rejected');
+  await clickPlan('kit-reject-message','拒绝执行');
+  await until(()=>evaluate(`state.agentRuns.find(r=>r.id==='kit-reject-run').status==='rejected'`),'rejection settled');
   assert.equal(await evaluate(`state.notes.some(n=>n.title==='禁止创建的拒绝验收笔记')`),false);
   await evaluate(`(()=>{const c=currentConversation(),run={id:'kit-failure-run',conversationId:c.id,status:'failed',startedAt:Date.now()-1000,finishedAt:Date.now(),error:'验收用离线错误',goal:'校验重试附件入口',attachmentIds:[],steps:[{id:'request',text:'请求失败',status:'failed'}]};state.agentRuns.push(run);c.messages.push({id:'kit-failure-message',role:'agent',runId:run.id,retryRunId:run.id,runStatus:'failed',text:'调用失败：验收用离线错误',steps:run.steps});renderAll()})()`);
   await click('[data-adjust-run="kit-failure-run"]');
@@ -105,7 +108,7 @@ async function run(){
   assert.equal(await evaluate(`__signal===document.querySelector('[data-message-id="ui-live"] [data-halaska-orb]')&&__signal.isConnected&&document.activeElement===__summary`),true);
   await click('[data-message-id="ui-live"] [data-progress-key="think"]>summary');await evaluate(`__live.activities[0].text+=' 保留折叠';__paint()`);await until(()=>evaluate(`!document.querySelector('[data-message-id="ui-live"] [data-progress-key="think"]').open`),'explicit fold animation completes after a live delta');assert.equal(await evaluate(`document.querySelector('[data-message-id="ui-live"] [data-progress-key="think"]').open`),false);
   await evaluate(`__live.activities[0].status='completed';__live.activities.push({id:'file',kind:'tool',name:'读取文件',text:'docs/plan.md',status:'running',at:Date.now()});__paint()`);assert.equal(await evaluate(`document.querySelector('[data-message-id="ui-live"] .agent-progress').dataset.progressPhase`),'tool');
-  await shot('smoke-live-progress');await evaluate(`__live.live=false;__live.runStatus='completed';AgentProgress.finish(__live,'completed');__paint()`);assert.equal(await evaluate(`document.querySelector('[data-message-id="ui-live"] .agent-progress').open`),false);
+  await shot('smoke-live-progress');await evaluate(`__live.live=false;__live.runStatus='completed';AgentProgress.finish(__live,'completed');__paint()`);assert.equal(await evaluate(`document.querySelector('[data-message-id="ui-live"] .agent-progress').open&&document.querySelector('[data-message-id="ui-live"] .agent-progress').contains(document.activeElement)`),true,'focused reading surface is held for this paint');await evaluate(`document.activeElement.blur();__paint()`);assert.equal(await evaluate(`document.querySelector('[data-message-id="ui-live"] .agent-progress').open`),false,'settled feed closes once focus leaves');
  });
  await step('reduced motion disables the indicator and persisted review data survives reload',async()=>{
   await evaluate(`__live.live=true;__live.activities[0].status='running';__paint();document.body.classList.add('reduce-motion')`);assert.equal(await evaluate(`document.querySelector('[data-message-id="ui-live"] .progress-activity').getAnimations({subtree:true}).filter(a=>a.playState==='running').length`),0);

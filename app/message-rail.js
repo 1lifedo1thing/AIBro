@@ -199,6 +199,15 @@
       }
       tick.dataset.railActive = hit ? 'true' : 'false';
     }
+    // 整段对话一屏放得下时没有可去的位置：收起刻度，而不是留一列全深色的竖条。
+    // 内容超出一屏（发送、滚动、窗口变窄都会让消息进出视口并重新上色）就恢复显示；
+    // 刻度持有键盘焦点时保持显示，焦点不会丢失。
+    const rail = railHost(), list = listHost();
+    if (rail && list) {
+      const idle = list.scrollHeight <= list.clientHeight + 1 && !rail.contains?.(root.document.activeElement);
+      // 只在变化时写入：hidden 的每次赋值都会触发其他模块的属性监听。
+      if (rail.hidden !== idle) rail.hidden = idle;
+    }
   }
 
   // 消息内容变了（如流式重绘）→ 重新抓取消息元素做摘要；数量变了才重建刻度。

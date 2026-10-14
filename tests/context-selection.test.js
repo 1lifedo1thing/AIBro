@@ -68,6 +68,53 @@ test('explicit false save response is a failure and restores absent properties',
   await assert.rejects(f.command('add-reference'), /未保存|not saved/);
   assert.equal(Object.hasOwn(f.conversation, 'draftFileReferences'), false);
   assert.equal(Object.hasOwn(f.conversation, 'excludedFileReferenceKeys'), false);
+  assert.equal(Object.hasOwn(f.conversation, 'mobileContext'), false);
+});
+
+test('portable selection rollback preserves concurrent keys, source navigation and draft text', async () => {
+  const gate = deferred(), f = fixture({ save: () => gate.promise });
+  const source = { kind: 'notes', id: 'n2', conversationId: 'origin' };
+  f.conversation.mobileContext = { version: 1, keys: [], source: null };
+  const pending = f.command('add-reference');
+  FileContext.stage(f.conversation, noteRef('n2', 'newer'));
+  f.conversation.mobileContext.source = copy(source); f.conversation.draft = 'Concurrent draft';
+  gate.reject(Error('save failed')); await assert.rejects(pending, /save failed/);
+  assert.deepEqual(f.conversation.mobileContext, { version: 1, keys: ['notes:n2'], source });
+  assert.deepEqual(FileContext.references(f.conversation), [noteRef('n2', 'newer')]);
+  assert.equal(f.conversation.draft, 'Concurrent draft');
+});
+
+test('failed portable removal restores its membership without discarding another addition or source', async () => {
+  const gate = deferred(), f = fixture({ save: () => gate.promise }), source = { kind: 'notes', id: 'n2' };
+  FileContext.stage(f.conversation, noteRef());
+  const pending = f.command('remove-reference');
+  FileContext.stage(f.conversation, noteRef('n2')); f.conversation.mobileContext.source = source;
+  gate.reject(Error('save failed')); await assert.rejects(pending, /save failed/);
+  assert.deepEqual(new Set(f.conversation.mobileContext.keys), new Set(['notes:n1', 'notes:n2']));
+  assert.deepEqual(f.conversation.mobileContext.source, source);
+  assert.deepEqual(new Set(FileContext.references(f.conversation).map(ref => ref.id)), new Set(['n1', 'n2']));
+});
+
+test('portable 50-reference bound rejects add and attachment commands before any mutation or save', async () => {
+  for (const action of ['add-reference', 'add-attachment']) {
+    const f = fixture();
+    f.conversation.mobileContext = { version: 1, keys: Array.from({ length: 50 }, (_, index) => 'notes:existing' + index), source: { kind: 'notes', id: 'n2' } };
+    const before = copy(f.conversation);
+    await assert.rejects(f.controller.mutate(action === 'add-attachment' ? { action, conversationId: 'c', id: 'i1' }
+      : { action, conversationId: 'c', ref: noteRef() }), /50/);
+    assert.deepEqual(f.conversation, before); assert.equal(f.saves, 0);
+  }
+});
+
+test('attachment selection publishes only identity and preserves its existing return source', async () => {
+  const f = fixture(), source = { kind: 'notes', id: 'n2', conversationId: 'origin' };
+  f.conversation.mobileContext = { version: 1, keys: ['notes:n1'], source: copy(source) };
+  await f.controller.mutate({ action: 'add-attachment', conversationId: 'c', id: 'i1' });
+  assert.deepEqual(f.conversation.mobileContext, { version: 1, keys: ['notes:n1', 'imports:i1'], source });
+  assert.deepEqual(f.conversation.draftAttachmentIds, ['i1']);
+  assert.deepEqual(f.conversation.attachments, ['i1']);
+  await f.command('remove-attachment', importRef());
+  assert.deepEqual(f.conversation.mobileContext, { version: 1, keys: ['notes:n1'], source });
 });
 
 test('refresh changes only the next selection, preserving sent, retry and queued snapshots', async () => {

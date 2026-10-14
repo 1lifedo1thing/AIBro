@@ -72,7 +72,7 @@ test('real Kit root gives a selected long response one nearby action and keeps i
   const h = await fixture(); h.select(); await h.drain(); const button = h.button();
   assert.equal(button.textContent, '引用提问'); assert.equal(button.closest('[data-halaska-root]').dataset.halaskaRoot, 'Button');
   assert.ok(h.footer.querySelector('[data-quote-message]')); assert.equal(h.document.querySelectorAll('.message-selection-action').length, 1);
-  assert.equal(button.closest('#selectionBar').querySelectorAll('button').length, 3, 'One shared shell retains explain and annotate');
+  assert.equal(button.closest('#selectionBar').querySelectorAll('button').length, 5, 'One shared shell retains explain, translate, annotate and ask');
   assert.equal(h.document.querySelectorAll('.selection-bar').length, 1);
   const down = h.fire(button, 'pointerdown', { button: 0 }); assert.equal(down.defaultPrevented, true);
   h.fire(button, 'click'); await h.drain();
@@ -169,7 +169,7 @@ test('one shared owner handles invalidation, old explanation fallback, and detac
   h.fire(h.scroll, 'scroll'); h.select(); await h.drain(); assert.equal(bar.hidden, true); assert.equal(h.button(), null);
   h.fire(old, 'click'); assert.equal(h.changes, 0);
   h.body._rect.height = 100; h.select({ text: '新短句', selection: { focusOffset: 3 } }); await h.drain();
-  assert.equal(h.button(), null); assert.equal(bar.hidden, false); assert.equal(bar.querySelectorAll('button').length, 2);
+  assert.equal(h.button(), null); assert.equal(bar.hidden, false); assert.equal(bar.querySelectorAll('button').length, 4);
   h.fire(bar.querySelector('[data-selection-mode="explain"]'), 'click'); await h.drain(); assert.equal(h.explanationRequests.length, 1);
   assert.match(h.explanationRequests[0].input[1].content[0].text, /新短句/); h.destroy();
 });

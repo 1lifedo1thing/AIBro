@@ -7,7 +7,7 @@ const checks=[],failures=[],errors=[];let win,server;
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const watchdog=setTimeout(()=>{win?.destroy();server?.close();app.exit(1)},90000);
 async function run(){
- const html='<!doctype html><html lang="zh"><head><meta charset="utf-8"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/liquid-glass.css"><link rel="stylesheet" href="/collection-ui.css"><link rel="stylesheet" href="/workspace-navigation.css"><style>body{display:block!important;padding:16px;overflow:auto!important}.main{display:block!important;min-width:0!important;margin:0!important;width:100%!important}#collection{container:collection / inline-size}</style></head><body class="liquid-glass light-mode" data-view="project"><main class="main"><div id="project"></div><div id="collection"></div></main><script src="/halaska-ui.js"></script><script src="/collection-ui.js"></script><script src="/workspace-navigation.js"></script></body></html>';
+ const html='<!doctype html><html lang="zh"><head><meta charset="utf-8"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/liquid-glass.css"><link rel="stylesheet" href="/collection-ui.css"><link rel="stylesheet" href="/workspace-navigation.css"><style>body{display:block!important;padding:16px;overflow:auto!important}.main{display:block!important;min-width:0!important;margin:0!important;width:100%!important}#collection{container:collection / inline-size}</style></head><body class="liquid-glass light-mode" data-view="project"><main class="main"><div id="project"></div><div id="collection"></div></main><script src="/halaska-ui.js"></script><script src="/citation-evidence.js"></script><script src="/collection-ui.js"></script><script src="/workspace-navigation.js"></script></body></html>';
  server=http.createServer((req,res)=>{const name=new URL(req.url,'http://localhost').pathname;if(name==='/'){res.setHeader('Content-Type','text/html');return res.end(html)}const file=path.join(ROOT,'app',path.basename(name));if(!fs.existsSync(file)){res.statusCode=404;return res.end()}res.setHeader('Content-Type',name.endsWith('.css')?'text/css':name.endsWith('.woff2')?'font/woff2':'application/javascript');res.end(fs.readFileSync(file))});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin=`http://127.0.0.1:${server.address().port}`;
  await app.whenReady();win=new BrowserWindow({show:false,width:1000,height:900,webPreferences:{sandbox:true,contextIsolation:true,backgroundThrottling:false}});
@@ -44,14 +44,18 @@ async function run(){
   assert.equal(await evaluate(`fixture.tasks[0].status`),'done');assert.equal(await evaluate('saves'),1);assert.equal(await evaluate(`host.querySelector('[data-cui-complete]')`),null);
  });
  await step('collection roots do not accumulate after repeated render and empty transitions',async()=>{
+  // Compare with the settled count (toolbar, selection, data table) rather than a fixed number.
+  const initial=await evaluate('HalaskaUI.diagnostics().mounts');
   await evaluate(`for(let i=0;i<40;i++){fixture.notes.push({id:'temporary-'+i,title:'x',projectId:'p'});renderAgain();fixture.notes.pop();renderAgain();}`);await wait(30);
-  assert.equal(await evaluate('HalaskaUI.diagnostics().mounts'),2);
+  assert.equal(await evaluate('HalaskaUI.diagnostics().mounts'),initial);assert.equal(await evaluate(`document.querySelectorAll('[data-halaska-root]').length`),initial);
  });
  await step('Kit project tabs preserve focused button across route and prevent double routing',async()=>{
   await evaluate(`window.routes=[];window.nav=WorkspaceNavigation.createController({getState:()=>fixture,applySectionTabs:()=>routes.push(fixture.ui.projectTab),openProject:id=>fixture.currentProjectId=id,newConversation:()=>{},openConversation:()=>{},showView:()=>{},save:()=>{}});nav.afterRoute();document.querySelector('[data-workspace-route=knowledge]').focus();window.knowledgeTab=document.activeElement;knowledgeTab.click()`);
   assert.deepEqual(await evaluate('routes'),['knowledge']);assert.equal(await evaluate(`document.activeElement===knowledgeTab`),true);
   await evaluate(`knowledgeTab.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}))`);
-  assert.deepEqual(await evaluate('routes'),['knowledge','tasks']);assert.equal(await evaluate(`document.activeElement.dataset.workspaceRoute`),'tasks');
+  // The next route is whatever tab follows knowledge in the rendered order.
+  const next=await evaluate(`(()=>{const tabs=[...document.querySelectorAll('[data-workspace-route]')].map(n=>n.dataset.workspaceRoute);return tabs[tabs.indexOf('knowledge')+1]})()`);
+  assert.ok(next&&next!=='knowledge');assert.deepEqual(await evaluate('routes'),['knowledge',next]);assert.equal(await evaluate(`document.activeElement.dataset.workspaceRoute`),next);
  });
  await step('narrow data and navigation controls stay inside their scroll boundaries',async()=>{
   win.setSize(380,740);await wait(150);

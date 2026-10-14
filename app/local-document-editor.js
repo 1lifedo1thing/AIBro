@@ -92,6 +92,8 @@
         resolveDocumentLink: url => live(session) && !session.readOnly ? hooks.resolveDocumentLink?.(session.ref, url) : null });
       else { const pre = el('pre'), code = el('code', '', session.content); pre.append(code); session.preview.replaceChildren(pre); }
       session.previewContent = session.content;
+      // A local file the user opened: selection actions label text with its name.
+      Object.assign(session.preview.dataset, { selectionSource: 'local', selectionTitle: String(session.ref?.path || session.ref?.title || '').split('/').pop() });
       session.readingHandle = root.DocumentReading?.mount?.(session.preview, { onOpenDocumentLink: (target, navigation) => openDocumentLink(session, target, navigation) });
       session.preview.querySelectorAll('img').forEach(image => image.addEventListener('error', () => {
         if (live(session)) report(session, '图片暂时无法读取，Markdown 引用仍保留。请检查原图片和项目连接。');

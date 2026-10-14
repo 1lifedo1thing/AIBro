@@ -1,0 +1,199 @@
+/* Conversation process as a quiet vertical timeline (native App only).
+   One hairline joins the steps; each step has a small status marker: a dot
+   when finished, an accent ring while running, a cross when it failed or was
+   stopped. Content stays exactly where AgentProgress / ConversationProcess
+   render it; this file only draws markers and spacing around it. */
+html body.aibro-native[data-view] .agent-progress .conversation-flow {
+  position: relative;
+  margin: 6px 0 2px;
+  padding: 0 0 0 24px;
+}
+html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item {
+  position: relative;
+  padding: 6px 0;
+  margin: 0;
+}
+html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item + .conversation-flow-item { margin-top: 0 }
+
+/* Marker. Centered on the first text line of the step (24px line box). */
+html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item::before {
+  content: '';
+  display: block;
+  position: absolute;
+  left: -20px;
+  top: 15px;
+  width: 7px;
+  height: 7px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+  transition: background-color 220ms ease, border-color 220ms ease, transform 280ms cubic-bezier(.2, .1, .15, 1);
+}
+/* Hairline from this marker down to the next one. */
+html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item::after {
+  content: '';
+  position: absolute;
+  left: -17px;
+  top: 26px;
+  bottom: -15px;
+  width: 1px;
+  background: var(--line-strong);
+}
+html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item:last-child::after { display: none }
+
+/* Running: an accent ring that breathes gently. */
+html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item:is([data-flow-status=running],[data-flow-status=pending],[data-flow-status=queued])::before {
+  width: 9px;
+  height: 9px;
+  left: -21px;
+  top: 14px;
+  background: transparent;
+  border: 1.5px solid var(--accent);
+  animation: mac-step-breathe 1.6s ease-in-out infinite;
+}
+@keyframes mac-step-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 28%, transparent) }
+  50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 0%, transparent) }
+}
+/* Awaiting the user: a hollow neutral ring, no motion. */
+html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item:is([data-flow-status=awaiting-approval],[data-flow-status=awaiting-save])::before {
+  width: 9px; height: 9px; left: -21px; top: 14px;
+  background: transparent;
+  border: 1.5px solid var(--orange);
+}
+/* Failed or stopped: a small cross, and the step recedes. */
+html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item:is([data-flow-status=failed],[data-flow-status=timed_out],[data-flow-status=interrupted],[data-flow-status=cancelled],[data-flow-status=rejected])::before {
+  content: '×';
+  width: 11px; height: 11px; left: -22px; top: 12px;
+  background: transparent;
+  border-radius: 0;
+  color: var(--faint);
+  font-size: 13px;
+  line-height: 11px;
+  text-align: center;
+}
+html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item[data-flow-status=failed]::before,
+html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item[data-flow-status=timed_out]::before { color: var(--red) }
+
+/* Subtask steps hang off the main line, one level in. */
+html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item[data-flow-parent] { margin-left: 16px }
+html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item[data-flow-parent]::after { left: -33px }
+
+/* Tool rows: the timeline replaces their own left rule. */
+html body.aibro-native[data-view] .agent-progress .conversation-flow-tool .tool-ledger.tool-ledger > .tool-ledger-row {
+  padding: 0;
+  border-left: 0;
+}
+html body.aibro-native[data-view] .agent-progress .conversation-flow-tool .tool-ledger.tool-ledger > .tool-ledger-row > summary { min-height: 24px; align-items: center }
+/* Commentary reads as a step label; finished steps recede to secondary text. */
+html body.aibro-native[data-view] .agent-progress .conversation-flow-commentary > .conversation-flow-text { line-height: 24px; color: var(--muted) }
+html body.aibro-native[data-view] .agent-progress .conversation-flow-reasoning-details > summary { min-height: 24px; align-items: center }
+
+/* Accessibility: no breathing ring when motion is reduced; strong markers when
+   contrast is increased; system colors when colors are forced. */
+@media (prefers-reduced-motion: reduce) {
+  html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item::before { animation: none; transition: none }
+}
+html body.aibro-native.reduce-motion[data-view] .agent-progress .conversation-flow > .conversation-flow-item::before { animation: none; transition: none }
+@media (prefers-contrast: more) {
+  html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item::before { background: var(--text) }
+  html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item::after { background: var(--text) }
+}
+@media (forced-colors: active) {
+  html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item::before { background: CanvasText; border-color: CanvasText; color: CanvasText }
+  html body.aibro-native[data-view] .agent-progress .conversation-flow > .conversation-flow-item::after { background: CanvasText }
+}
+
+/* Process header: status, then time, then the current step, like
+   "正在思考 6 秒 · 读取出行笔记". The entry count is noise while a turn runs
+   (the timeline itself shows the steps); it returns, faint, once settled.
+   Order changes only the visual sequence; text and DOM order are unchanged. */
+html body.aibro-native[data-view] .halaska-lifecycle-line { gap: 6px 8px }
+html body.aibro-native[data-view] .halaska-lifecycle-line > .progress-phase-label { order: 1 }
+html body.aibro-native[data-view] .halaska-lifecycle-line > :first-child:not(.progress-heading-mark) { order: 1 }
+html body.aibro-native[data-view] .halaska-lifecycle-line > .progress-elapsed { order: 2; margin-left: 0; color: var(--faint) }
+html body.aibro-native[data-view] .halaska-lifecycle-line > .progress-heading-text { order: 3; color: var(--muted) }
+html body.aibro-native[data-view] .halaska-lifecycle-line > .progress-count { order: 4; color: var(--faint); opacity: 1 }
+html body.aibro-native[data-view] .halaska-lifecycle-line > .progress-issues { order: 5 }
+html body.aibro-native[data-view] .halaska-lifecycle-line > .halaska-lifecycle-key { order: 8 }
+html body.aibro-native[data-view] .halaska-lifecycle-line > .progress-chevron { order: 9; margin-left: auto }
+html body.aibro-native[data-view] .halaska-lifecycle-line > .progress-heading-text::before,
+html body.aibro-native[data-view] .halaska-lifecycle-line > .progress-count::before { content: '· '; color: var(--faint) }
+html body.aibro-native[data-view] .halaska-lifecycle-line[data-lifecycle-status=running] > .progress-count { display: none }
+
+/* Settled: a plain "✓ 已完成" instead of an uppercase pill badge. The kit badge
+   keeps its text; only its pill chrome and dot are replaced by a check mark. */
+html body.aibro-native[data-view] .halaska-lifecycle-line:not([data-lifecycle-status=running]) > :first-child {
+  padding: 0 !important;
+  background: transparent !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 12px !important;
+  color: var(--text) !important;
+  gap: 6px !important;
+}
+html body.aibro-native[data-view] .halaska-lifecycle-line:not([data-lifecycle-status=running]) > :first-child > span:first-child { display: none !important }
+html body.aibro-native[data-view] .halaska-lifecycle-line:not([data-lifecycle-status=running]) > :first-child::before {
+  content: '';
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--muted) 45%, transparent);
+}
+html body.aibro-native[data-view] .halaska-lifecycle-line:is([data-lifecycle-status=completed],[data-lifecycle-status=completed-local],[data-lifecycle-status=done]) > :first-child::before {
+  background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M4 7.2l2 2 4-4.4' fill='none' stroke='white' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 14px no-repeat;
+}
+html body.aibro-native[data-view] .halaska-lifecycle-line:is([data-lifecycle-status=failed]) > :first-child::before { background: var(--red) }
+html body.aibro-native[data-view] .halaska-lifecycle-line:is([data-lifecycle-status=awaiting-approval],[data-lifecycle-status=awaiting-save]) > :first-child::before { background: var(--orange) }
+
+/* Tool steps: the timeline marker already shows "running" and "finished", so
+   those words are hidden visually but stay in the accessible name and copy.
+   Unknown, unconfirmed and not-started outcomes remain visible text. */
+html body.aibro-native[data-view] .agent-progress .conversation-flow .tool-ledger-state:is([data-state=completed],[data-state=running]) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* The disclosure chevron appears on hover, focus or when the row is open; the
+   timeline marker is the resting affordance. */
+html body.aibro-native[data-view] .agent-progress .conversation-flow .tool-ledger.tool-ledger > .tool-ledger-row > summary::before { opacity: 0; transition: opacity 140ms ease, transform 220ms cubic-bezier(.2, 0, 0, 1) }
+html body.aibro-native[data-view] .agent-progress .conversation-flow .tool-ledger.tool-ledger > .tool-ledger-row:is([open], :hover, :focus-within) > summary::before { opacity: .7 }
+@media (hover: none) {
+  html body.aibro-native[data-view] .agent-progress .conversation-flow .tool-ledger.tool-ledger > .tool-ledger-row > summary::before { opacity: .7 }
+}
+
+/* Result chips under a finished search/list step (records it returned). */
+.conversation-flow-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 2px; min-width: 0 }
+.conversation-flow-chip {
+  display: inline-flex; align-items: center; gap: 5px; max-width: 220px; min-width: 0;
+  height: 24px; padding: 0 10px 0 8px; box-sizing: border-box;
+  border: 0; border-radius: 999px;
+  background: var(--panel); color: var(--text);
+  box-shadow: 0 0 0 .5px var(--line-strong), 0 1px 2px rgba(0, 0, 0, .04);
+  font: inherit; font-size: 12px; line-height: 24px; white-space: nowrap; cursor: default;
+}
+button.conversation-flow-chip { cursor: pointer; transition: background-color 120ms ease, box-shadow 120ms ease }
+button.conversation-flow-chip:hover { background: var(--panel-hover) }
+button.conversation-flow-chip:active { scale: .97 }
+button.conversation-flow-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.conversation-flow-chip-icon { display: inline-flex; flex: none; color: var(--accent) }
+.conversation-flow-chip-icon .wi { width: 12px; height: 12px }
+.conversation-flow-chip-label { min-width: 0; overflow: hidden; text-overflow: ellipsis }
+.conversation-flow-chip-more { font-size: 12px; color: var(--faint) }
+@media (prefers-contrast: more) { .conversation-flow-chip { box-shadow: 0 0 0 1px var(--text) } }
+@media (forced-colors: active) { .conversation-flow-chip { border: 1px solid CanvasText; box-shadow: none } }
+@media (prefers-reduced-motion: reduce) { button.conversation-flow-chip { transition: none } button.conversation-flow-chip:active { scale: 1 } }
+
+/* Newly streamed answer text: two short steps from faint to full colour.
+   Painted through CSS Custom Highlights (see AgentProgress freshen); the
+   text nodes themselves are never wrapped or split. */
+::highlight(aibro-fresh-1) { color: color-mix(in srgb, var(--text) 35%, transparent) }
+::highlight(aibro-fresh-2) { color: color-mix(in srgb, var(--text) 70%, transparent) }
+@media (prefers-reduced-motion: reduce), (forced-colors: active) {
+  ::highlight(aibro-fresh-1), ::highlight(aibro-fresh-2) { color: inherit }
+}

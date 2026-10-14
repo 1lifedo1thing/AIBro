@@ -143,6 +143,37 @@ final class WriteControl {var fail=false}
    await newGate.resolve("New result");await next.value
    try check(try f.persisted().transcript=="New result" && !store.isCloudTranscribing,"newer request keeps its own successful receipt")
   }
+  do {
+   let f=try Fixture();defer{f.cleanup()}
+   let access=NativeSpeechCredentialAdapter.access(directory:f.root.appendingPathComponent("SpeechSchemes"),service:"dev.aibro.qa.recording-schemes."+UUID().uuidString)
+   var config=NativeSpeechConfiguration();config.provider = .openAI;config.baseURL="https://speech.invalid/v1";config.model="synthetic"
+   let first=try await access.schemes!.save("first","First",config,"SYNTHETIC-FIRST",0)
+   let store=NativeQuickRecordingStore(cloudTranscribe:{_,_,_ in preconditionFailure("scheme editing must not transcribe")})
+   store.configure(directory:f.root);store.configureSpeech(owner:f.root,access:access);store.setVisible(true)
+   for _ in 0..<200 {if !store.speechSettings.busy{break};try? await Task.sleep(for:.milliseconds(2))}
+   store.beginSpeechSettings()
+   try check(store.speechSettingsDraft?.schemeID=="first" && store.speechSettingsDraft?.catalogRevision==first.revision,"real recording settings draft captures active scheme identity and catalog baseline")
+   store.newSpeechSchemeDraft();var draft=store.speechSettingsDraft!
+   try check(draft.schemeID != "first" && draft.key.isEmpty && store.speechSettings.selectedID=="first","new unsaved scheme does not inherit a secret or change the active connection")
+   draft.name="Second";draft.configuration=config;draft.key="SYNTHETIC-SECOND";store.updateSpeechSettings(draft)
+   try check(await store.saveSpeechSettings() && store.speechSettings.selectedID==draft.schemeID && store.speechSettings.schemes.count==2,"recording settings save atomically activates the named draft and retains the first scheme")
+   store.beginSpeechSettings();var retained=store.speechSettingsDraft!;retained.name="Unsaved rename";store.updateSpeechSettings(retained)
+   store.setAvailable(false);store.setAvailable(true)
+   for _ in 0..<200 {if !store.speechSettings.busy{break};try? await Task.sleep(for:.milliseconds(2))}
+   try check(store.speechSettingsDraft==retained && !store.flushForQuit(),"privacy reload retains the complete unsaved scheme draft and quit protection")
+   _ = try await access.schemes!.select("first",store.speechSettings.catalogRevision)
+   store.setAvailable(false);store.setAvailable(true)
+   for _ in 0..<200 {if !store.speechSettings.busy{break};try? await Task.sleep(for:.milliseconds(2))}
+   store.setVisible(true)
+   try check(!(await store.saveSpeechSettings()) && store.speechSettingsDraft==retained,"a retained draft cannot overwrite a scheme changed while hidden")
+   let currentSchemes=try await access.schemes!.list()
+   try check(store.speechSettings.selectedID=="first" && currentSchemes.selectedID=="first","failed stale draft save preserves actual active scheme in memory and on disk")
+   store.cancelSpeechSettings();store.beginSpeechSettings()
+   try check(await store.selectSpeechScheme(draft.schemeID) && store.speechSettingsDraft?.schemeID==draft.schemeID && store.speechSettingsDraft?.key=="","explicit selection refreshes the retained native editor without exposing its saved Key")
+   try check(await store.removeSpeechSettings() && store.speechSettings.schemes.count==1 && !store.speechSettings.configured,"native editor removal disables the active scheme but retains other schemes")
+   try check(try f.persisted()==f.original && Data(contentsOf:f.store.fileURL(id:f.id)!)==Data("synthetic audio; service injection only".utf8),"scheme editing leaves recording manifest and original audio unchanged")
+   store.shutdown()
+  }
   print("\(count) recording-cloud integration checks passed; synthetic audio/services only")
  }
 }

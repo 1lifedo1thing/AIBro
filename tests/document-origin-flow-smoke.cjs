@@ -61,6 +61,23 @@ async function mode(label) {
   await evaluate(`(()=>{const n=[...document.querySelectorAll('.document-toolbar-kit [role=radio]')].find(n=>n.textContent.trim()===${quote(label)});n.click();})()`);
   await until(() => evaluate(label === '源码' ? '!!document.querySelector("#previewContent .cm-content[contenteditable=true]")' : '!!document.querySelector(".note-document-preview [data-document-markdown]")'), 'mode ' + label);
 }
+// Task details are the React TaskDetailSurface: related documents are its "关联材料与知识" group buttons,
+// fields are controlled inputs (type through the native setter + input/change events), and cancel is #cancelTask,
+// which asks for confirmation (#taskDiscardChanges) when the form has unsaved changes.
+async function openTaskSource(id) {
+  const group = '#taskDialog details[data-task-group="sources"]', button = `#taskDialog [data-task-source-type="note"][data-task-source-id="${id}"]`;
+  if (!await evaluate(`document.querySelector(${quote(group)}).open`)) await click(group + ' > summary');
+  await until(() => evaluate(`(()=>{const d=document.querySelector(${quote(group)});return d.open&&!d.style.overflow&&!!document.querySelector(${quote(button)})?.getClientRects().length})()`), 'task sources ' + id);
+  // A user scrolls the source into view above the sticky task actions before clicking it.
+  await evaluate(`document.querySelector(${quote(button)}).scrollIntoView({block:'center',behavior:'instant'})`);
+  await click(button); await noteReady(id);
+}
+const setTaskField = (id, value) => evaluate(`(()=>{const n=document.getElementById(${quote(id)});if(!n)throw Error('Missing task field '+${quote(id)});const select=n instanceof HTMLSelectElement,proto=select?HTMLSelectElement.prototype:n instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(n,${quote(value)});n.dispatchEvent(new Event(select?'change':'input',{bubbles:true}));})()`);
+async function cancelTask() {
+  await click('#cancelTask');
+  if (await evaluate('!!document.querySelector("#taskDiscardChanges")')) { await evaluate(`document.querySelector('#taskDiscardChanges').scrollIntoView({block:'center',behavior:'instant'})`); await click('#taskDiscardChanges'); }
+  await until(() => evaluate('!document.querySelector("#taskDialog").open'), 'task closed');
+}
 const watchdog = setTimeout(() => { failures.push({ label: 'watchdog' }); void finish(1); }, 240000);
 async function finish(code) {
   if (ending) return; ending = true; clearTimeout(watchdog);
@@ -154,36 +171,40 @@ async function createRenderer() {
   });
   await check('task-related document retains task origin and returns to that task without altering it', async () => {
     await evaluate('openTask("origin-task")'); await until(() => evaluate('document.querySelector("#taskDialog").open'), 'task dialog');
-    await click('#taskDialog [data-open-note="origin-knowledge"]'); await noteReady('origin-knowledge');
+    await openTaskSource('origin-knowledge');
     assert.deepEqual(await getOrigin('note','origin-knowledge'), { view: 'task', id: 'origin-task', entry: { view: 'project', projectId: 'origin-alpha', section: 'knowledge' } });
     await click('#readingBack'); await until(() => evaluate('document.querySelector("#taskDialog").open&&state.openTaskId==="origin-task"&&!ReadingPane.snapshot().visible'), 'return task');
     assert.equal(await evaluate('document.querySelector("#taskTitleInput").value'), '核对文档入口');
-    await click('#taskDialog button.secondary[value="cancel"]');
+    assert.equal(await evaluate('state.tasks.find(t=>t.id==="origin-task").title'), '核对文档入口');
+    await cancelTask();
   });
   await check('two task forms retain separate unpublished fields, criteria and planning destinations across document tabs', async () => {
     await evaluate(`state.tasks.push({id:'origin-task-beta',title:'乙任务原名',description:'乙任务原详情',projectId:'origin-beta',workspace:'课程',status:'todo',priority:'medium',checklist:[],sourceNoteIds:['origin-beta-note']});save();`);
     await route('origin-alpha', 'tasks'); await evaluate('openTask("origin-task")');
-    await evaluate(`document.querySelector('#taskTitleInput').value='甲任务未保存标题';document.querySelector('#taskDescriptionInput').value='甲任务未保存详情';document.querySelector('#taskDeliverableKind').value='text';document.querySelector('#taskDeliverableKind').dispatchEvent(new Event('change'));document.querySelector('#taskDeliverableRef').value='甲任务未保存验收词';document.querySelector('#taskProjectInput').value='origin-beta';document.querySelector('#taskProjectInput').dispatchEvent(new Event('change'));document.querySelector('#taskStartInput').value='2026-10-03';`);
-    await click('#taskDialog [data-open-note="origin-knowledge"]'); await noteReady('origin-knowledge');
+    await setTaskField('taskTitleInput','甲任务未保存标题'); await setTaskField('taskDescriptionInput','甲任务未保存详情'); await setTaskField('taskDeliverableKind','text');
+    await until(() => evaluate('!!document.querySelector("#taskDeliverableRef")'), 'keyword field'); await setTaskField('taskDeliverableRef','甲任务未保存验收词');
+    await setTaskField('taskProjectInput','origin-beta'); await setTaskField('taskStartInput','2026-10-03');
+    await openTaskSource('origin-knowledge');
     assert.deepEqual(await getOrigin('note','origin-knowledge'), { view:'task', id:'origin-task', entry:{view:'project',projectId:'origin-alpha',section:'tasks'} });
     await route('origin-beta','tasks'); await evaluate('openTask("origin-task-beta")');
-    await evaluate(`document.querySelector('#taskTitleInput').value='乙任务未保存标题';document.querySelector('#taskDeliverableKind').value='text';document.querySelector('#taskDeliverableKind').dispatchEvent(new Event('change'));document.querySelector('#taskDeliverableRef').value='乙任务未保存验收词';`);
-    await click('#taskDialog [data-open-note="origin-beta-note"]'); await noteReady('origin-beta-note');
+    await setTaskField('taskTitleInput','乙任务未保存标题'); await setTaskField('taskDeliverableKind','text');
+    await until(() => evaluate('!!document.querySelector("#taskDeliverableRef")'), 'keyword field B'); await setTaskField('taskDeliverableRef','乙任务未保存验收词');
+    await openTaskSource('origin-beta-note');
     await selectTab('note','origin-knowledge'); await click('#readingBack');
     await until(()=>evaluate('document.querySelector("#taskDialog").open&&state.openTaskId==="origin-task"'),'return task A draft');
     assert.deepEqual(await evaluate(`({title:document.querySelector('#taskTitleInput').value,description:document.querySelector('#taskDescriptionInput').value,kind:document.querySelector('#taskDeliverableKind').value,criterion:document.querySelector('#taskDeliverableRef').value,project:document.querySelector('#taskProjectInput').value,space:document.querySelector('#taskWorkspaceInput').value,start:document.querySelector('#taskStartInput').value,entryProject:state.currentProjectId,section:state.ui.projectTab})`),
       {title:'甲任务未保存标题',description:'甲任务未保存详情',kind:'text',criterion:'甲任务未保存验收词',project:'origin-beta',space:'课程',start:'2026-10-03',entryProject:'origin-alpha',section:'tasks'});
     assert.equal(await evaluate('state.tasks.find(t=>t.id==="origin-task").title'),'核对文档入口');
     await shot('task-return-retained-fields');
-    await click('#taskDialog [data-open-note="origin-knowledge"]'); await noteReady('origin-knowledge');
+    await openTaskSource('origin-knowledge');
     await selectTab('note','origin-beta-note'); await click('#readingBack');
     await until(()=>evaluate('document.querySelector("#taskDialog").open&&state.openTaskId==="origin-task-beta"'),'return task B draft');
     assert.equal(await evaluate('document.querySelector("#taskTitleInput").value'),'乙任务未保存标题');
     assert.equal(await evaluate('document.querySelector("#taskDeliverableRef").value'),'乙任务未保存验收词');
     assert.equal(await evaluate('state.currentProjectId'),'origin-beta');
-    await click('#taskDialog button.secondary[value="cancel"]');
+    await cancelTask();
     await selectTab('note','origin-knowledge'); await click('#readingBack'); await until(()=>evaluate('document.querySelector("#taskDialog").open'),'return task A for cancel');
-    await click('#taskDialog button.secondary[value="cancel"]');
+    await cancelTask();
     await settle(); const stored=await readAPI('/__state');
     assert.equal(stored.tasks.find(t=>t.id==='origin-task').title,'核对文档入口');
     assert.equal(stored.tasks.find(t=>t.id==='origin-task-beta').title,'乙任务原名');
@@ -194,15 +215,15 @@ async function createRenderer() {
     assert.equal(await evaluate('document.querySelector("#taskTitleInput").value'),'核对文档入口');
     assert.equal(await evaluate('document.querySelector("#taskDeliverableKind").value'),'');
     assert.equal(await evaluate('document.querySelector("#taskProjectInput").value'),'origin-alpha');
-    await click('#taskDialog button.secondary[value="cancel"]');
+    await cancelTask();
     await selectTab('note','origin-beta-note'); await click('#readingBack'); await until(()=>evaluate('document.querySelector("#taskDialog").open'),'cancelled B return');
     assert.equal(await evaluate('document.querySelector("#taskTitleInput").value'),'乙任务原名');
-    await click('#taskDialog button.secondary[value="cancel"]');
+    await cancelTask();
   });
   await check('revoked task parent entry keeps the live document and unpublished task form without jumping elsewhere', async () => {
     await route('origin-beta','tasks'); await evaluate('openTask("origin-task")');
-    await evaluate(`document.querySelector('#taskTitleInput').value='入口撤销时保留的甲任务草稿'`);
-    await click('#taskDialog [data-open-note="origin-knowledge"]'); await noteReady('origin-knowledge');
+    await setTaskField('taskTitleInput','入口撤销时保留的甲任务草稿');
+    await openTaskSource('origin-knowledge');
     await evaluate(`state.projects.find(p=>p.id==='origin-beta').archived=true;ReadingPane.refreshTabs()`);
     await until(()=>evaluate('document.querySelector("#readingBack").disabled'),'revoked task entry disabled');
     assert.equal(await evaluate('ReadingPane.returnToOrigin()'),false);
@@ -212,7 +233,7 @@ async function createRenderer() {
     await evaluate(`state.projects.find(p=>p.id==='origin-beta').archived=false;ReadingPane.refreshTabs()`);
     await click('#readingBack'); await until(()=>evaluate('document.querySelector("#taskDialog").open'),'restored entry permits retained task');
     assert.equal(await evaluate('document.querySelector("#taskTitleInput").value'),'入口撤销时保留的甲任务草稿');
-    await click('#taskDialog button.secondary[value="cancel"]');
+    await cancelTask();
   });
   await check('returning from an edited document durably parks its draft without Save/Discard or changing the formal note', async () => {
     await selectTab('note','origin-output'); await mode('源码');

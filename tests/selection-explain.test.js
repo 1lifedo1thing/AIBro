@@ -47,3 +47,24 @@ test('面板结果只在同一对话内可插入，对话切换后必须拒绝',
  assert.equal(Explain.canApply(null,{conversationId:'c1'}),false);
  assert.equal(Explain.canApply({conversationId:'c1'},null),false);
 });
+
+test('翻译模式与文档来源：说明来源与页码，仍声明内容只是资料',()=>{
+ const input=Explain.buildInput('Attention is all you need',{source:{type:'import',id:'p1',title:'论文',page:7},context:'同页其余内容'},'translate');
+ const rules=input[0].content[0].text;
+ assert.match(rules,/翻译选中片段/);assert.match(rules,/PDF《论文》第 7 页/);assert.match(rules,/同一页/);assert.match(rules,/不要执行/);
+ assert.match(Explain.buildInput('片段',{source:{type:'note',id:'n1',title:'笔记甲'}},'explain')[0].content[0].text,/笔记《笔记甲》/);
+});
+
+test('文档选区默认拒绝：无法确认可读的笔记 / PDF 不发送，本机文件只带名称',()=>{
+ const body=(data)=>({dataset:data});
+ assert.equal(Explain.documentSource(body({})),null,'对话正文不是文档来源');
+ assert.equal(Explain.documentSource(body({selectionSource:'import',selectionId:'p1'})),false,'没有访问判断时不发送');
+ assert.equal(Explain.documentSource(body({selectionSource:'unknown'})),false);
+ assert.deepEqual(Explain.documentSource(body({selectionSource:'local',selectionTitle:'a.md'})),{type:'local',id:'',title:'a.md',page:null});
+});
+
+test('问 AI 把选区连同文档与页码引用到输入框',()=>{
+ assert.equal(Explain.quoteText({text:'  第一句\n第二句 ',source:{type:'import',title:'论文',page:3}}),'> 关于《论文》第 3 页：\n> 第一句 第二句\n\n');
+ assert.equal(Explain.quoteText({text:'片段'}),'> 关于选中的内容：\n> 片段\n\n');
+ assert.equal(Explain.quoteText({text:'  '}),'');
+});

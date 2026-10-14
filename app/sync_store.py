@@ -37,7 +37,11 @@ DIGEST = re.compile(r'^[a-f0-9]{64}$')
 MESSAGE_PROCESS_FIELDS = ('pendingPlan', 'reasoning', 'toolEvents', 'status', 'error', 'capabilities')
 MESSAGE_ENTITY_BYTES = 4 * 1024 * 1024
 
-def dump(value): return json.dumps(value, ensure_ascii=False, separators=(',', ':'), sort_keys=True, allow_nan=False)
+# json.dumps() with non-default options builds a new JSONEncoder per call, and
+# a capture dumps every entity. One shared encoder gives identical bytes; it
+# keeps no per-call state, so threads can share it.
+_ENCODER = json.JSONEncoder(ensure_ascii=False, separators=(',', ':'), sort_keys=True, allow_nan=False)
+def dump(value): return _ENCODER.encode(value)
 def copy(value): return json.loads(dump(value))
 def new_id(): return uuid.uuid4().hex
 
@@ -440,7 +444,7 @@ class SyncStore:
         with self.db() as db: return self._get(db,'filetx:'+identifier,False) is True
     def forget_file_transaction(self, identifier):
         with self.db() as db: db.execute('DELETE FROM meta WHERE key=?',('filetx:'+identifier,))
-    def _publish_files(self, db, callback, snapshot):
+    def _publish_files(self, db, callback, snapshot, written=None):
         if callback:
             identifier=callback(snapshot)
             if identifier is not None:
@@ -448,31 +452,49 @@ class SyncStore:
                     raise ValueError('无效的附件事务标识。')
                 self._put(db,'filetx:'+identifier,True)
             # File-backed stores attach local mappings during publication.
-            self._save_snapshot(db, snapshot)
+            self._save_snapshot(db, snapshot, written)
     def snapshot_at(self, revision):
         with self.db() as db:
             current=self._get(db,'snapshot')
             if current is not None and current.get('_revision',0)==revision: return self._read_message_aliases(current)
             return self._read_message_aliases(self._get(db,'history:'+str(revision)))
-    def _save_snapshot(self, db, snapshot):
+    # octet_length reads a value's size from its record header (SQLite 3.43+);
+    # CAST AS BLOB loads every multi-MB history body only to measure it.
+    _HISTORY_BYTES = 'octet_length(value)' if sqlite3.sqlite_version_info >= (3, 43, 0) else 'length(CAST(value AS BLOB))'
+    def _save_snapshot(self, db, snapshot, written=None):
+        """Store the snapshot row and return its text. `written` is the text
+        this transaction already stored; an unchanged snapshot then needs no
+        read-back of the multi-MB row."""
         serialized = dump(snapshot)
-        previous = db.execute("SELECT value FROM meta WHERE key='snapshot'").fetchone()
+        if written is not None and serialized == written: return serialized
+        # Compare and read the revision inside SQLite rather than fetching and
+        # decoding the whole stored snapshot in Python.
+        previous = db.execute("SELECT value=?, json_type(value,'$._revision'), json_extract(value,'$._revision') FROM meta WHERE key='snapshot'", (serialized,)).fetchone()
+        archived = False
         # Publication may attach Wiki mappings between the two saves. Keep both
         # transaction checkpoints, but do not decode and rewrite an identical
         # large snapshot when publication did not change it.
-        if previous is None or previous['value'] != serialized:
+        if previous is None or not previous[0]:
             if previous is not None:
-                revision = json.loads(previous['value']).get('_revision', 0)
+                # An integer or missing revision reads directly; any other
+                # stored type keeps the exact decoded value as before.
+                kind = previous[1]
+                revision = 0 if kind is None else previous[2] if kind == 'integer' else json.loads(db.execute("SELECT value FROM meta WHERE key='snapshot'").fetchone()['value']).get('_revision', 0)
                 if revision != snapshot.get('_revision', 0):
                     # Preserve the exact committed baseline inside this SQLite
                     # transaction instead of another JSON round trip.
                     db.execute("INSERT OR REPLACE INTO meta(key,value) SELECT ?,value FROM meta WHERE key='snapshot'", ('history:'+str(revision),))
+                    archived = True
             db.execute('INSERT OR REPLACE INTO meta VALUES (?,?)', ('snapshot', serialized))
+        # Only archiving a baseline adds history, so only then can it exceed
+        # the retention limits (capture's second checkpoint never archives).
+        if not archived: return serialized
         size=0
-        rows=db.execute("SELECT key,length(CAST(value AS BLOB)) AS size FROM meta WHERE key LIKE 'history:%' ORDER BY CAST(substr(key,9) AS INTEGER) DESC").fetchall()
+        rows=db.execute(f"SELECT key,{self._HISTORY_BYTES} AS size FROM meta WHERE key LIKE 'history:%' ORDER BY CAST(substr(key,9) AS INTEGER) DESC").fetchall()
         for index,row in enumerate(rows):
             size+=row['size']
             if index>=30 or size>64*1024*1024: db.execute('DELETE FROM meta WHERE key=?',(row['key'],))
+        return serialized
     def bind_target(self, target):
         with self.db() as db:
             old = self._get(db, 'target')
@@ -533,44 +555,55 @@ class SyncStore:
             # Matching projections may skip only entity/outbox comparison; all
             # snapshot history, file publication and FULL commit still happen.
             if values is None or self._get(db, 'captureProjectionDigest') != fingerprint:
-                self._reconcile_conversation_context(db, snapshot)
-                self._reconcile_message_process(db, snapshot)
-                values, fingerprint = projection()
+                mutated = self._reconcile_conversation_context(db, snapshot)
+                mutated = self._reconcile_message_process(db, snapshot, values) or mutated
+                # project() depends only on the snapshot, so the first result is
+                # still exact unless reconciliation changed the snapshot.
+                if values is None or mutated: values, fingerprint = projection()
                 if self._get(db, 'captureProjectionDigest') != fingerprint:
                     self._capture_entities(db, values)
                     self._put(db, 'captureProjectionDigest', fingerprint)
             for conversation in snapshot.get('conversations', []):
                 for message in conversation.get('messages', []): _message_text_alias(message)
-            self._save_snapshot(db,snapshot)
+            written = self._save_snapshot(db,snapshot)
             if before_commit: before_commit(snapshot)
-            self._save_snapshot(db,snapshot)
+            self._save_snapshot(db,snapshot,written)
         return snapshot
     def _reconcile_conversation_context(self, db, snapshot):
         # Older renderers may reconstruct a conversation without newer fields.
         # Preserve the authoritative selection on that local save; an explicit
         # empty v1 context clears it. Incoming remote omission still clears the
         # field through _assemble(), where it is now a synchronized field.
+        # Returns whether the snapshot changed.
         conversations = {item['id']: item for item in snapshot.get('conversations', [])}
+        mutated = False
         for row in db.execute("SELECT id,data FROM entities WHERE kind='conversations' AND deleted=0"):
             current = conversations.get(row['id'])
             if current is None or 'mobileContext' in current: continue
             old = json.loads(row['data'])
-            if 'mobileContext' in old: current['mobileContext'] = conversation_context(old['mobileContext'])
-    def _reconcile_message_process(self, db, snapshot):
+            if 'mobileContext' in old: current['mobileContext'] = conversation_context(old['mobileContext']); mutated = True
+        return mutated
+    def _reconcile_message_process(self, db, snapshot, projected=None):
         # An old renderer may omit unfamiliar fields on save. Recover them from
         # the authoritative entity in this transaction, never from another chat
         # or a deleted record. A normal continuation merely appends messages.
+        # Returns whether the snapshot changed.
         conversations = {conversation['id']: conversation for conversation in snapshot.get('conversations', [])}
         messages = {wire_id(cid, message['id']): (cid, message) for cid, conversation in conversations.items()
                     for message in conversation.get('messages', [])}
-        changed = set()
+        changed = set(); mutated = False
         for row in db.execute("SELECT id,data FROM entities WHERE kind='messages' AND deleted=0"):
-            old = json.loads(row['data'])
             current = messages.get(row['id'])
+            # A message whose canonical projection already equals the stored
+            # entity has nothing to recover: every branch below would leave it
+            # unchanged. Skip decoding it; only differing rows are examined.
+            if current is not None and projected is not None and projected.get(('messages', row['id'])) == row['data']: continue
+            old = json.loads(row['data'])
             if current is None:
                 if old.get('conversationId') in conversations: changed.add(old['conversationId'])
                 continue
             cid, message = current
+            before = dump(message) if projected is not None else None
             baseline = _message_body(old)
             candidates = [message[key] for key in ('content', 'text') if key in message]
             if candidates:
@@ -596,9 +629,13 @@ class SyncStore:
                     and prior.get('status') != 'pending' and proposed.get('status') == 'pending'):
                 # Replaying an older UI snapshot cannot re-arm a terminal plan.
                 message['pendingPlan'] = copy(prior)
+            if before is not None and dump(message) != before: mutated = True
         for cid in changed:
             for message in conversations[cid].get('messages', []):
+                plan = message.get('pendingPlan')
+                if isinstance(plan, dict) and plan.get('status') == 'pending': mutated = True
                 _invalidate_message_plan(message, 'conversation-message-edited')
+        return mutated
     def _capture_entities(self, db, values):
         # Compare canonical JSON as UTF-8 bytes, without decoding every old
         # body or loading remote_data (unused by local capture). Restore the
@@ -784,9 +821,10 @@ class SyncStore:
             if changed:
                 snapshot['_revision']=int(previous.get('_revision',0))+1; snapshot['_savedAt']=int(time.time()*1000)
                 snapshot.pop('_pendingLocalSave',None)
-                self._save_snapshot(db,snapshot); self._put(db,'remoteAppliedRevision',snapshot['_revision'])
+                written=self._save_snapshot(db,snapshot); self._put(db,'remoteAppliedRevision',snapshot['_revision'])
+            else: written=None
             self._put(db,'cursor',cursor)
-            self._publish_files(db,before_commit,snapshot)
+            self._publish_files(db,before_commit,snapshot,written)
             return {'changed':changed,'snapshot':snapshot}
     @staticmethod
     def _conflict_revision(conflict, local):
@@ -866,8 +904,8 @@ class SyncStore:
                 snapshot=self._assemble(db,previous)
                 snapshot['_revision']=int(previous.get('_revision',0))+1; snapshot['_savedAt']=int(time.time()*1000)
                 snapshot.pop('_pendingLocalSave',None)
-                self._save_snapshot(db,snapshot); self._put(db,'remoteAppliedRevision',snapshot['_revision'])
-                self._publish_files(db,before_commit,snapshot)
+                written=self._save_snapshot(db,snapshot); self._put(db,'remoteAppliedRevision',snapshot['_revision'])
+                self._publish_files(db,before_commit,snapshot,written)
                 return {'changed':True,'snapshot':snapshot}
             key=(conflict['kind'],conflict['entity_id']); previous=self._get(db,'snapshot',{})
             local=db.execute('SELECT * FROM entities WHERE kind=? AND id=?',key).fetchone()
@@ -886,11 +924,11 @@ class SyncStore:
             # Preserve both sides as a local recovery artifact, even after choice.
             self._put(db,'resolved:'+identifier,{'local':project(previous).get(key),'remote':json.loads(conflict['remote_data']) if conflict['remote_data'] else None,'choice':choice,'at':int(time.time()*1000)})
             snapshot=self._assemble(db,previous) if choice=='remote' else previous
-            changed=choice=='remote'
+            changed=choice=='remote'; written=None
             if changed:
                 snapshot['_revision']=int(previous.get('_revision',0))+1; snapshot['_savedAt']=int(time.time()*1000)
-                self._save_snapshot(db,snapshot); self._put(db,'remoteAppliedRevision',snapshot['_revision'])
-            self._publish_files(db,before_commit,snapshot)
+                written=self._save_snapshot(db,snapshot); self._put(db,'remoteAppliedRevision',snapshot['_revision'])
+            self._publish_files(db,before_commit,snapshot,written)
             return {'changed':changed,'snapshot':snapshot}
     def blob_manifest(self):
         result={}

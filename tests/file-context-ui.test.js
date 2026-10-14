@@ -92,6 +92,17 @@ test('fallback save is awaited and a failed save restores the draft without undo
   const gate = deferred(), h = harness({ save: () => gate.promise }); h.ui.open(); const pending = h.choose(); await until(() => h.saves === 1);
   h.conversation.draftAttachmentIds = ['new-concurrent-attachment']; assert.equal(h.changes, 0); gate.reject(Error('disk full')); await pending;
   assert.equal(h.conversation.draftFileReferences, undefined); assert.deepEqual(h.conversation.draftAttachmentIds, ['new-concurrent-attachment']); assert.match(h.node('.file-context-status').textContent, /disk full/); assert.equal(h.changes, 0);
+  assert.equal(Object.hasOwn(h.conversation, 'mobileContext'), false);
+});
+
+test('fallback failed selection preserves a concurrent portable reference and return source', async () => {
+  const gate = deferred(), h = harness({ save: () => gate.promise }); h.ui.open(); const pending = h.choose();
+  await until(() => h.saves === 1);
+  FileContext.stage(h.conversation, { type: 'import', id: 'i', title: 'Visible import' });
+  h.conversation.mobileContext.source = { kind: 'notes', id: 'n' };
+  gate.reject(Error('disk full')); await pending;
+  assert.deepEqual(h.conversation.mobileContext, { version: 1, keys: ['imports:i'], source: { kind: 'notes', id: 'n' } });
+  assert.deepEqual(FileContext.references(h.conversation).map(ref => ref.id), ['i']);
 });
 
 test('local selectRef rechecks privacy after an asynchronous read and never returns secret metadata', async () => {

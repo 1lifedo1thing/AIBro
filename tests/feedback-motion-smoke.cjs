@@ -40,17 +40,30 @@ const watchdog=setTimeout(()=>{win?.destroy();server?.kill();app.exit(1)},120000
   assert.equal(await evaluate('__copyProbe.classList.contains("feedback-confirmed")'),true);assert.equal(await evaluate('__copyProbe.getBoundingClientRect().width'),await evaluate('__copyWidth'));await evaluate('FeedbackMotion.clear(__copyProbe);Promise.reject(Error("Denied")).then(()=>FeedbackMotion.success(__copyProbe)).catch(()=>{})');assert.equal(await evaluate('__copyProbe.classList.contains("feedback-confirmed")'),false);await evaluate('__copyProbe.remove()');
  });
  await step('actual durable note save gives original-place confirmation after persistence',async()=>{
-  await evaluate(`openPreview('note','ui-plan')`);await until(()=>evaluate('!!document.querySelector("[data-note-action=edit]")'),'note');await click('[data-note-action="edit"]');
-  await evaluate(`(()=>{const s=document.querySelector('.note-document-source textarea');s.value+='\\n\\n已验证原位保存反馈。';s.dispatchEvent(new Event('input',{bubbles:true}));})()`);
-  assert.equal(await evaluate('!!document.querySelector("[data-note-action=save].feedback-confirmed")'),false);
-  await click('[data-note-action="save"]');await until(()=>evaluate('!!document.querySelector("[data-note-action=save].feedback-confirmed")'),'confirmed save');
-  const stored=await evaluate(`fetch('/__state',{cache:'no-store'}).then(r=>r.json()).then(s=>s.notes.find(n=>n.id==='ui-plan').content)`);assert.match(stored,/已验证原位保存反馈/);await shot('confirmed-save');
-  await evaluate(`document.querySelector('.note-document-source textarea').dispatchEvent(new Event('input',{bubbles:true}))`);assert.equal(await evaluate('!!document.querySelector("[data-note-action=save].feedback-confirmed")'),false);
+  // Source editing goes through the Kit DocumentToolbar's 源码 segment (CodeMirror); Save is the Kit 保存 button.
+  assert.equal(await evaluate('saveDocumentDurably()'),true);
+  await evaluate(`openPreview('note','ui-plan')`);await until(()=>evaluate(`[...document.querySelectorAll('.document-toolbar-kit [role=radio]')].some(n=>n.textContent.trim()==='源码'&&!n.disabled)`),'note');
+  await evaluate(`[...document.querySelectorAll('.document-toolbar-kit [role=radio]')].find(n=>n.textContent.trim()==='源码').click()`);await until(()=>evaluate(`!!document.querySelector('#previewContent .cm-content[contenteditable=true]')`),'source editor');
+  const saveControl=`[...document.querySelectorAll('#previewDialog .document-toolbar-kit-actions button')].find(b=>b.textContent.trim()==='保存')`;
+  await evaluate(`(()=>{const e=document.querySelector('#previewContent .cm-content');e.focus();const s=getSelection(),r=document.createRange();r.selectNodeContents(e);r.collapse(false);s.removeAllRanges();s.addRange(r);document.execCommand('insertText',false,'\\n\\n已验证原位保存反馈。');})()`);
+  await until(()=>evaluate(`NoteEditor.currentContent()?.dirty===true&&NoteEditor.currentContent().content.includes('已验证原位保存反馈')&&!${saveControl}?.disabled`),'unsaved source edit');
+  assert.equal(await evaluate(`${saveControl}.classList.contains('feedback-confirmed')`),false);
+  await evaluate(`${saveControl}.click()`);await until(()=>evaluate(`NoteEditor.currentContent()?.dirty===false&&FeedbackMotion.confirmedSave(document.querySelector('#previewDialog .note-document-status').textContent)`),'persisted save');
+  const stored=await evaluate(`fetch('/__state',{cache:'no-store'}).then(r=>r.json()).then(s=>s.notes.find(n=>n.id==='ui-plan').content)`);assert.match(stored,/已验证原位保存反馈/);
+  await until(()=>evaluate(`!!${saveControl}?.classList.contains('feedback-confirmed')`),'confirmed save on the Save control');await shot('confirmed-save');
+  await evaluate(`(()=>{document.querySelector('#previewContent .cm-content').focus();document.execCommand('insertText',false,'。');})()`);await until(()=>evaluate(`NoteEditor.currentContent()?.dirty===true`),'next edit');
+  assert.equal(await evaluate(`!!${saveControl}?.classList.contains('feedback-confirmed')`),false);
  });
  await step('failed persistence retains draft and never shows Saved',async()=>{
-  await evaluate(`window.__failedHost=document.createElement('section');__failedHost.style.cssText='position:fixed;inset:60px;z-index:99999;background:var(--panel)';document.body.append(__failedHost);window.__failedState={notes:[{id:'failure-note',title:'失败保护',content:'原文'}],projects:[]};window.__failedEditor=NoteEditor.createInlineController({getState:()=>__failedState,save:()=>Promise.reject(Error('fixture disk unavailable'))});__failedEditor.mount(__failedHost,'failure-note',{mode:'edit'});`);await wait(30);
-  await evaluate(`(()=>{const s=__failedHost.querySelector('.note-document-source textarea');s.value='保留的未保存草稿';s.dispatchEvent(new Event('input',{bubbles:true}));})()`);assert.equal(await evaluate('__failedEditor.save()'),false);await wait(40);
-  assert.equal(await evaluate('!!__failedHost.querySelector(".feedback-confirmed")'),false);assert.match(await evaluate('__failedHost.querySelector(".note-document-status").textContent'),/保存失败/);assert.equal(await evaluate('__failedHost.querySelector(".note-document-source textarea").value'),'保留的未保存草稿');assert.equal(await evaluate('__failedState.notes[0].content'),'原文');await evaluate('__failedEditor.unmount({force:true});__failedHost.remove()');
+  await evaluate(`window.__failedHost=document.createElement('section');__failedHost.style.cssText='position:fixed;inset:60px;z-index:99999;background:var(--panel)';document.body.append(__failedHost);window.__failedState={notes:[{id:'failure-note',title:'失败保护',content:'原文'}],projects:[]};window.__failedEditor=NoteEditor.createInlineController({getState:()=>__failedState,save:()=>Promise.reject(Error('fixture disk unavailable'))});__failedEditor.mount(__failedHost,'failure-note',{mode:'edit'});`);
+  // The modern source mode is CodeMirror, not a textarea.
+  await until(()=>evaluate(`!!__failedHost.querySelector('.cm-content[contenteditable=true]')`),'failure source editor');
+  await evaluate(`(()=>{const e=__failedHost.querySelector('.cm-content');e.focus();const s=getSelection(),r=document.createRange();r.selectNodeContents(e);s.removeAllRanges();s.addRange(r);document.execCommand('insertText',false,'保留的未保存草稿');})()`);
+  await until(()=>evaluate(`__failedEditor.currentContent()?.content.trim()==='保留的未保存草稿'`),'failure draft');assert.equal(await evaluate('__failedEditor.save()'),false);await wait(40);
+  assert.equal(await evaluate('!!__failedHost.querySelector(".feedback-confirmed")'),false);assert.match(await evaluate('__failedHost.querySelector(".note-document-status").textContent'),/保存失败/);
+  assert.equal(await evaluate('__failedHost.querySelector(".document-toolbar-kit-state").textContent'),'未保存');
+  assert.equal(await evaluate('__failedEditor.currentContent().content.trim()'),'保留的未保存草稿');assert.equal(await evaluate('__failedHost.querySelector(".cm-content").textContent'),'保留的未保存草稿');
+  assert.equal(await evaluate('__failedState.notes[0].content'),'原文');await evaluate('__failedEditor.unmount({force:true});__failedHost.remove()');
  });
  await step('dark, narrow, and reduced motion preserve readable selection and all records',async()=>{
   await evaluate(`ReadingPane?.close?.();document.querySelector('#readingCollapse')?.click();state.ui.theme='dark';applyUiPreferences();document.querySelector('.clarify-card').scrollIntoView({block:'center',behavior:'instant'})`);await wait(150);await shot('dark-process-choices');win.setSize(780,920);await wait(200);

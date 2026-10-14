@@ -276,12 +276,26 @@ class SyncGuardTests(unittest.TestCase):
         self.service.ssh = CloudSSH(self.service, home=self.base / 'home', runner=lambda *args, **kwargs: self.fail('must not SSH'))
         self.service._session = {'serverUrl': self.target['serverUrl'], 'account': {'id': 'fixture-account'}, 'device': {'id': 'fixture-device'}, 'accessToken': 'synthetic-test-token', 'autoSync': True}
         self.service.credentials.save = lambda session: 'fixture'
+        # _set_auto re-reads the persisted session before writing; the fixture
+        # never persists, so report the in-memory session as the stored one.
+        self.service.credentials.load = lambda: self.service._session
         self.service._auto = True
         self.record = {'id': 'b' * 32, 'state': 'uncertain', 'phase': 'copying', 'message': 'fixture unknown',
             'source': '/srv/source', 'destination': '/srv/destination', 'restoreAuto': True,
             'identity': {**self.target, 'cursor': 3},
             'config': {'target': 'fixture-host', 'sshPort': 0, 'localPort': 18787, 'remotePort': 8787}}
         with self.service.ssh.operation_guard(): self.service.ssh._persist(self.record)
+
+    def test_preference_write_refuses_when_stored_session_changed_elsewhere(self):
+        # Another process signed in again: the stored token differs from memory.
+        stored = {**self.service._session, 'accessToken': 'rotated-elsewhere'}
+        self.service.credentials.load = lambda: stored
+        saved = []; self.service.credentials.save = lambda session: saved.append(session) or 'fixture'
+        with self.assertRaises(CloudSyncError) as caught: self.service.settings({'autoSync': False})
+        self.assertEqual(caught.exception.code, 'CONNECTION_SESSION_CHANGED')
+        self.assertEqual(saved, [], 'a stale session must not overwrite the stored one')
+        self.assertTrue(self.service._auto)
+        self.assertEqual(self.service._session['accessToken'], 'synthetic-test-token')
 
     def test_pending_guards_manual_automatic_connect_enable_and_resolution(self):
         calls = [self.service.sync_now, self.service.sync_once, lambda: self.service.settings({'autoSync': True}),

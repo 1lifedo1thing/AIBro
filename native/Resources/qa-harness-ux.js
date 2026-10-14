@@ -18,7 +18,7 @@ const breath = {id: 'qa-ux-breath', role: 'assistant', text: '', live: true, sta
     {id: 'qa-ux-s2', kind: 'tool', name: '读取文件', text: '已读取 3 个片段', status: 'completed', at: t - 8000, updatedAt: t - 6000},
     {id: 'qa-ux-s3', kind: 'summary', text: '第二段思考', status: 'running', at: t - 2000, updatedAt: t}
   ]};
-const openKeys = (html, includeFeed = false) => [...html.matchAll(/data-progress-key="([^"]+)" open>/g)].map(m => m[1]).filter(key => includeFeed || key !== 'feed');
+const openKeys = (html, includeFeed = false) => [...html.matchAll(/data-progress-key="([^"]+)" open(?=[\s>])/g)].map(m => m[1]).filter(key => includeFeed || key !== 'feed');
 const streaming = AgentProgress.markup(breath);
 check(JSON.stringify(openKeys(streaming)) === JSON.stringify(['qa-ux-s3']), 'streaming segment opens while settled segments stay collapsed: ' + JSON.stringify(openKeys(streaming)));
 check(openKeys(streaming, true).includes('feed'), 'the whole feed is expanded while the turn streams');
@@ -54,6 +54,9 @@ AgentQueue.clear(chat); renderComposerQueue();
 check(strip.hidden, 'queue strip hides once drained');
 
 // 5) 消息元信息：测量到的耗时与用量才显示，未测量不得编造 tokens
+// The message list only mounts rows while it is visible (ConversationWindow);
+// earlier QA steps leave another view open, so show the conversation first.
+showView('agent', '持续对话');
 state.agentRuns.push({id: 'qa-ux-run', conversationId: chat.id, status: 'completed', startedAt: t - 64000, finishedAt: t});
 chat.messages.push({id: 'qa-ux-meta', role: 'agent', text: '合成用量消息。', usage: {input: 900, output: 600, total: 1500}, runId: 'qa-ux-run'});
 state.currentConversationId = chat.id; renderConversation();
@@ -98,16 +101,19 @@ const qaMsgs = [
 ];
 const qaFork = ConversationBranches.fork({ messages: qaMsgs, createdAt: t }, 'qa-b2', 'qa-br', t);
 check(!qaFork.error, 'fork splits at a message');
-check(qaFork.keep.length === 2 && qaFork.branch.messages.length === 2, 'fork keeps the head and parks the tail');
-check(qaFork.keep.length + qaFork.branch.messages.length === qaMsgs.length, 'fork conserves every message');
+// full-v1 branches carry the complete original path (tests/conversation-branches.test.js).
+check(qaFork.keep.map(item => item.id).join(',') === 'qa-b1,qa-b2' && qaFork.afterCount === 2, 'fork keeps the head and counts the parked tail');
+check(qaFork.branch.messages.map(item => item.id).join(',') === 'qa-b1,qa-b2,qa-b3,qa-b4' && qaFork.branch.historyFormat === 'full-v1', 'branch keeps the complete original path');
+const qaReach = value => new Set([...(value.messages || []), ...(value.branches || []).flatMap(branch => branch.messages || [])].map(item => item.id));
+check(qaMsgs.every(item => qaReach({ messages: qaFork.keep, branches: [qaFork.branch] }).has(item.id)), 'fork conserves every message');
 check(qaFork.branch.fromMessageId === 'qa-b2', 'branch records the message it split from');
 const qaSwitched = ConversationBranches.switchTo({ messages: qaFork.keep, branches: [qaFork.branch], activeBranch: qaFork.activeBranch, createdAt: t }, 'qa-br', t + 10);
-check(qaSwitched.messages.map(item => item.id).join(',') === 'qa-b3,qa-b4', 'switch loads the target path');
+check(qaSwitched.messages.map(item => item.id).join(',') === 'qa-b1,qa-b2,qa-b3,qa-b4', 'switch loads the target path');
 check(qaSwitched.branches.find(item => item.id === 'main').messages.map(item => item.id).join(',') === 'qa-b1,qa-b2', 'the previous path is parked intact');
 const qaBack = ConversationBranches.switchTo({ messages: qaSwitched.messages, branches: qaSwitched.branches, activeBranch: qaSwitched.activeBranch, createdAt: t }, 'main', t + 20);
 check(qaBack.messages.map(item => item.id).join(',') === 'qa-b1,qa-b2', 'switching back restores the original path');
 check(qaBack.branches.find(item => item.id === 'qa-br').fromMessageId === 'qa-b2', 'branch provenance survives a round trip');
-check(qaSwitched.messages.length + qaSwitched.branches.reduce((total, branch) => total + branch.messages.length, 0) === qaMsgs.length, 'no message is lost across a switch');
+check(qaMsgs.every(item => qaReach(qaSwitched).has(item.id)) && qaMsgs.every(item => qaReach(qaBack).has(item.id)), 'no message is lost across a switch');
 
 
 // 5) 工具空转预警（T19）：机械判定、参数不同的分页读取不误伤、未完成的调用不计入
@@ -160,16 +166,18 @@ check(!qaSingle.includes('progress-group-text'), 'a single finished tool is not 
 AgentProgress.update(qaAgg, {id: 'qa-a2', kind: 'tool', name: '读取文件', text: 'b.csv', status: 'running'}, t - 1400);
 AgentProgress.update(qaAgg, {id: 'qa-a2', kind: 'tool', name: '读取文件', text: 'b.csv', status: 'completed'}, t);
 check(/progress-group-text">读取文件 ×2/.test(AgentProgress.markup(qaAgg)), 'adjacent identical finished tools aggregate with a count');
-check(/读取文件 ×2 · [0-9]/.test(AgentProgress.markup(qaAgg)), 'the aggregate row shows the measured total duration');
+check(/progress-group-cost">累计 [0-9]+ 秒</.test(AgentProgress.markup(qaAgg)), 'the aggregate row shows the measured total duration');
 AgentProgress.update(qaAgg, {id: 'qa-a3', kind: 'tool', name: '读取文件', text: 'c.csv', status: 'running'}, t + 10);
 const qaWithRunning = AgentProgress.markup(qaAgg);
-check(/读取文件 ×2/.test(qaWithRunning), 'a running follow-up does not break the settled group summary');
-check(!/读取文件 ×3/.test(qaWithRunning), 'a still-running tool is never counted into the aggregate');
+// Current grouping contract (tests/agent-progress.test.js): a running member joins its
+// group, the status line separates states, and the group opens while anything runs.
+check(/progress-group-status">进行中 1 · 已完成 2</.test(qaWithRunning) && /data-progress-key="group:qa-a1" open/.test(qaWithRunning), 'a running follow-up stays in the group and keeps the settled members visible');
+check(!/已完成 3/.test(qaWithRunning), 'a still-running tool is never counted as completed');
 const qaRunningGroup = {id: 'qa-run-group', role: 'assistant', text: '', live: true, startedAt: t, activities: []};
 AgentProgress.update(qaRunningGroup, {id: 'qa-r1', kind: 'tool', name: '运行命令', text: 'x', status: 'running'}, t - 2000);
 AgentProgress.update(qaRunningGroup, {id: 'qa-r1', kind: 'tool', name: '运行命令', text: 'x', status: 'completed'}, t - 1000);
 AgentProgress.update(qaRunningGroup, {id: 'qa-r2', kind: 'tool', name: '运行命令', text: 'y', status: 'running'}, t - 900);
-check(!AgentProgress.markup(qaRunningGroup).includes('progress-group-text'), 'a group containing a running member stays unaggregated');
+check(/progress-group-status">进行中 1 · 已完成 1</.test(AgentProgress.markup(qaRunningGroup)), 'a group containing a running member reports it as running, not completed');
 
 // 10) 结构化问询卡片（T23）：只接受可枚举选项、答案语义完整、渲染转义、提交后只读
 check(typeof window.ClarifyQuestions === 'object' && typeof ClarifyQuestions.validate === 'function', 'clarify questions module is loaded');
@@ -307,6 +315,9 @@ chat.projectId='qa-editor-project';state.currentConversationId=chat.id;
 for(const note of qaReviewAfter.notes)note.projectId=chat.projectId;
 state.ui.inspectorOpen=true;state.ui.inspector='files';
 renderAll();showView('agent');applyUiPreferences();AgentWorkspace.sync();
+// Real notes exist on disk; the local draft store only accepts persisted notes.
+check(await saveDocumentDurably()===true,'fixture documents are saved before editing');
+const qaUntil=async(test,label)=>{for(let n=0;n<200;n++){if(test())return;await new Promise(resolve=>setTimeout(resolve,25));}throw Error('Timed out: '+label);};
 check(document.querySelectorAll('#conversationProjectFiles [data-project-file-key]').length===2,'project tree lists both documents in native shell');
 await openPreview('note','qa-review-doc');
 await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
@@ -317,20 +328,38 @@ if(qaReaderBounds.width<620){document.querySelector('#readerFilesToggle').click(
 const qaAccent=getComputedStyle(document.body).getPropertyValue('--accent').trim();
 check(qaAccent===(document.body.classList.contains('light-mode')?'#087f70':'#65d7bb'),'native preserves the original AI Bro accent');
 if(BrowserTools.available())check(document.querySelector('#composerBrowserToggle'),'native browser has an entry outside the hidden web header');
-document.querySelector('[data-note-action="rich"]').click();
-const qaEditable=document.querySelector('.markdown-editor-paragraph');
+const qaModeControl=label=>[...document.querySelectorAll('.document-toolbar-kit [role=radio]')].find(node=>node.textContent.trim()===label);
+await qaUntil(()=>qaModeControl('编辑')&&!qaModeControl('编辑').disabled,'visual edit mode available');qaModeControl('编辑').click();
+await qaUntil(()=>document.querySelector('.document-visual-canvas .ProseMirror[contenteditable=true]'),'visual editor mounted');
+const qaEditable=document.querySelector('.document-visual-canvas .ProseMirror');
 check(qaEditable&&document.querySelector('.note-document').dataset.mode==='rich','rendered Markdown is directly editable in native shell');
 check(!document.querySelector('.reader-document-details').open,'document metadata starts compact and is available on demand');
-check(document.querySelector('.markdown-editor-body h1').getBoundingClientRect().top<300,'native editor keeps first content above dense chrome');
-qaEditable.querySelector('p').textContent='在原生界面继续编辑并保存';qaEditable.dispatchEvent(new InputEvent('input',{bubbles:true}));
-const qaSwitch=openPreview('note','qa-review-principles');
-check(!document.querySelector('.note-document-leave').hidden&&state.previewRecord.id==='qa-review-doc','dirty document waits for a decision before changing files');
-document.querySelector('[data-note-action="save-leave"]').click();await qaSwitch;
+check(qaEditable.querySelector('h1').getBoundingClientRect().top<300,'native editor keeps first content above dense chrome: '+Math.round(qaEditable.querySelector('h1').getBoundingClientRect().top));
+// Type through the real editor input path (ProseMirror handles insertText).
+qaEditable.focus();{const range=document.createRange();range.selectNodeContents(qaEditable.querySelector('p'));const selection=getSelection();selection.removeAllRanges();selection.addRange(range);}
+document.execCommand('insertText',false,'在原生界面继续编辑并保存');
+await qaUntil(()=>NoteEditor.currentContent()?.content.includes('在原生界面继续编辑并保存'),'visual edit reaches the draft');
+// Navigation keeps an unsaved edit as a local draft instead of prompting
+// (tests/reading-pane.test.js); it must never be written into the note silently.
+await openPreview('note','qa-review-principles');
+check(state.previewRecord.id==='qa-review-principles','switching documents opens the requested file');
+check(!state.notes.find(note=>note.id==='qa-review-doc').content.includes('在原生界面继续编辑并保存'),'an unsaved edit is not committed by navigation');
+await openPreview('note','qa-review-doc');
+await qaUntil(()=>NoteEditor.currentContent()?.dirty===true,'retained draft restored');
+check(NoteEditor.currentContent().content.includes('在原生界面继续编辑并保存'),'reopening restores the retained draft');
+// The Kit toolbar re-renders asynchronously; click only once Save is enabled.
+const qaSaveButton=()=>[...document.querySelectorAll('#previewDialog .document-toolbar-kit button')].find(button=>button.textContent.trim()==='保存'&&!button.disabled&&button.getClientRects().length);
+await qaUntil(()=>qaSaveButton(),'enabled save button');qaSaveButton().click();
+await qaUntil(()=>state.notes.find(note=>note.id==='qa-review-doc').content.includes('在原生界面继续编辑并保存')&&NoteEditor.currentContent()?.dirty===false,'explicit save');
 check(state.notes.find(note=>note.id==='qa-review-doc').content.includes('在原生界面继续编辑并保存'),'rendered edit persists in the exact selected note');
-check(state.previewRecord.id==='qa-review-principles','save and continue opens the originally requested file');
 qaReviewRun.startedAt=Date.now();qaReviewRun.contextMetrics={estimatedTokens:2400,characters:5600,loadedCapabilities:['knowledge','files'],history:{includedMessages:4,totalMessages:18,omittedMessages:14}};
 qaReviewRun.knowledgeReads=[{type:'read',id:'qa-review-doc',title:'Interaction plan',offset:0}];AgentWorkspace.sync();
-const qaEvidence=document.querySelector('#requestContextEvidence').textContent;
+// Request evidence lives in the context workbench's "recent request" tab.
+state.ui.inspectorOpen=true;state.ui.inspector='context';applyUiPreferences();ContextWorkbench.refresh();
+await qaUntil(()=>document.querySelector('#contextWorkbench #context-tab-recent'),'context workbench tabs');
+document.querySelector('#contextWorkbench #context-tab-recent').click();
+await qaUntil(()=>/4 \/ 18/.test(document.querySelector('#contextWorkbench')?.textContent||''),'recent request evidence');
+const qaEvidence=document.querySelector('#contextWorkbench').textContent;
 check(qaEvidence.includes('2,400')&&qaEvidence.includes('4 / 18'),'native request evidence shows recorded size and history selection');
 check(document.querySelectorAll('#conversationInspector').length===1,'docking never duplicates the inspector');
 state.ui.inspector='files';applyUiPreferences();save();

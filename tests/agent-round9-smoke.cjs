@@ -38,22 +38,29 @@ async function run(){
   save();applyUiPreferences();openProject('qa_proj');})()`);
  await wait(900);
 
+ // 项目分区由 WorkspaceNavigation 的 Kit 标签驱动；旧 [data-project-tab] 条在导航就绪后隐藏，仅作兼容。
+ const PANEL=`document.querySelector('[data-project-panel="schedule"]')`;
+ async function openSchedule(label){await evaluate(`document.querySelector('[data-workspace-route="schedule"]').click()`);await until(()=>evaluate(`!${PANEL}.hidden&&!!${PANEL}.querySelector('.schedule-day')`),label);}
  await step('项目视图新增「排期」Tab，且默认不在排期面板',async()=>{
-  const probe=await evaluate(`(()=>{const tab=document.querySelector('[data-project-tab="schedule"]');
-   const panel=document.querySelector('[data-project-panel="schedule"]');
-   return {tab:!!tab,text:tab?.textContent||'',panelHidden:panel?.hidden??null};})()`);
+  const probe=await evaluate(`(()=>{const tab=document.querySelector('[data-workspace-route="schedule"]');
+   const panel=${PANEL};
+   return {tab:!!tab,visible:!!tab?.getClientRects().length,text:tab?.textContent||'',selected:tab?.getAttribute('aria-selected'),panelHidden:panel?.hidden??null};})()`);
   assert.equal(probe.tab,true,'必须有排期 Tab');
+  assert.equal(probe.visible,true,'排期 Tab 必须可见');
   assert.equal(probe.text,'排期');
+  assert.equal(probe.selected,'false');
   assert.equal(probe.panelHidden,true,'未切换时面板应隐藏');
  });
 
  await step('切到排期：渲染周视图（周一→周日七列）与计划文档',async()=>{
-  const probe=await evaluate(`(()=>{document.querySelector('[data-project-tab="schedule"]').click();
-   const panel=document.querySelector('[data-project-panel="schedule"]');
+  await openSchedule('排期面板');
+  const probe=await evaluate(`(()=>{const panel=${PANEL};
    const days=[...panel.querySelectorAll('.schedule-day')];
-   return {hidden:panel.hidden,dayCount:days.length,names:days.map(d=>d.querySelector('.schedule-day-name')?.textContent||''),
-     hasPlan:!!panel.querySelector('#projectPlanPanel'),range:panel.querySelector('.schedule-range')?.textContent||''};})()`);
+   return {hidden:panel.hidden,visible:panel.getClientRects().length>0,selected:document.querySelector('[data-workspace-route="schedule"]').getAttribute('aria-selected'),dayCount:days.length,names:days.map(d=>d.querySelector('.schedule-day-head strong')?.textContent||''),
+     hasPlan:!!panel.querySelector('details.project-plan-panel'),range:panel.querySelector('.schedule-range')?.textContent||''};})()`);
   assert.equal(probe.hidden,false,'面板应显示');
+  assert.equal(probe.visible,true,'面板应可见');
+  assert.equal(probe.selected,'true','排期 Tab 应为当前项');
   assert.equal(probe.dayCount,7,'应为七天');
   assert.deepEqual(probe.names,['周一','周二','周三','周四','周五','周六','周日']);
   assert.equal(probe.hasPlan,true,'应渲染计划文档面板');
@@ -61,10 +68,10 @@ async function run(){
  });
 
  await step('任务按截止日期落到正确的列，且带状态颜色点',async()=>{
-  const probe=await evaluate(`(()=>{const panel=document.querySelector('[data-project-panel="schedule"]');
+  const probe=await evaluate(`(()=>{const panel=${PANEL};
    const days=[...panel.querySelectorAll('.schedule-day')];
-   const pick=i=>[...days[i].querySelectorAll('.schedule-card')].map(c=>c.textContent.trim());
-   return {mon:pick(0),wed:pick(2),fri:pick(4),dots:[...panel.querySelectorAll('.schedule-card-dot')].map(d=>d.className)};})()`);
+   const pick=i=>[...days[i].querySelectorAll('.schedule-task-row')].map(c=>c.textContent.trim());
+   return {mon:pick(0),wed:pick(2),fri:pick(4),dots:[...panel.querySelectorAll('.schedule-week-list .schedule-task-dot')].map(d=>d.className)};})()`);
   assert.match(probe.mon.join('|'),/周一启动会/,'周一应有启动会');
   assert.match(probe.wed.join('|'),/周三实验/,'周三应有实验');
   assert.match(probe.fri.join('|'),/周五写报告/,'周五应有报告');
@@ -74,9 +81,9 @@ async function run(){
  });
 
  await step('不在本周的任务不出现；无日期的进「未安排」区（不静默丢掉）',async()=>{
-  const probe=await evaluate(`(()=>{const panel=document.querySelector('[data-project-panel="schedule"]');
+  const probe=await evaluate(`(()=>{const panel=${PANEL};
    const text=panel.textContent;
-   const unscheduled=panel.querySelector('.schedule-unscheduled');
+   const unscheduled=[...panel.querySelectorAll('.schedule-extra')].find(section=>section.querySelector('h3')?.textContent==='未安排');
    return {hasNext:!/下周的事/.test(text),unscheduled:!!unscheduled,unscheduledText:unscheduled?.textContent||''};})()`);
   assert.equal(probe.hasNext,true,'下周任务不应出现在本周视图');
   assert.equal(probe.unscheduled,true,'应有未安排区');
@@ -84,7 +91,7 @@ async function run(){
  });
 
  await step('周导航：下一周/上一周/回到本周都生效',async()=>{
-  const probe=await evaluate(`(()=>{const panel=document.querySelector('[data-project-panel="schedule"]');
+  const probe=await evaluate(`(()=>{const panel=${PANEL};
    const before=panel.querySelector('.schedule-range').textContent;
    panel.querySelector('[data-schedule-next]').click();
    const next=panel.querySelector('.schedule-range').textContent;
@@ -99,31 +106,37 @@ async function run(){
  });
 
  await step('计划文档：编辑并保存写回项目，且内容按 Markdown 渲染在预览里',async()=>{
-  const probe=await evaluate(`(()=>{const panel=document.querySelector('[data-project-panel="schedule"]');
-   const input=panel.querySelector('#projectPlanInput');
-   input.value='# 阶段性目标\\n\\n- 完成数据采集\\n- 复现基线 <script>alert(1)</script>';
+  // 计划默认折叠：先展开，再按真实输入事件编辑受控文本框。
+  await evaluate(`${PANEL}.querySelector('.project-plan-panel > summary').click()`);
+  await until(()=>evaluate(`${PANEL}.querySelector('.project-plan-panel').open&&!!${PANEL}.querySelector('[data-plan-input]')?.getClientRects().length`),'展开计划文档');
+  const probe=await evaluate(`(()=>{const panel=${PANEL};
+   const input=panel.querySelector('[data-plan-input]');
+   Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,'# 阶段性目标\\n\\n- 完成数据采集\\n- 复现基线 <script>alert(1)</script>');input.dispatchEvent(new Event('input',{bubbles:true}));
    panel.querySelector('[data-plan-preview]').click();
-   const preview=panel.querySelector('#projectPlanPreview');
-   const html=preview.innerHTML;
-   panel.querySelector('[data-plan-save]').click();
-   const project=state.projects.find(p=>p.id==='qa_proj');
-   return {previewShown:!preview.hidden,hasHeading:!!preview.querySelector('h1'),
-     injected:/<script/i.test(html),escaped:/&lt;script&gt;/.test(html),
-     saved:project.plan||'',hint:panel.querySelector('[data-plan-hint]')?.textContent||''};})()`);
+   const preview=panel.querySelector('.project-plan-preview');
+   const html=preview?.innerHTML||'';
+   return {previewShown:!!preview?.getClientRects().length,hasHeading:!!preview?.querySelector('h1'),
+     injected:/<script/i.test(html),escaped:/&lt;script&gt;/.test(html),unsaved:state.projects.find(p=>p.id==='qa_proj').plan||''};})()`);
   assert.equal(probe.previewShown,true,'预览应显示');
   assert.equal(probe.hasHeading,true,'Markdown 标题应被渲染');
   assert.equal(probe.injected,false,'计划内容不得注入脚本');
   assert.equal(probe.escaped,true,'应转义为字面实体');
-  assert.match(probe.saved,/阶段性目标/,'保存应写回项目对象');
-  assert.equal(probe.hint,'已保存');
+  assert.equal(probe.unsaved,'','保存前不得写回项目');
+  await evaluate(`${PANEL}.querySelector('[data-plan-save]').click()`);
+  await until(()=>evaluate(`!ProjectSchedule.isBusy()&&!ProjectSchedule.isDirty()`),'计划保存回执');
+  const saved=await evaluate(`({saved:state.projects.find(p=>p.id==='qa_proj').plan||'',hint:${PANEL}.querySelector('.project-plan-actions [role=status]')?.textContent||''})`);
+  assert.match(saved.saved,/阶段性目标/,'保存应写回项目对象');
+  assert.equal(saved.hint,'已保存');
  });
 
  await step('计划文档持久化：保存后重新打开项目仍在',async()=>{
-  const probe=await evaluate(`(()=>{renderAll();openProject('qa_proj');
-   document.querySelector('[data-project-tab="schedule"]').click();
-   const panel=document.querySelector('[data-project-panel="schedule"]');
-   const value=panel.querySelector('#projectPlanInput')?.value||'';
-   const collapsed=panel.querySelector('#projectPlanPanel')?.tagName.toLowerCase()==='details';
+  const stored=await evaluate(`fetch('/__state').then(r=>r.json()).then(data=>(data.state||data).projects.find(p=>p.id==='qa_proj')?.plan||'')`);
+  assert.match(stored,/阶段性目标/,'计划应写入本地存储');
+  await evaluate(`renderAll();openProject('qa_proj',{section:'overview'})`);await until(()=>evaluate(`state.ui.projectTab==='overview'&&${PANEL}.hidden`),'离开排期');
+  await openSchedule('重新打开排期');
+  const probe=await evaluate(`(()=>{const panel=${PANEL};
+   const value=panel.querySelector('[data-plan-input]')?.value||'';
+   const collapsed=panel.querySelector('.project-plan-panel')?.tagName.toLowerCase()==='details';
    return {value,collapsed};})()`);
   assert.match(probe.value,/阶段性目标/,'重开后计划内容应保留');
   assert.equal(probe.collapsed,true,'计划文档应可折叠（details）');

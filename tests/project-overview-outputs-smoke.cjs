@@ -95,8 +95,10 @@ async function run() {
     await click('#readingBack');await until(()=>evaluate(`state.ui.projectTab==='overview'&&!ReadingPane.snapshot().visible`),'overview return');assert.equal(await evaluate('overviewExplicitSaves'),0);
   });
   await check('overview task action opens the real scoped editor and add task dialog without creating records',async()=>{
-    await evaluate(`[...document.querySelectorAll('#projectOverview button')].find(button=>button.textContent.includes('添加任务')).click()`);await paint();assert.equal(await evaluate(`document.querySelector('#planningCreateForm')?.closest('dialog').open`),true);assert.equal(await evaluate(`document.querySelector('#planningTaskProject').value`),'overview-project');
-    await click('[data-planning-cancel]');assert.equal(await evaluate('state.tasks.length'),0);
+    await evaluate(`[...document.querySelectorAll('#projectOverview button')].find(button=>button.textContent.includes('添加任务')).click()`);await paint();assert.equal(await evaluate(`document.querySelector('#planningCreateForm')?.closest('dialog').open`),true);assert.equal(await evaluate(`document.querySelector('#planningCreateForm .task-create-location').textContent`),'Project overview (synthetic)');
+    await click('#planningCreateForm [aria-controls=taskCreateDetails]');assert.equal(await evaluate(`document.querySelector('#planningTaskProject').value`),'overview-project');
+    await evaluate(`(()=>{const cancel=[...document.querySelectorAll('#planningCreateForm .task-create-actions button')].find(button=>button.textContent.trim()==='取消');if(!cancel?.getClientRects().length||cancel.disabled)throw Error('Unavailable control: task create cancel');cancel.click();})()`);await paint();
+    assert.equal(await evaluate(`document.querySelector('#planningCreateDialog').open`),false);assert.equal(await evaluate('state.tasks.length'),0);
     await evaluate(`state.tasks=[{id:'next-task',title:'Review this output',projectId:'overview-project',workspace:'日常',status:'todo',dueAt:'2026-10-09'}];renderProject('overview-project');`);await paint();
     await evaluate(`[...document.querySelectorAll('#projectOverview button')].find(button=>button.textContent.includes('Review this output')).click()`);await paint();assert.equal(await evaluate(`document.querySelector('#taskDialog').open`),true);
     await evaluate(`document.querySelector('#taskDialog').close()`);await paint();assert.equal(await evaluate('state.tasks.length'),1);

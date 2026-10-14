@@ -597,3 +597,7 @@ body.reduce-motion *::after {
   transition-duration: .001s !important;
   scroll-behavior: auto !important;
 }
+/* 上面的通配不匹配 ::backdrop，对话框遮罩的 scrim-in 淡入仍会播放。
+   单独成规则，避免 ::backdrop 让整组选择器失效。 */
+body.reduce-motion ::backdrop { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; }
+@media (prefers-reduced-motion: reduce) { ::backdrop { animation: none !important; transition: none !important; } }

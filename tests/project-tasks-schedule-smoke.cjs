@@ -90,9 +90,9 @@ async function run() {
   await check('new task form uses actual Kit and persists only after a real local storage receipt',async()=>{
     await evaluate(`PlanningWorkbench.createTask({projectId:'overview-project'})`);await paint();
     assert.equal(await evaluate(`document.querySelector('#planningCreateSurface').dataset.halaskaRoot`),'TaskCreateForm');
-    assert.equal(await evaluate(`document.querySelector('#taskCreateDetails').hidden`),true);
+    assert.equal(await evaluate(`document.querySelector('#taskCreateDetails')`),null);
     await input('#planningTaskTitle','新建任务 · 截止日期与保存验收');
-    await click('[aria-controls=taskCreateDetails]');assert.equal(await evaluate(`document.querySelector('#planningCreateDialog').open`),true);assert.equal(await evaluate(`document.querySelector('#taskCreateDetails').hidden`),false);await click('[aria-controls=taskCreateDetails]');
+    await click('[aria-controls=taskCreateDetails]');assert.equal(await evaluate(`document.querySelector('#planningCreateDialog').open`),true);assert.ok(await evaluate(`document.querySelector('#taskCreateDetails')?.getClientRects().length`));assert.equal(await evaluate(`document.querySelector('#planningTaskProject').value`),'overview-project');await click('[aria-controls=taskCreateDetails]');assert.equal(await evaluate(`document.querySelector('#taskCreateDetails')`),null);assert.equal(await evaluate(`document.querySelector('#planningTaskTitle').value`),'新建任务 · 截止日期与保存验收');
     const due=await evaluate('PlanningWorkbench.dateField(Date.now())');await input('#planningTaskDue',due);
     await click('#planningCreateSubmit');await until(()=>evaluate(`!document.querySelector('#planningCreateDialog').open`),'task creation receipt');
     const created=await evaluate(`state.tasks.find(task=>task.title==='新建任务 · 截止日期与保存验收')`);assert.ok(created?.id);assert.equal(created.dueAt,due);assert.equal(created.projectId,'overview-project');

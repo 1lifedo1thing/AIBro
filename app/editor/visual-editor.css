@@ -55,7 +55,10 @@
 .document-visual-editor .milkdown .ProseMirror h1 { font-size: 1.8em; margin: 1.6em 0 .6em; }
 .document-visual-editor .milkdown .ProseMirror h2 { font-size: 1.45em; margin: 1.4em 0 .55em; }
 .document-visual-editor .milkdown .ProseMirror h3 { font-size: 1.2em; margin: 1.2em 0 .5em; }
-.document-visual-editor .milkdown .ProseMirror > :first-child { margin-top: 0; }
+.document-visual-editor .milkdown .ProseMirror > :first-child,
+/* The virtual cursor plugin inserts an absolutely positioned element as the
+   first child, so the first content block also needs its top margin removed. */
+.document-visual-editor .milkdown .ProseMirror > .prosemirror-virtual-cursor:first-child + * { margin-top: 0; }
 .document-visual-editor .milkdown .ProseMirror p { margin: .7em 0; }
 .document-visual-editor .milkdown .ProseMirror a { color: var(--accent, #28796a); text-underline-offset: 3px; }
 .document-visual-editor .milkdown .ProseMirror blockquote { border-left: 3px solid var(--border, #ccd4d2); margin-left: 0; color: var(--muted, #69727b); }
@@ -79,6 +82,25 @@
 .document-visual-editor .milkdown .top-bar-item svg { width: 18px; height: 18px; }
 .document-visual-editor .document-visual-symbol { display: inline-flex; align-items: center; justify-content: center; font-size: 21px; line-height: 20px; width: 20px; height: 20px; }
 .document-visual-editor .milkdown .top-bar-divider { margin: 3px 5px; }
+/* Crepe gives each 32 px item a 6 px margin, so a narrow reading pane folds the
+   toolbar into several rows above the text. Keep one compact row there; items
+   that do not fit scroll sideways (focus scrolls them into view). */
+@container (max-width: 760px) {
+  .document-visual-editor .milkdown .milkdown-top-bar { padding: 3px 8px; min-height: 0; }
+  .document-visual-editor .milkdown .top-bar-inner { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .document-visual-editor .milkdown .top-bar-inner::-webkit-scrollbar { display: none; }
+  .document-visual-editor .milkdown .top-bar-item { width: 28px; height: 28px; min-width: 28px; min-height: 28px; margin: 1px; padding: 3px; }
+  .document-visual-editor .milkdown .top-bar-item svg { width: 16px; height: 16px; }
+  .document-visual-editor .milkdown .top-bar-divider { margin: 3px 2px; height: 22px; }
+  /* The heading menu is positioned against the sticky bar instead of the
+     selector, so the scrolling row does not clip it; auto offsets keep it
+     directly under the selector button. */
+  .document-visual-editor .milkdown .top-bar-heading-selector { position: static; padding: 2px; }
+  .document-visual-editor .milkdown .top-bar-heading-dropdown { top: auto; left: auto; }
+  .document-visual-editor .milkdown .top-bar-heading-button { height: 28px; padding-block: 2px; }
+  .document-visual-editor .milkdown .top-bar-heading-button .top-bar-heading-label { min-width: 56px; }
+  .document-visual-editor .milkdown .ProseMirror { padding-top: 14px; }
+}
 .document-visual-editor button:focus-visible,
 .document-visual-editor input:focus-visible,
 .document-visual-editor [role="button"]:focus-visible {

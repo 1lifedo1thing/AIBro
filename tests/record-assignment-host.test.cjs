@@ -31,7 +31,7 @@ function fixture(options={}){
   addRunStep:(run,text)=>run.steps.push({text}),save:()=>calls.queued.push(copy(c.state)),saveDocumentDurably:async()=>{calls.durable.push(copy(c.state));return durable(c,calls.durable.length);},renderAll(){},renderConversation(){},toast:message=>calls.errors.push(String(message)),
   sendMessage(){},activeRunController:null,document:{activeElement:null,body:{},querySelectorAll:()=>[]},requestReviewerOpinion:async()=>{calls.requests++;return {verdict:'approve'};}
  });
- vm.runInContext([section('function commitAttachmentAnalysis(','\nfunction fallbackWorkflow('),section('function actionsNeedApproval(','\nconst ACTION_LABELS'),section('function approvalBusy(','\nasync function fetchWithTimeout('),section('function assertRunActive(','\nlet activeRunController'),section('let delegatedReviewTimer =','\n// 人一旦亲自批准')].join('\n'),c);
+ vm.runInContext([section('function commitAttachmentAnalysis(','\nconst ACTION_LABELS'),section('function approvalBusy(','\nasync function fetchWithTimeout('),section('function assertRunActive(','\nlet activeRunController'),section('let delegatedReviewTimer =','\n// 人一旦亲自批准')].join('\n'),c);
   installConversationPathHost(c);
  installCheckpoint(c);
  c.window.PlanReview={init:hooks=>{plan=Plan.createController(hooks);c.window.PlanReview=plan;}};

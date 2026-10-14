@@ -84,7 +84,7 @@
     onTextEdit?.(previous, { start, removed: before.length - start - end, inserted: after.length - start - end, beforeLength: before.length });
     previous.replaceData(start, before.length - start - end, after.slice(start, after.length - end));
   }
-  function sync(previous, next, onTextEdit, frozen = 0) {
+  function sync(previous, next, onTextEdit, frozen = 0, onInsert) {
     if (!frozen && previous.isEqualNode(next)) return;
     if (previous.nodeType === 3 || previous.nodeType === 8) { text(previous, next, onTextEdit); return; }
     attributes(previous, next);
@@ -112,11 +112,14 @@
       if (!current && compatible(cursor, fresh) && !remaining.get(signatures.get(cursor))) current = cursor;
       if (!current) {
         previous.insertBefore(fresh, cursor);
+        // A genuinely new block (not a retained node moved into place). The
+        // caller may animate its entrance; text edits never report here.
+        onInsert?.(fresh);
         continue;
       }
       used.add(current);
       if (current !== cursor) previous.insertBefore(current, cursor);
-      sync(current, fresh, onTextEdit);
+      sync(current, fresh, onTextEdit, 0, onInsert);
       cursor = current.nextSibling;
     }
     for (const child of before) if (!used.has(child) && child.parentNode === previous) previous.removeChild(child);
@@ -124,7 +127,7 @@
   function patch(previous, next, options = {}) {
     root.StreamMarkdown?.prepareCommit?.(previous, next);
     if (!canPatch(previous, next)) return false;
-    if (root.StreamMarkdown?.commitBody?.(previous, next, options.selection, frozen => sync(previous,next,options.onTextEdit,frozen))) {
+    if (root.StreamMarkdown?.commitBody?.(previous, next, options.selection, frozen => sync(previous,next,options.onTextEdit,frozen,options.onInsert))) {
       attributes(previous, next); return true;
     }
     // Token spans may replace plain code Text nodes at a fence boundary. Keep
@@ -142,7 +145,7 @@
       const target = root.CitationEvidence.resolveTarget({}, fresh);
       if (target) root.CitationEvidence.bind(button, target.source, target.siblings);
     }
-    sync(previous, next, options.onTextEdit);
+    sync(previous, next, options.onTextEdit, 0, options.onInsert);
     for (const value of selectedCode) {
       if (!previous.contains(value.code)) continue;
       const after = value.code.textContent, before = value.before;

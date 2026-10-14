@@ -84,7 +84,9 @@
   }
 
   let hooks = {}, controller, dialog, editorHost, editing = null, lastFocus = null, focusTarget = null, composing = false, cleanupPending = false;
-  const mounts = new Map(), drafts = new Map(), notices = new Map();
+  // `deferred` holds rows rendered before init(): startup paints the cached
+  // transcript first, and those row nodes are reused rather than re-rendered.
+  const mounts = new Map(), drafts = new Map(), notices = new Map(), deferred = new Map();
   const editKey = () => editing && keyOf(editing.conversationId, editing.messageId);
   const currentDraft = () => drafts.get(editKey());
   function refreshActions(element, ids) {
@@ -192,7 +194,8 @@
     catch (error) { notices.set(key, { error: error.message }); if (currentDraft()) currentDraft().error = error.message; refresh(); return false; }
   }
   function mount(wrapper, ids) {
-    if (!controller || !root.HalaskaUI?.componentNames.includes('FeedbackActions')) return null;
+    if (!controller) { if (wrapper) deferred.set(wrapper, { ...ids }); return null; }
+    if (!root.HalaskaUI?.componentNames.includes('FeedbackActions')) return null;
     try { controller.resolve(ids.conversationId, ids.messageId); } catch (_) { return null; }
     let element = wrapper.querySelector('.answer-feedback-host');
     if (!element) { element = root.document.createElement('div'); element.className = 'answer-feedback-host'; (wrapper.querySelector('.message-meta') || wrapper).append(element); }
@@ -200,12 +203,17 @@
   }
   function unmount(wrapper) {
     if (!wrapper) return;
+    deferred.delete(wrapper);
     const hosts = wrapper.matches?.('.answer-feedback-host') ? [wrapper] : [...wrapper.querySelectorAll('.answer-feedback-host')];
     for (const element of hosts) { root.HalaskaUI?.unmount(element); mounts.delete(element); }
   }
   function init(options = {}) {
     hooks = options; controller = createController({ ...options, onChanged: (cid, mid) => { hooks.onChanged?.(cid, mid); refresh(); } });
-    root.document?.removeEventListener('workstation-language-change', refresh); root.document?.addEventListener('workstation-language-change', refresh); return api;
+    root.document?.removeEventListener('workstation-language-change', refresh); root.document?.addEventListener('workstation-language-change', refresh);
+    // Mount rows that rendered before init, if they still show the same message.
+    const pending = [...deferred]; deferred.clear();
+    for (const [wrapper, ids] of pending) if (wrapper.isConnected && wrapper.dataset?.messageId === ids.messageId) mount(wrapper, ids);
+    return api;
   }
   function destroy() { if (dialog?.open) dialog.close(); root.HalaskaUI?.unmount(editorHost); dialog?.remove(); dialog = null; editing = null; for (const element of mounts.keys()) root.HalaskaUI?.unmount(element); mounts.clear(); drafts.clear(); notices.clear(); root.document?.removeEventListener('workstation-language-change', refresh); }
   const api = { init, mount, unmount, refresh, open, close, destroy, isBusy: () => controller?.anyBusy() || false, isEditing: () => !!dialog?.open, createController, eligible, normalize, suggestion, REASONS, MAX_TEXT };

@@ -89,8 +89,14 @@ struct Snapshot: Decodable { let comparisonOpen:Bool?; let activityCenterOpen:Bo
         config.preferences.tabFocusesLinks = true
         // Every new document starts paused until its actual native host is known.
         config.userContentController.addUserScript(WKUserScript(source:"window.__aibroPresentationVisible=false;window.__aibroSurfaceVisible=false;",injectionTime:.atDocumentStart,forMainFrameOnly:true))
+        // WebKit has no prefers-reduced-transparency. Mirror the system setting
+        // as an html attribute so web glass falls back to opaque surfaces.
+        config.userContentController.addUserScript(WKUserScript(source:Workspace.reduceTransparencyScript(),injectionTime:.atDocumentStart,forMainFrameOnly:true))
         web = WKWebView(frame: .zero, configuration: config)
         super.init()
+        NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,object:nil,queue:.main){[weak self] _ in
+            Task{@MainActor in self?.web.evaluateJavaScript(Workspace.reduceTransparencyScript(),completionHandler:nil)}
+        }
         agendaAgent.configure(store:agenda,environment:{[weak self] in
             let snapshot=self?.snapshot
             return AgendaAgentEnvironment(ready:self?.ready == true,privateMode:snapshot?.privateMode != false,
@@ -471,6 +477,10 @@ struct Snapshot: Decodable { let comparisonOpen:Bool?; let activityCenterOpen:Bo
             }
         }
     }
+    static func reduceTransparencyScript()->String {
+        let on=NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+        return on ? "document.documentElement.setAttribute('data-reduce-transparency','')":"document.documentElement.removeAttribute('data-reduce-transparency')"
+    }
     func setAppearance(_ value:String,force:Bool=false) {
         guard ["system","light","dark"].contains(value),force || appearance != value else { return }
         // Synchronize the fresh WebView once even when the saved value matches.
@@ -781,6 +791,7 @@ struct Snapshot: Decodable { let comparisonOpen:Bool?; let activityCenterOpen:Bo
             _ = try await web.evaluateJavaScript(seed)
             try await Task.sleep(nanoseconds:800_000_000)
             guard snapshot?.projects.first?.id == "native-qa" else { throw CocoaError(.validationMissingMandatoryProperty) }
+            if ProcessInfo.processInfo.environment["AIBRO_NATIVE_QA_SCENES"] != nil {try await sceneQA(destination);return}
             if ProcessInfo.processInfo.environment["AIBRO_NATIVE_QA_CREATION"] == "1" {try await agendaCreationQA(destination);return}
             if ProcessInfo.processInfo.environment["AIBRO_NATIVE_QA_CONTEXT"] == "1" {try await contextQA(destination);return}
             if ProcessInfo.processInfo.environment["AIBRO_NATIVE_QA_OVERVIEW"] == "1" {

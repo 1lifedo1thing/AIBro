@@ -8,9 +8,11 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'aw-glass-qa-'));
 app.setPath('userData', profile); app.disableHardwareAcceleration();
 let window;
 const run = script => window.webContents.executeJavaScript(script, true);
+// The lens is applied on a debounced timer after layout (app/liquid-glass.js schedule()).
+const refracting = async label => { for (let n = 0; n < 100; n++) { if (await run(`document.querySelector('#composer')?.dataset.glassRefracting === 'true'`)) return; await new Promise(resolve => setTimeout(resolve, 50)); } throw Error('composer lens never applied: ' + label); };
 app.whenReady().then(async () => {
   window = new BrowserWindow({ width: 1440, height: 1000, show: false, webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false } });
-  await window.loadFile(path.join(directory, 'index.html'));
+  await window.loadFile(path.join(directory, 'app', 'index.html'));
   await run(`window.WorkstationOnboarding?.close(); document.querySelector('#onboardingLayer')?.remove(); window.LiquidGlass?.init(); window.showView('agent','持续对话');`);
   const report = [];
   for (const width of [1440, 650]) {
@@ -18,6 +20,7 @@ app.whenReady().then(async () => {
     for (const theme of ['light', 'dark']) {
       await run(`document.body.classList.toggle('light-mode',${theme === 'light'});`);
       await new Promise(resolve => setTimeout(resolve, 120));
+      await refracting(`${width}/${theme}`);
       const result = await run(`(() => {
         const body=document.body, composer=document.querySelector('#composer'), sidebar=document.querySelector('#sidebar');
         const size=node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};};
@@ -37,5 +40,5 @@ app.whenReady().then(async () => {
   const reduced = await run(`({blur:getComputedStyle(document.querySelector('#composer')).backdropFilter,rim:getComputedStyle(document.querySelector('#composer'),'::after').display})`);
   assert.equal(reduced.blur, 'none'); assert.equal(reduced.rim, 'none');
   process.stdout.write(JSON.stringify({ passed: 5, report, reduced }) + '\n');
-}).catch(error => { process.stderr.write(error.stack + '\n'); process.exitCode = 1; }).finally(() => { window?.destroy(); app.quit(); });
-app.on('quit', () => { fs.rmSync(profile, { recursive: true, force: true }); });
+// app.quit() ends Electron with status 0 regardless of process.exitCode; exit explicitly.
+}).then(() => 0, error => { process.stderr.write(error.stack + '\n'); return 1; }).then(code => { window?.destroy(); fs.rmSync(profile, { recursive: true, force: true }); app.exit(code); });

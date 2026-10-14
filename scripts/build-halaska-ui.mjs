@@ -40,6 +40,18 @@ const palette = {
 replaceOnce('  const base = theme === "dark" ? tokens.dark : tokens.light;\n  return base;', `  const base = theme === "dark" ? tokens.dark : tokens.light;\n  return { ...base, ...${JSON.stringify(palette)} };`);
 replaceOnce('pal.accent + "55"', '`color-mix(in srgb, ${pal.accent} 33%, transparent)`');
 
+// SegmentedControl measures its pill only on mount and window resize. A control
+// mounted before its reader pane is laid out measured 0×0 and kept a zero-width
+// pill until the user changed mode. Re-measure whenever the track's size changes.
+replaceOnce('  useEffect(() => { update(); window.addEventListener("resize", update); return () => window.removeEventListener("resize", update); }, [update]);',
+  '  useEffect(() => { update(); const ro = typeof ResizeObserver !== "undefined" && containerRef.current ? new ResizeObserver(update) : null; ro?.observe(containerRef.current); window.addEventListener("resize", update); return () => { ro?.disconnect(); window.removeEventListener("resize", update); }; }, [update]);');
+// The first real measurement places the pill without its slide transition, so it
+// appears under the selected mode instead of growing from zero width. A hidden
+// track (0×0) keeps the last position rather than collapsing the pill.
+replaceOnce('  const [indicator, setIndicator] = useState({});', '  const [indicator, setIndicator] = useState({});\n  const placed = useRef(false);');
+replaceOnce('      setIndicator({ left: bR.left - cR.left, width: bR.width });',
+  '      if (!bR.width) return;\n      const next = { left: bR.left - cR.left, width: bR.width };\n      if (!placed.current) next.transition = "none";\n      placed.current = true;\n      setIndicator(next);');
+
 // Every kit button is an action by default. A button can opt into submit via
 // the explicit Button prop, rather than accidentally submitting an outer form.
 source = source.replace(/<button\b([^>]*?)>/g, (tag, attributes) => /\btype\s*=/.test(attributes) ? tag : `<button type="button"${attributes}>`);

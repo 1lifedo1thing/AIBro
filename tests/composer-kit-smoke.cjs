@@ -83,7 +83,7 @@ const watchdog = setTimeout(() => { failures.push({ error: 'watchdog timeout' })
     try {
       await click('#chatAttach'); assert.equal(await ev(`document.querySelector('#composerAddMenu').dataset.halaskaRoot`), 'BenchoAddMenu');
       await click('[data-add-action="attach-file"]'); await until(() => ev(`document.querySelector('#importDialog').open&&!ComposerAddMenu.isOpen()`), 'real import dialog');
-      assert.equal(await ev('__kitDialogShows.importDialog'), 1); await click('#importDialog button[value="cancel"]');
+      assert.equal(await ev('__kitDialogShows.importDialog'), 1); await ev(`(()=>{const n=[...document.querySelectorAll('#importDialog .import-footer button')].find(b=>b.textContent.trim()==='关闭');if(!n)throw Error('Missing ImportSurface close');n.click();})()`);
       assert.equal(await ev(`document.querySelector('#importDialog').open`), false); assert.equal(await ev(`document.querySelector('#agentInput').value`), '添加菜单取消后保留的草稿');
       await click('#chatAttach'); await click('[data-add-action="workspace-reference"]'); await until(() => ev(`!document.querySelector('#fileContextPicker').hidden&&!ComposerAddMenu.isOpen()`), 'existing file picker');
       assert.equal(await ev(`document.activeElement.matches('#fileContextPicker input.file-context-search')`), true);

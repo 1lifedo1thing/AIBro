@@ -92,7 +92,8 @@ async function run(){
   assert.equal(starred.order[0],'qa_find_b','收藏的对话应排到最前（置顶）');
   assert.match(starred.mark,/★/,'列表里应显示星标');
   const visible=await evaluate(`(()=>(openManageDialog('conversation','qa_find_b'),$('#manageFavorite').textContent))()`);
-  assert.match(visible,/取消收藏/,'再打开对话框时按钮应显示当前状态');
+  // 收藏已并入“置顶”（app.js openManageDialog；docs/FIVE_FEATURES_DELIVERY_20260924.md），按钮文案随之改为置顶/取消置顶。
+  assert.match(visible,/取消置顶/,'再打开对话框时按钮应显示当前状态');
   await toggle('qa_find_b');
   const restored=await evaluate(`(()=>{const item=state.conversations.find(entry=>entry.id==='qa_find_b');const rows=[...document.querySelectorAll('.conversation-item')].map(node=>node.getAttribute('data-conversation-id'));return{favorite:!!item.favorite,order:rows};})()`);
   assert.equal(restored.favorite,false,'取消收藏后应清除标记');

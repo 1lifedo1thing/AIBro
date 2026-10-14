@@ -50,6 +50,7 @@
     if (protocols.has(value.protocol)) result.protocol = value.protocol;
     if (value.fallbackAttempted === true) result.fallbackAttempted = true;
     if (value.contextRecoveryAttempted === true) result.contextRecoveryAttempted = true;
+    if (Number.isSafeInteger(value.retryAttempts) && value.retryAttempts > 0 && value.retryAttempts <= 10) result.retryAttempts = value.retryAttempts;
     return result;
   }
   const receipt = (code, options = {}) => normalize({ ...options, version: 1, code });
@@ -106,8 +107,10 @@
     if (d.phase) details.push({ label: t('发生阶段', 'Stage'), value: phaseNames[d.phase][en ? 1 : 0] });
     if (d.protocol) details.push({ label: t('本次接口', 'Request protocol'), value: d.protocol === 'chat' ? 'Chat Completions' : 'Responses API' });
     if (d.fallbackAttempted) details.push({ label: t('接口切换', 'Protocol fallback'), value: t('Responses 失败后已尝试 Chat Completions', 'Chat Completions was tried after Responses failed') });
+    if (d.retryAttempts) details.push({ label: t('自动重试', 'Automatic retries'), value: t(`已重试 ${d.retryAttempts} 次`, `${d.retryAttempts} ${d.retryAttempts === 1 ? 'retry' : 'retries'}`) });
     let description = item[en ? 4 : 3];
     if (d.contextRecoveryAttempted) description += t(' 已缩减较早对话并重试一次，仍然超出容量。', ' Earlier conversation was reduced and retried once, but still exceeded capacity.');
+    if (d.retryAttempts) description += t(` 尚未收到任何内容，已自动重试 ${d.retryAttempts} 次，仍然失败。`, ` Nothing had been received, so it was retried automatically ${d.retryAttempts} ${d.retryAttempts === 1 ? 'time' : 'times'} and still failed.`);
     return { title: item[en ? 2 : 1], description, action: item[5], actionLabel: item[5] === 'context' ? t('查看上下文', 'Review context') : item[5] === 'settings' ? t('检查模型设置', 'Check model settings') : '', details };
   }
   // Older runs sometimes have a reliable machine code but no receipt. Use

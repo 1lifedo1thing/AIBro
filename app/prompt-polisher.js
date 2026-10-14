@@ -180,7 +180,7 @@
     controls.addEventListener('pointerenter',scheduleOpen);controls.addEventListener('pointerleave',scheduleClose);
     panel.addEventListener('pointerenter',()=>{clearTimeout(hoverTimer);clearTimeout(leaveTimer);});panel.addEventListener('pointerleave',scheduleClose);
     $('polishPrompt').addEventListener('keydown',event=>{if(event.key==='ArrowDown'||(event.shiftKey&&event.key==='F10')){event.preventDefault();open(true);}});
-    root.document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!panel.hidden){event.preventDefault();close(true);}});
+    root.document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!event.defaultPrevented&&!panel.hidden){event.preventDefault();close(true);}});
     root.document.addEventListener('pointerdown',event=>{if(!panel.hidden&&!controls.contains(event.target)&&!panel.contains(event.target))close();});
     root.addEventListener('resize',position);root.visualViewport?.addEventListener('resize',position);root.document.addEventListener('scroll',event=>{if(!panel.contains(event.target))position();},true);
     if(root.ResizeObserver)new root.ResizeObserver(position).observe(controls);

@@ -134,6 +134,8 @@ app.on('window-all-closed', () => {});
   originalBody = (await note()).content; originalConversation = await originalMessages();
 
   await check('editing an older question creates a branch; a synthetic transport failure changes no Wiki body', async () => {
+    // Edit lives in the message's overflow menu (MessageActionBar); open it as a user would.
+    await click(`details.message-actions-overflow:has([data-edit-message="${ORIGINAL_MESSAGE}"]) > summary`);
     await click(`[data-edit-message="${ORIGINAL_MESSAGE}"]`); await input('.message-edit textarea', EDITED_QUESTION); await click('.message-edit button[type=submit]');
     const first = await pendingAfter(0); requests.push({ phase: 'edited-request', input: first.input });
     assert.doesNotMatch(requestText(first), /FUTURE_MESSAGE_MUST_NOT_ENTER_BRANCH/);
@@ -155,8 +157,18 @@ app.on('window-all-closed', () => {});
     const sections = await evaluate(`Object.fromEntries(Object.keys(ResearchWiki.fields('idea')).map(key=>[key,'未记录。']))`);
     Object.assign(sections, { question: '持续检索能否改善长期记忆？', observations: ORIGINAL_MARKER + '\n\n' + EVIDENCE_MARKER,
       hypothesis: '未验证。', inferences: ADOPTED_MARKER, contradictions: '合成记录不能外推到真实实验。', validation: '控制相同材料、时长与提示，扩大样本。', nextSteps: '预先定义遗漏的判断规则。' });
-    const run = await reply({ workspace: '科研', message: '合成测试：研究记录支持保留不确定性。已提出既有条目的修改草稿，等待审阅。', actions: [{ type: 'upsert_wiki', wikiType: 'idea', noteId: NOTE, title: TITLE, projectId: PROJECT, baseUpdatedAt: current.updatedAt, sections, sourceNoteIds: [SOURCE], sourceAttachmentIds: [] }] });
-    updateRunId = run.id; assert.equal(run.status, 'completed', JSON.stringify(run.validationErrors || run.error)); assert.equal(run.mode, 'ai');
+    let run = await reply({ workspace: '科研', message: '合成测试：研究记录支持保留不确定性。已提出既有条目的修改草稿，等待审阅。', actions: [{ type: 'upsert_wiki', wikiType: 'idea', noteId: NOTE, title: TITLE, projectId: PROJECT, baseUpdatedAt: current.updatedAt, sections, sourceNoteIds: [SOURCE], sourceAttachmentIds: [] }] });
+    updateRunId = run.id;
+    // The edited question asks for an update and says "先让我审阅", so the current-turn
+    // review intent (docs/CURRENT_TURN_APPROVAL_INTENT_20261002.md) holds the plan for
+    // the user's approval. Nothing is drafted before that; approve it through the card.
+    assert.equal(run.status, 'awaiting-approval', JSON.stringify(run.validationErrors || run.error));
+    assert.deepEqual(run.approvalIntent?.rules, ['zh-human-review-write']); assert.equal((await note()).aiDraft, undefined);
+    const approveButton = `([...document.querySelectorAll('.plan-review button')].find(b=>b.textContent.startsWith('批准 ')&&b.textContent.endsWith(' 步')))`;
+    await until(() => evaluate(`!!${approveButton}&&!${approveButton}.disabled`), 'plan review ready');
+    await evaluate(`${approveButton}.dataset.qaApprove='';true`); await click('[data-qa-approve]');
+    await until(() => evaluate(`state.agentRuns.find(r=>r.id===${JSON.stringify(updateRunId)})?.status==='completed'`), 'approved update');
+    run = await evaluate(`state.agentRuns.find(r=>r.id===${JSON.stringify(updateRunId)})`); assert.equal(run.mode, 'ai');
     assert.ok(run.knowledgeReads.some(read => read.id === NOTE)); assert.ok(run.knowledgeReads.some(read => read.id === SOURCE));
     assert.ok(run.results.some(result => result.type === 'note' && result.id === NOTE && result.operation === 'drafted'));
     assert.equal((await note()).content, originalBody); assert.match((await note()).aiDraft.content, /新增结论：/);

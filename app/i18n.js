@@ -206,7 +206,12 @@
         if (!pendingRoots.size || scheduled) return;
         scheduled = true;
         (root.queueMicrotask || (callback => Promise.resolve().then(callback)))(() => {
-          scheduled = false; const roots = [...pendingRoots]; pendingRoots.clear(); roots.forEach(translate);
+          scheduled = false; const roots = [...pendingRoots];
+          // translate(root) already covers every descendant, so a root inside
+          // another pending root adds nothing. One rendered message can queue
+          // thousands of nested roots; walk ancestors instead of re-querying.
+          const outermost = roots.filter(node => { for (let parent = node.parentElement; parent; parent = parent.parentElement) if (pendingRoots.has(parent)) return false; return true; });
+          pendingRoots.clear(); outermost.forEach(translate);
         });
       });
       observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['placeholder', 'title', 'aria-label', 'data-i18n-template', 'data-i18n-vars'] });

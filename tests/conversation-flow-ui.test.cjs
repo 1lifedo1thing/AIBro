@@ -65,17 +65,25 @@ test('real recorder produces one ordered process with safe inline prose, exact t
   assert.equal(JSON.stringify([f.message, f.run]), stored, 'composition does not write pins or records');
 });
 
-test('reasoning defaults closed with a latest-line preview while explicit keyboard/click intent survives updates', () => {
+test('reasoning opens while it streams, folds when it ends, and explicit click intent survives updates', () => {
   const f = fixture(); const item = f.flow.activity({ id: 'r1', kind: 'summary', attemptId: 'a1', text: '完整首段\n最新一行', status: 'running' }); f.update();
   let detail = f.wrapper.querySelector('.conversation-flow-reasoning-details');
-  assert.equal(detail.open, false); assert.equal(detail.querySelector('.conversation-flow-reasoning-preview').textContent, '最新一行');
+  assert.equal(detail.open, true, 'a streaming reasoning segment is visible');
+  assert.equal(detail.querySelector('.conversation-flow-reasoning-preview').textContent, '最新一行');
   assert.equal(detail.querySelector('.conversation-flow-text').textContent, item.text);
+  f.flow.activity({ id: 'r1', kind: 'summary', attemptId: 'a1', text: '完整首段\n最终一行', status: 'completed' }); f.update();
+  assert.equal(f.wrapper.querySelector('.conversation-flow-reasoning-details'), detail); assert.equal(detail.open, false, 'a finished segment folds away');
+  assert.equal(f.message.progressPins?.['flow:' + item.id], undefined, 'automatic folding is not recorded as a user choice');
   detail.querySelector('summary').click();
   assert.equal(f.message.progressPins['flow:' + item.id], true);
-  f.flow.activity({ id: 'r1', kind: 'summary', attemptId: 'a1', text: '完整首段\n最终一行', status: 'completed' }); f.message.live = false; f.update();
-  assert.equal(f.wrapper.querySelector('.conversation-flow-reasoning-details'), detail); assert.equal(detail.open, true);
+  f.message.live = false; f.update();
+  assert.equal(f.wrapper.querySelector('.conversation-flow-reasoning-details'), detail); assert.equal(detail.open, true, 'a user-opened segment stays open');
   detail.querySelector('summary').click(); f.update(); assert.equal(detail.open, false);
-  assert.equal(f.saves(), 2);
+  const second = f.flow.activity({ id: 'r2', kind: 'summary', attemptId: 'a2', text: '第二段', status: 'running' }); f.message.live = true; f.update();
+  const live = [...f.wrapper.querySelectorAll('.conversation-flow-reasoning-details')].find(node => node.dataset.progressKey === 'flow:' + second.id);
+  assert.equal(live.open, true); live.querySelector('summary').click(); f.update();
+  assert.equal(live.open, false, 'a user close wins over streaming auto-open');
+  assert.equal(f.saves(), 3);
 });
 
 test('same-name tool calls retain distinct original identities and a response followed by tools is not hidden', () => {
@@ -168,4 +176,24 @@ test('flow uses the supplied safe renderer and a bounded cache with stable recor
   assert.equal(text.nodeValue.slice(selection.anchorOffset, selection.focusOffset), 'selected');
   assert.equal(f.wrapper.querySelectorAll('.message-body').length, 1, 'intermediate prose never shares final-body ownership');
   f.message.live = false; f.update(); assert.equal(f.context.StreamMarkdown.inspect().entries, 0);
+});
+
+test('a finished search step shows returned records as chips; only readable records are buttons', () => {
+  const state = { notes: [{ id: 'note-a', title: '出行笔记' }] };
+  const f = fixture({ state });
+  f.context.CitationEvidence = { recordFor: (s, type, id) => (s[type + 's'] || []).find(item => item.id === id) || null };
+  f.context.WorkstationIcons = { icon: () => '<svg></svg>' };
+  const call = { id: 'search-1', type: 'search', status: 'completed', request: { type: 'search', query: '装备' },
+    result: { entries: [{ type: 'note', id: 'note-a', title: '出行笔记' }, { type: 'note', id: 'gone', title: '已删除的笔记' }, { type: 'note', id: 'note-a', title: '出行笔记' },
+      { type: 'import', id: 'i1', title: '资料一' }, { type: 'import', id: 'i2', title: '资料二' }, { type: 'import', id: 'i3', title: '资料三' }] } };
+  f.run.toolCalls.push(call); f.flow.tool(call); f.update();
+  const chips = [...f.wrapper.querySelectorAll('.conversation-flow-chip')];
+  assert.deepEqual(chips.map(chip => chip.textContent), ['出行笔记', '已删除的笔记', '资料一', '资料二'], 'duplicates collapse; at most four chips');
+  assert.equal(chips[0].tagName, 'BUTTON'); assert.equal(chips[0].dataset.openNote, 'note-a');
+  assert.equal(chips[1].tagName, 'SPAN', 'a record the workspace no longer exposes is plain text');
+  assert.equal(chips[2].tagName, 'SPAN', 'without an access answer a chip never becomes a link');
+  assert.equal(f.wrapper.querySelector('.conversation-flow-chip-more').textContent, '+1');
+  const running = { id: 'search-2', type: 'search', status: 'running', request: { type: 'search', query: 'x' } };
+  f.run.toolCalls.push(running); f.flow.tool(running); f.update();
+  assert.equal(f.wrapper.querySelectorAll('[data-live-key="flow-chips:search-2"]').length, 0, 'no chips before the step finishes');
 });

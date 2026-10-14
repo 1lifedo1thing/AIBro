@@ -34,18 +34,23 @@
   if(kit()){head.replaceChildren();const summary=el('div','review-summary-island');head.append(summary);mount(summary,'ReviewSummary',{count:files.length,...(known?{added:files.reduce((n,f)=>n+f.added,0),removed:files.reduce((n,f)=>n+f.removed,0)}:{})});}
   const tree=el('nav','file-review-tree');tree.setAttribute('aria-label',t('本轮修改文件','Changed files'));
   const search=el('input','review-search');search.type='search';search.placeholder=t('查找文件…','Find a file…');search.setAttribute('aria-label',t('筛选本轮文件','Filter changed files'));
-  const branches=el('div','review-tree-branches'),empty=el('div','review-empty',t('没有匹配的文件','No matching files'));empty.hidden=true;tree.append(search,branches,empty);
+  const branches=el('div','review-tree-branches'),empty=el('div','review-empty',t('没有匹配的文件','No matching files'));empty.hidden=true;tree.append(search,empty);
   if(kit()){empty.replaceChildren();mount(empty,'ReviewEmptyState',{title:t('没有匹配的文件','No matching files'),description:t('试试文件名或目录名。','Try a filename or folder name.'),onClear:()=>{search.value='';search.oninput();search.focus();}});}
   const viewer=el('div','file-review-viewer');viewer.setAttribute('aria-label',t('文件内容','File content'));
   const treeToggle=button(t('文件','Files'),()=>{state.treeOpen=!state.treeOpen;fit();if(state.treeOpen)search.focus();},'review-files-toggle');treeToggle.hidden=true;treeToggle.setAttribute('aria-expanded','false');tree.id=`review-files-${++sequence}`;treeToggle.setAttribute('aria-controls',tree.id);head.append(treeToggle);
   layout.append(head,tree,viewer);
-  let compact=false,observed=false;
+  let compact=false,observed=false,headerHeight='';
   function fit(){
    const width=layout.getBoundingClientRect().width;if(!width)return;
-   layout.style.setProperty('--review-header-height',`${head.getBoundingClientRect().height}px`);
    const next=width<760;if(next&&!compact&&tree.contains(root.document.activeElement))state.treeOpen=true;
-   compact=next;layout.classList.toggle('review-compact',compact);treeToggle.hidden=!compact;
-   tree.hidden=compact&&!state.treeOpen;treeToggle.setAttribute('aria-expanded',String(!tree.hidden));
+   if(layout.classList.contains('review-compact')!==next)layout.classList.toggle('review-compact',next);compact=next;
+   if(treeToggle.hidden===compact)treeToggle.hidden=!compact;
+   const hidden=compact&&!state.treeOpen;if(tree.hidden!==hidden)tree.hidden=hidden;
+   const expanded=String(!tree.hidden);if(treeToggle.getAttribute('aria-expanded')!==expanded)treeToggle.setAttribute('aria-expanded',expanded);
+   // The custom property is inherited: every write restyles the whole file
+   // tree, so write only a changed value.
+   const height=`${head.getBoundingClientRect().height}px`;
+   if(height!==headerHeight){headerHeight=height;layout.style.setProperty('--review-header-height',height);}
   }
   tree.addEventListener('keydown',event=>{if(event.key==='Escape'&&compact&&!tree.hidden){event.preventDefault();event.stopPropagation();state.treeOpen=false;fit();treeToggle.focus();}});
   const controls=new Map(),folders=[],searchIndex=[];const rootFolder={dirs:new Map(),files:[]};let selectedButton=null;
@@ -61,16 +66,20 @@
    }
    for(const file of node.files.sort((a,b)=>a.path.localeCompare(b.path))){const b=button('',()=>select(file),'file-review-file');b.dataset.reviewFile=file.id;b.title=file.path;b.setAttribute('aria-pressed','false');b.append(el('span','review-file-icon'),el('span','review-file-name',file.path.split('/').pop()),counters(file.added,file.removed));if(file.status){const mark=el('span','review-file-status',file.status);b.append(mark);}controls.set(file.id,b);searchIndex.push({button:b,path:file.path.toLocaleLowerCase(),ancestors});parent.append(b);}
   }
-  draw(rootFolder,branches);container.append(layout);
+  // Settle compact mode and the header height while the tree is empty; the
+  // 2000-file subtree then lays out once instead of being restyled again.
+  container.append(layout);fit();
+  draw(rootFolder,branches);tree.insertBefore(branches,empty);
   // Filtering uses the known hierarchy rather than querying every ancestor's
   // entire DOM subtree on each keystroke. All files remain present and searchable.
   search.oninput=()=>{const q=search.value.trim().toLocaleLowerCase();let matches=0;for(const folder of folders)folder.matched=false;for(const entry of searchIndex){const match=entry.path.includes(q);if(entry.button.hidden===match)entry.button.hidden=!match;if(match){matches++;for(const ancestor of entry.ancestors)ancestor.matched=true;}}for(const folder of folders){const node=folder.element;if(node.hidden===folder.matched)node.hidden=!folder.matched;const open=q?folder.matched:state.folders.get(folder.path)!==false;if(node.open!==open)node.open=open;}empty.hidden=matches>0;};
   tree.addEventListener('keydown',event=>{if(event.target===search||!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;const nodes=[...tree.querySelectorAll('summary,.file-review-file')].filter(n=>n.getClientRects().length);const index=nodes.indexOf(root.document.activeElement);if(index<0)return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?nodes.length-1:Math.max(0,Math.min(nodes.length-1,index+(event.key==='ArrowDown'?1:-1)));nodes[next]?.focus();});
   function refresh(file){const b=controls.get(file.id);if(b&&file.status){let mark=b.querySelector('.review-file-status');if(!mark){mark=el('span','review-file-status');b.append(mark);}mark.textContent=file.status;}}
   const first=files.find(f=>f.id===state.selectedId)||files[0];if(first)select(first);else{const empty=el('div','review-empty');viewer.append(empty);if(kit())mount(empty,'ReviewEmptyState',{title:t('本轮没有文件变更','No file changes in this turn')});else empty.textContent=t('本轮没有文件变更','No file changes in this turn');}
-  fit();
   const observer=typeof root.ResizeObserver==='function'?new root.ResizeObserver(()=>{if(!layout.isConnected&&observed){observer.disconnect();return;}observed=layout.isConnected;fit();}):null;
-  observer?.observe(layout);cleanups.set(container,()=>{observer?.disconnect();dispose(viewer);});
+  // A width change caused by the drawn tree (a classic scrollbar) is caught by
+  // the observer's first callback, after layout and before paint.
+  if(observer)observer.observe(layout);else fit();cleanups.set(container,()=>{observer?.disconnect();dispose(viewer);});
   handles.set(container,{capture(){handles.get(viewer)?.capture();return {review:{selectedId:state.selectedId,documents:[...state.documents].map(([id,view])=>({id,mode:view.mode,split:!!view.split,wrap:view.wrap!==false,full:!!view.full,snapshot:view.snapshot,positions:view.positions,limits:view.limits,expandedGaps:view.expandedGaps,hunkLimit:view.hunkLimit}))}};}});
   return {layout,viewer,state,select,refresh,fit};
  }

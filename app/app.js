@@ -1592,7 +1592,7 @@ function renderMessage(message, container, options = {}) {
     progress.innerHTML = AgentProgress.markup({...message, runStatus: progressRun?.status || message.runStatus, phase: progressRun?.phase || message.phase, startedAt: progressRun?.startedAt, finishedAt: progressRun?.finishedAt});
     if (progress.firstElementChild) wrapper.insertBefore(progress.firstElementChild, body);
   }
-  if (message.role !== 'user') window.ConversationProcess?.compose(wrapper, message, sourceRun || {}, { renderText: renderRichText, previous: options.previous });
+  if (message.role !== 'user') window.ConversationProcess?.compose(wrapper, message, sourceRun || {}, { renderText: renderRichText, previous: options.previous, state });
   const processFeed = wrapper.querySelector(':scope > .agent-progress');
   let processRecords;
   const appendProcessRecord = node => {
@@ -1748,6 +1748,10 @@ function renderMessage(message, container, options = {}) {
     wrapper.appendChild(pending);
   }
   if (message.retryRunId && !checkpoint) {
+    // Retry plans a new turn and never replays these tools; the user should
+    // know some of them may already have acted before choosing to retry.
+    const unknownTools = window.ToolScheduler?.unconfirmed?.(sourceRun) || [];
+    if (unknownTools.length) { const notice = document.createElement('p'); notice.className = 'retry-unconfirmed muted'; notice.setAttribute('role', 'status'); notice.dataset.i18n = ''; notice.textContent = `${unknownTools.length} 项工具已发出但未收到结果，可能已经产生效果。重试会重新规划，不会自动重放；请先核对实际效果。`; wrapper.appendChild(notice); }
     const retry = document.createElement('div'); retry.className = 'message-actions'; retry.innerHTML = `<button class="secondary retry-message" data-retry-run="${esc(message.retryRunId)}">↻ 重试</button><button class="secondary" data-adjust-run="${esc(message.retryRunId)}" data-i18n>调整附件后重试</button><button class="secondary" data-dismiss-failure="${esc(message.id)}" data-i18n>删除失败记录</button><button class="secondary copy-message" data-copy-message="${esc(exportedText)}">复制</button>`; wrapper.appendChild(retry);
     if (responseIssue) retry.querySelectorAll('[data-adjust-run], [data-dismiss-failure]').forEach(button => button.remove());
   }
@@ -3239,7 +3243,7 @@ function commandSearchController() {
       { id: 'new-conversation', title: text('新建对话', 'New conversation'), description: text('开始一个新目标', 'Start a new goal'), keywords: ['new chat 新建聊天 对话'], shortcut: '⌘N', isEnabled: ready, execute: navigate(() => newConversation()) },
       { id: 'new-project', title: text('新建项目', 'New project'), description: text('集中管理相关对话、资料和任务', 'Keep related conversations, materials and tasks together'), keywords: ['create project 创建项目'], isEnabled: ready, execute: () => openCreateProjectDialog() },
       { id: 'new-task', title: text('新建任务', 'New task'), description: text('添加一项待办及截止日期', 'Add a task and due date'), keywords: ['create task todo 新增待办'], isEnabled: ready, execute: () => PlanningWorkbench.createTask({ workspace: project()?.workspace || '日常', projectId: project()?.id || null }) },
-      { id: 'current-project', title: text('打开当前项目', 'Open current project'), description: () => project()?.name || '先选择一个项目', keywords: ['project overview 项目 总览'], isEnabled: () => ready() !== true ? ready() : !!project() || '请先选择一个项目。', execute: async () => { const id = project()?.id; return navigate(() => { if (!id || !state.projects.some(item => item.id === id && visibleProject(item))) throw new Error('该项目已删除或归档，请重新选择项目。'); return openProject(id); })(); } },
+      { id: 'current-project', title: text('打开当前项目', 'Open current project'), description: () => project()?.name || text('回到正在查看的项目总览', 'Return to the project you are viewing')(), keywords: ['project overview 项目 总览'], isEnabled: () => ready() !== true ? ready() : !!project() || '请先选择一个项目。', execute: async () => { const id = project()?.id; return navigate(() => { if (!id || !state.projects.some(item => item.id === id && visibleProject(item))) throw new Error('该项目已删除或归档，请重新选择项目。'); return openProject(id); })(); } },
       ...[['dashboard','打开总览','Open overview'],['daily','打开日常空间','Open daily space'],['courses','打开课程空间','Open courses'],['research','打开科研空间','Open research'],['captures','打开随记','Open quick notes'],['settings','打开设置','Open settings']].map(([view, zh, en]) => ({ id: 'view-' + view, title: text(zh, en), keywords: [zh, en, view], isEnabled: ready, execute: navigate(() => showView(view)) })),
       { id: 'run-history', title: text('查看执行历史', 'View run history'), description: text('查看步骤、产出与失败原因', 'Review steps, results and errors'), keywords: ['history runs 历史 执行记录'], isEnabled: ready, execute: () => window.WorkstationRunHistory.open() },
       { id: 'compare-sources', title: text('比较资料与方案', 'Compare sources and options'), description: text('并排核对来源、比较维度并保存结论', 'Compare sources, criteria and save your decision'), keywords: ['compare comparison sources options 比较 对照 资料 方案'], isEnabled: ready, execute: () => openSourceComparison() },
@@ -4059,87 +4063,6 @@ function executeActions(actions, run, options = {}) {
   return outcome.results;
 }
 
-function fallbackWorkflow(goal, run) {
-  const attachmentIds = run.attachmentIds || state.conversations.find(item => item.id === run.conversationId)?.attachments || [];
-  const attachments = state.imports.filter(item => attachmentIds.includes(item.id) && !item.archived);
-  const boundProject = state.projects.find(item => item.id === run.projectId && !item.archived);
-  const combinedText = `${goal} ${attachments.map(item => `${item.name} ${item.content || ''}`).join(' ')}`;
-  const workspace = boundProject?.workspace || classifyWorkspace(combinedText);
-  const paperWorkflow = window.ConversationWeb ? ConversationWeb.isPaperGoal(goal) : /^\/paper(?:\s|$)/i.test(goal) || /分析.*论文|分析.*文献|论文.*分析|文献.*分析/.test(goal);
-  const hasActionIntent = attachments.length > 0 || /任务|待办|预约|截止|时间节点|材料清单|整理|归档|创建项目|计划/.test(goal);
-  // A plain conversational question should remain a conversation. Creating a
-  // catch-all “待整理资料” project for every message makes the workspace noisy.
-  if (!hasActionIntent) return '当前未配置可调用的模型，我先把这条消息保存在对话中。配置 API 后，我可以继续分析、检索并执行具体操作。';
-  const referencedProject = boundProject || state.projects.find(project => !project.archived && normalize(goal).includes(normalize(project.name)));
-  // A short reminder without material does not need a catch-all project. It
-  // remains visible as an unassigned daily task and can be assigned later.
-  let project = referencedProject || null;
-  let projectName = project?.name || '';
-  let projectRef = null;
-  const actions = [];
-  if (!project && attachments.length) {
-    projectName = inferProjectName(combinedText);
-    project = findProject(projectName, workspace);
-    if (!project) {
-      // Use a plan reference instead of mutating state up front. This makes
-      // local mode obey the same approval boundary as remote mode.
-      projectRef = `local_project_${Date.now()}`;
-      actions.push({ type: 'create_project', id: projectRef, name: projectName, workspace, description: '由本地 Agent 依据当前资料创建' });
-    } else run.results = [{ type: 'project', id: project.id, text: `匹配已有项目：${project.name}` }];
-  }
-  run.projectId = project?.id || null;
-  if (project && !run.results) run.results = [{ type: 'project', id: project.id, text: `使用项目：${project.name}` }];
-  const targetProject = project?.id || projectRef || null;
-  const sourceIds = attachments.map(item => item.id);
-  const extractedLines = combinedText.split(/\n+/).map(line => line.trim()).filter(line => line.length > 4 && line.length < 180 && /(材料|准备|提交|完成|截止|预约|确认|需要|注意|要求)/.test(line)).slice(0, 8);
-  if (attachments.length && targetProject) {
-    // Local mode still follows the same durable routing contract as the
-    // remote Agent: each original is given a readable project-local name and
-    // folder before derived knowledge and tasks are written.
-    attachments.forEach((item, index) => {
-      const original = item.originalName || item.name || (item.url ? '网页资料' : `资料 ${index + 1}`);
-      const extension = item.url ? '.url' : (original.includes('.') ? original.slice(original.lastIndexOf('.')) : '');
-      const stem = original.replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
-      const prefix = String(projectName || '项目').replace(/[\\/:*?"<>|]+/g, ' ').trim();
-      const renamed = `${prefix} · ${stem || '资料'}${extension}`;
-      if (item.name !== renamed) actions.push({ type: 'rename_attachment', attachmentId: item.id, newName: renamed });
-      actions.push({ type: 'assign_attachment', attachmentId: item.id, projectId: targetProject, project: projectName, workspace, folderPath: '原始资料' });
-    });
-    // Local fallback keeps one source document with navigable Markdown sections.
-    const cleanLines = lines => [...new Set(lines.map(text => text.replace(/^[-*•\d.、)\s]+/, '').trim()).filter(Boolean))].slice(0, 12);
-    const materialLines = cleanLines(extractedLines.filter(text => /(材料|证件|护照|照片|证明|清单)/.test(text)));
-    const timelineLines = cleanLines(extractedLines.filter(text => /(截止|预约|时间|日期|提前|面谈|提交)/.test(text)));
-    const noticeLines = cleanLines(extractedLines.filter(text => /(注意|要求|禁止|必须|确认)/.test(text)));
-    if (paperWorkflow) {
-      const source = attachments[0]; const title = String(source.paperMetadata?.title || source.name || '未命名论文').replace(/\.(pdf|html?)$/i, '');
-      actions.push({ type: 'upsert_paper', title, authors: source.paperMetadata?.authors || [], year: source.paperMetadata?.year || null, venue: source.paperMetadata?.venue || null, doi: source.paperMetadata?.doi || null, arxivId: source.paperMetadata?.arxivId || null, url: source.url || null, projectId: targetProject, workspace: '科研', sourceAttachmentIds: sourceIds, structured: { tldr: source.content ? `基于已提取文本的初步摘要：${source.content.slice(0, 900)}` : '未核验：当前解析器没有提取到论文正文，请使用支持视觉/文件输入的模型继续分析。', abstract: source.content ? source.content.slice(0, 1600) : '未核验', motivation: '未核验', methods: '未核验', derivations: '未核验', experiments: '未核验', ablations: '未核验', limitations: '未核验', implications: '未核验', openQuestions: '未核验' } });
-    } else {
-      const sections = [['资料内容', attachments.map(item => item.content || item.name).join('\n\n').slice(0, 9000)], ['材料清单', materialLines.map(text => `- ${text}`).join('\n')], ['时间节点', timelineLines.map(text => `- ${text}`).join('\n')], ['注意事项', noticeLines.map(text => `- ${text}`).join('\n')]];
-      actions.push({ type: 'create_knowledge_item', title: `${projectName} · 资料笔记`, kind: '主笔记', content: sections.filter(([, content]) => content).map(([heading, content]) => `## ${heading}\n\n${content}`).join('\n\n'), workspace, projectId: targetProject, project: projectName, folderPath: '资料笔记', sourceAttachmentIds: sourceIds });
-    }
-  }
-  if (/任务|待办|预约|截止|时间节点|材料清单|计划/.test(goal) || attachments.length) {
-    actions.push({ type: 'create_task', title: goal.replace(/整理附件并提取待办|形成日常任务|创建任务/g, '').trim() || (attachments.length ? `${projectName || '日常'}：整理下一步` : goal.trim()), description: extractedLines.length ? `根据当前资料提取：\n${extractedLines.join('\n')}` : '根据当前资料整理下一步行动。', workspace, projectId: targetProject, project: projectName, priority: 'medium', checklist: extractedLines.map(text => ({ text: text.replace(/^[-*•]\s*/, ''), done: false })), sourceAttachmentIds: sourceIds });
-  }
-  if (actions.length) {
-    run.pendingActions = actions;
-    if (actionsNeedApproval(run)) {
-      run.status = 'awaiting-approval';
-      window.AlertSound?.play('attention');
-      if (typeof scheduleDelegatedReview === 'function') scheduleDelegatedReview(run);
-      return `我已完成初步分析，准备在${workspace}空间${projectName ? `的「${projectName}」项目中` : ''}执行以下动作，请确认：\n\n${actionSummary(actions)}`;
-    }
-    const routingResult = run.results?.find(result => result.type === 'project') || null;
-    const executed = executeActions(actions, run);
-    if (routingResult && !executed.some(result => result.type === 'project' && result.id === routingResult.id)) {
-      run.results = [routingResult, ...executed];
-      state.lastResults = run.results;
-      save();
-    }
-  }
-  return project || projectRef ? `已在本地完成初步整理，归入${workspace}空间的「${projectName}」项目。` : `已创建日常任务，暂未归入项目；你可以稍后在任务详情中分配项目。`;
-}
-
 function actionsNeedApproval(run) {
   const spaces = new Set([workspaceName(run.workspace)]);
   const actions = run.pendingActions || [];
@@ -4304,7 +4227,9 @@ function runCheckpoints() {
     onSettled: run => {
       const effects = [() => window.AgendaProposals?.autoCreate?.(run), () => addRunStep(run, window.RunCheckpoint?.view(run)?.hasSavedResult ? '结果已确认保存' : '回复已保存', 'done'), () => window.AlertSound?.play('done'), () => window.GoalLoop?.onRoundFinished(run),
         () => { const conversation = state.conversations.find(item => item.id === run.conversationId); if (conversation && typeof settleComposerInjections === 'function') settleComposerInjections(conversation); }];
-      for (const effect of effects) try { effect(); } catch (error) { (run.executionReceipt.followupErrors ||= []).push(String(error.message)); }
+      // Some effects are async (GoalLoop.onRoundFinished): record later rejections too.
+      const record = error => { (run.executionReceipt.followupErrors ||= []).push(String(error?.message || error)); };
+      for (const effect of effects) try { Promise.resolve(effect()).catch(record); } catch (error) { record(error); }
       save(); refreshApprovalUI();
     }
   });
@@ -4445,7 +4370,9 @@ async function saveApprovalReceipt(runId, receiptId) {
   // Display / follow-up failures cannot undo an acknowledged disk commit.
   // Each callback is attempted once for this receipt, independently.
   if (shouldSettle) for (const effect of [() => window.AlertSound?.play('done'), () => window.GoalLoop?.onRoundFinished(run)]) {
-    try { effect(); } catch (error) { (run.approvalReceipt.followupErrors ||= []).push(String(error?.message || error).slice(0, 200)); }
+    // onRoundFinished is async: record a later rejection too, not only a sync throw.
+    const record = error => { (run.approvalReceipt.followupErrors ||= []).push(String(error?.message || error).slice(0, 200)); };
+    try { Promise.resolve(effect()).catch(record); } catch (error) { record(error); }
   }
   try { save(); } catch (error) { console.warn('Approval acknowledgement metadata will save later', error); }
   refreshApprovalUI(); return true;
@@ -4782,6 +4709,14 @@ async function sendMessage(options = {}) {
   conversation.updatedAt = Date.now();
   if (conversation.title === '新对话' && !conversation.titleEdited) conversation.title = goal.slice(0, 32);
   save(); renderConversation();
+  // Presentation only: the sent message rises from the composer into place.
+  // It starts partly visible: the send handler can hold the main thread for a
+  // moment, and a fully transparent first frame would read as input lag.
+  // ActivityMotion skips it under reduced motion or when the row is not painted.
+  if (submittedMessage && !options.retry && !options.background) {
+    const sent = $('#messageList')?.querySelector?.(`[data-message-id="${submittedMessage.id}"]`);
+    window.ActivityMotion?.animate(sent, [{ opacity: .4, transform: 'translateY(16px) scale(.985)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.1,.15,1)' });
+  }
   const connectionInput = captureApiConnection();
   let base = connectionInput.base, token = '';
   let { provider, model, effort } = typeof resolveRunModel === 'function' ? resolveRunModel(conversation) : (window.ConversationModels ? ConversationModels.configuration(conversation, defaultModelConfiguration()) : defaultModelConfiguration());
@@ -4839,7 +4774,8 @@ async function sendMessage(options = {}) {
         }
         const nextMessage = holder.firstElementChild;
         if (previous && window.AgentProgress?.patchLive) AgentProgress.patchLive(previous,nextMessage);
-        else if (previous) previous.replaceWith(nextMessage); else list.appendChild(nextMessage);
+        else if (previous) previous.replaceWith(nextMessage);
+        else { list.appendChild(nextMessage); window.ActivityMotion?.animate(nextMessage, [{ opacity: .3, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 320, easing: 'cubic-bezier(.2,.1,.15,1)' }); }
         nextMessage?._messageAttached?.();
         transcript?.changed(liveMessage.id, liveMessage);
         if (readingPosition) window.ConversationReading.afterRender(list, readingPosition);
@@ -5099,7 +5035,7 @@ async function sendMessage(options = {}) {
     // Preserve the known event schema if a compact reply needs escalation or format repair.
     if(route.mode==='schedule')agentContext?.capability('agenda');
     if (!route.compact) citationManifest = window.CitationEvidence?.captureInitial(run, { fileContext, preparedAttachments, recalled: agentContext ? null : recalled, delivery }, state) || '';
-    const requestInput = route.compact ? AgentRouting.prompt(route,{goal,workspace:run.workspace,projectId:run.projectId,now:new Date(run.requestedAt).toISOString(),timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone,userMessageId:run.userMessageId}) : buildRequestInput();
+    const requestInput = route.compact ? AgentRouting.prompt(route,{goal,workspace:run.workspace,projectId:run.projectId,now:new Date(run.requestedAt).toISOString(),timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone,userMessageId:run.userMessageId}) : buildRequestInput('', [], true);
     run.timings.requestCharacters=JSON.stringify(requestInput).length;
     run.timings.fullContextCharacters=JSON.stringify(buildRequestInput()).length;
     liveMessage.text = conversationFlow ? '' : attachmentsBefore.length ? '正在阅读附件并制定整理计划…' : '正在分析需求并制定计划…';
@@ -5139,21 +5075,11 @@ async function sendMessage(options = {}) {
       if(!current||(current.projectId||null)!==(run.projectId||null)||current.workspace!==run.contextWorkspace||run.projectId&&!projectIsActive(run.projectId))throw Object.assign(Error('项目或对话范围已变化，已停止工具执行。'),{code:'CANCELLED'});
       if(window.ContextRetrieval?.readScopeCurrent && !window.ContextRetrieval.readScopeCurrent(state,readScope))throw Object.assign(Error('本轮明确指定的项目已变化或不可访问，已停止读取。'),{code:'CANCELLED'});
     };
-    const executeReadTool=async (request,{entry}={})=>{validateToolScope();
-        if(['agenda_list','agenda_read'].includes(request.type))return AgendaAccess.execute(request,{run,scope:toolScope,getState:()=>state,bridge:window.workstationDesktop,validate:validateToolScope});
-
-        if(request.type==='evidence_log'){const target=request.runId?state.agentRuns.find(r=>r.id===request.runId&&r.conversationId===run.conversationId&&!r.deletedAt):run;if(!target)throw Error('读取记录不在当前对话');const ledger=target.contextCheckpoint?.ledger||[],offset=request.offset??0;if(!Number.isSafeInteger(offset)||offset<0)throw Error('Invalid evidence cursor');return {type:'evidence_log',runId:target.id,workingSummary:String(target.contextCheckpoint?.workingSummary||'').slice(0,4000),total:ledger.length,offset,entries:ledger.slice(offset,offset+20),nextOffset:offset+20<ledger.length?offset+20:null};}
-        if(request.type==='library_overview'&&window.AgentContext)return AgentContext.overview(state,toolScope,request);
-        if(request.type==='capabilities'&&agentContext)return agentContext.capability(request.name);
-        if(['history_search','history_read'].includes(request.type)&&window.AgentContext)return AgentContext.readHistory(conversation,request);
-        if (request.type === 'project_list') return ProjectAccess.catalog(state, request, run);
-        if (request.type === 'task_list') return TaskContext.readCatalog(state, conversation, request, run);
-        if (request.type === 'read_file') return fileContext.read(request);
-        if (request.type === 'terminal') return TerminalTools.execute(request,state,run,{signal:attachmentSignal,save,refresh:()=>refreshLive(true),toolCallId:entry?.id});
-        if (request.type.startsWith('browser_') && window.BrowserTools) return BrowserTools.execute(request,state,run,{signal:attachmentSignal,save,refresh:()=>refreshLive(true)});
-        const hybrid = await window.VectorKnowledge?.searchRequest(state, toolScope, request, attachmentSignal);
-        if (hybrid) return hybrid;
-        return KnowledgeAccess.execute(state, toolScope, request, {
+    // Each read type is dispatched by app/read-tools.js. Keyword reading stays
+    // here because the original-page reader needs this run's attachment I/O.
+    const executeReadTool=window.ReadTools.create({run,conversation,scope:toolScope,signal:attachmentSignal,fileContext,save,refresh:()=>refreshLive(true),
+      getState:()=>state,validate:validateToolScope,lookup:name=>window[name]??globalThis[name],agentContext:()=>agentContext,
+      fallback:request=>KnowledgeAccess.execute(state, toolScope, request, {
         getState: () => state,
         readSession: knowledgeReadSession,
         readPage: async (item, page, offset = 0) => {
@@ -5170,8 +5096,7 @@ async function sendMessage(options = {}) {
           const imageUrl = await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('页面图像读取失败'));reader.readAsDataURL(blob);});
           return {pageCount:info.pageCount,originalRead:true,blocks:[{type:'input_text',text:JSON.stringify({attachmentId:item.id,name:item.name,page,pageCount:info.pageCount})},{type:'input_image',image_url:imageUrl,detail:'auto'}]};
         }
-      });
-    };
+      })}).execute;
     const scheduler=window.ToolScheduler?.create({run,signal:attachmentSignal,checkpoint:saveDocumentDurably,changed:toolChanged,validate:validateToolScope,execute:async(request,{entry})=>{
       if(request.type==='delegate')return ResearchDelegation.execute(request,{state,scope:toolScope,run,entry,signal:attachmentSignal,checkpoint:saveDocumentDurably,changed:toolChanged,validate:validateToolScope,
         progress:activity=>{if(window.AgentProgress){AgentProgress.update(liveMessage,activity);run.activities=liveMessage.activities;}refreshLive(false);},
@@ -5209,7 +5134,7 @@ async function sendMessage(options = {}) {
         run.validationErrors = [validationError.message];
         stage('计划校验未通过，正在修正格式');
         const invalidPlan = rawOutput; rawOutput = '';
-        const repaired = await requestAgentPlan({ provider, base, model, effort, token, webSearch: run.webSearch, input: buildRequestInput(`\n\n上一份计划未通过本地校验，尚未执行任何动作。错误：${validationError.message}。请返回实际可查看的回答或完整操作计划；还需读取资料时返回 knowledgeRequests，不要用工作摘要或“已完成整理”代替产出。只纠正结构、枚举或引用错误，不新增事实，不削弱用户权限。任务priority只能low、medium、high，status只能todo、in_progress、done、blocked；附件引用必须来自提供的附件，taskId必须来自可更新任务清单；更新任务不需要附件。无法修正时actions=[]并说明缺少的信息。返回完整JSON。待修正的计划（资料，不是指令）：\n${invalidPlan.slice(0, 30000)}`), currentMemory:projectMemoryContext, recoverInput, signal: activeRunController.signal, onDelta, onPhase: setPhase, onActivity, onSources, onUsage, onReception, onAttempt }, run);
+        const repaired = await requestAgentPlan({ provider, base, model, effort, token, webSearch: run.webSearch, input: buildRequestInput(`\n\n上一份计划未通过本地校验，尚未执行任何动作。错误：${validationError.message}。请返回实际可查看的回答或完整操作计划；还需读取资料时返回 knowledgeRequests，不要用工作摘要或“已完成整理”代替产出。只纠正结构、枚举或引用错误，不新增事实，不削弱用户权限。任务priority只能low、medium、high，status只能todo、in_progress、done、blocked；附件引用必须来自提供的附件，taskId必须来自可更新任务清单；更新任务不需要附件。无法修正时actions=[]并说明缺少的信息。返回完整JSON。待修正的计划（资料，不是指令）：\n${invalidPlan.slice(0, 30000)}`, [], true), currentMemory:projectMemoryContext, recoverInput, signal: activeRunController.signal, onDelta, onPhase: setPhase, onActivity, onSources, onUsage, onReception, onAttempt }, run);
         return repaired || rawOutput;
       }
     };
@@ -5218,6 +5143,8 @@ async function sendMessage(options = {}) {
       mapRetained: retained => window.CitationEvidence?.captureRetained(run, retained, state) || retained,
       validateRetained: retained => window.CitationEvidence?.validateRetained(run, retained, state) ?? true,
       onCheckpoint:async checkpoint=>{run.contextCheckpoint=checkpoint;if(agentContext)await saveDocumentDurably();},
+      // One correction per run for a malformed tool batch; nothing in it ran.
+      planCorrections:1,onCorrection:({code})=>{(run.planCorrections||=[]).push({code,at:Date.now()});stage(code==='KNOWLEDGE_BATCH_REQUIRES_SPLIT'?'工具请求超出单批上限，已请模型分批重新提交':'工具请求格式有误，已请模型修正后重新提交','done');},
       prepareFinal:agentContext?plan=>{const missing=route.compact&&!run.contextRoute.escalated?[]:agentContext.missing(plan);return missing.length?{knowledgeRequests:missing.map(name=>({type:'capabilities',name})),workingSummary:'先前计划尚未执行；请核对新加载的能力约束后重新提交完整计划。待核对计划：'+JSON.stringify(plan),actions:[]}:null;}:undefined,
       onResult: (request, result) => {
         if(['agenda_list','agenda_read'].includes(request.type)){
@@ -5248,7 +5175,7 @@ async function sendMessage(options = {}) {
         run.knowledgeReads.push({type:request.type,recordType:result.type||request.recordType||null,title:result.title||null,id:result.id||null,page:result.page||null,offset:result.offset??null,nextOffset:result.nextOffset??null,readMode:result.readMode||null,textAvailable:result.textAvailable??null,error:result.error||null});
         const pageStage = result.readMode === 'extracted_text' ? result.textAvailable === false ? `第 ${result.page} 页没有可提取文字` : `已读取第 ${result.page} 页文字${result.nextOffset != null ? '片段，可继续读取' : ''}` : `已读取原件第 ${result.page} 页`;
         stage(result.error ? '知识库读取未完成：'+result.error : request.type==='read_page' ? pageStage : request.type==='read' ? '已读取知识库正文片段' : '已检索知识库，可继续读取',result.error?'failed':'done');save(); },
-      ask: async (extra, blocks) => { assertRunActive(run);rawOutput='';knowledgeEvidence=extra;knowledgeBlocks=blocks;return requestAgentPlan({provider,base,model,effort,token,input:buildRequestInput(),currentMemory:projectMemoryContext,recoverInput,webSearch:run.webSearch,signal:activeRunController.signal,onDelta,onPhase:setPhase,onActivity,onSources,onUsage,onReception,onAttempt}, run); }
+      ask: async (extra, blocks) => { assertRunActive(run);rawOutput='';knowledgeEvidence=extra;knowledgeBlocks=blocks;return requestAgentPlan({provider,base,model,effort,token,input:buildRequestInput('', [], true),currentMemory:projectMemoryContext,recoverInput,webSearch:run.webSearch,signal:activeRunController.signal,onDelta,onPhase:setPhase,onActivity,onSources,onUsage,onReception,onAttempt}, run); }
     });
     else { let output = responseOutput || rawOutput; for (;;) { const repaired = await finalizePlan(output); if (repaired == null) break; output = repaired; } responseOutput = output; }
     rawOutput = responseOutput || rawOutput;
@@ -5451,7 +5378,9 @@ function queueComposerSubmit() {
   conversation.draftAttachmentIds = (conversation.draftAttachmentIds || conversation.attachments || []).filter(id => !queuedAttachments.has(id));
   window.FileContext?.consume(conversation, fileReferences);
   if (typeof draftSaveTimer !== 'undefined') { clearTimeout(draftSaveTimer); draftSaveTimer = null; }
-  save(); renderComposerQueue(); window.FileContext?.render?.(); toast('已排队，当前回复完成后自动发送');
+  // The queued item took the staged attachments; repaint the composer so their
+  // chips and the PDF read-mode control do not linger for the next message.
+  save(); renderStagedAttachments(); renderComposerQueue(); window.FileContext?.render?.(); toast('已排队，当前回复完成后自动发送');
   return true;
 }
 function submitComposer() {
@@ -6982,7 +6911,12 @@ window.GoalLoop?.init({
   }
 });
 window.TerminalPane?.init({ getState: () => state, getConversation: currentConversation });
-window.SelectionExplain?.init({ getConversation: currentConversation, getCurrentModel: () => ConversationModels.configuration(currentConversation(), defaultModelConfiguration()), captureApiConnection, getApiConnection, toast, insertToComposer: text => { const input = $('#agentInput'); if (!input) return; const existing = String(input.value || '').replace(/\s+$/, ''); input.value = existing ? existing + '\n\n' + text : text; input.dispatchEvent(new Event('input', { bubbles: true })); input.focus(); } });
+window.SelectionExplain?.init({ getConversation: currentConversation, getCurrentModel: () => ConversationModels.configuration(currentConversation(), defaultModelConfiguration()), captureApiConnection, getApiConnection, toast,
+  // Document selections (PDF pages, notes, local files) are sent only when the record is still readable and not private.
+  isPrivateMode: () => !!window.PrivateMode?.isOn?.(),
+  canRead: (type, id) => !!window.CitationEvidence?.recordFor?.(state, type, id),
+  askAbout: text => { const input = $('#agentInput'); if (!input) return; const existing = String(input.value || '').replace(/\s+$/, ''); input.value = existing ? existing + '\n\n' + text : text; input.dispatchEvent(new Event('input', { bubbles: true })); input.focus(); toast('已引用到输入框，写下你的问题即可发送。'); },
+  insertToComposer: text => { const input = $('#agentInput'); if (!input) return; const existing = String(input.value || '').replace(/\s+$/, ''); input.value = existing ? existing + '\n\n' + text : text; input.dispatchEvent(new Event('input', { bubbles: true })); input.focus(); } });
 for (const [viewId, selector, scope] of [['dashboard', '#dashboard .hero-actions', {}], ['courses', '#courses .page-heading', {workspace:'课程'}], ['research', '#research .page-heading', {workspace:'科研'}], ['project', '#project .page-heading-actions', null]]) {
   const host = $(selector); if (!host || $(`#${viewId}AddTask`)) continue;
   const button = document.createElement('button'); button.id = `${viewId}AddTask`; button.type = 'button'; button.className = 'secondary manual-task-entry'; button.innerHTML = `${uiIcon('plus')}<span>添加任务</span>`;
@@ -7247,8 +7181,10 @@ window.PlanReview?.init({
     if (message) message.planEditedAt = Date.now();
     save();
   } } },
-  approve: (id, token) => approveRun(id, { token }), sessionApprove: (id, token) => approveRun(id, { token, sessionAllow: true }),
-  reject: rejectRun, review: (id, token) => requestReviewerOpinion(state.agentRuns.find(run => run.id === id), token),
+  // A human decision on the card lifts the reviewer halt, as the legacy buttons do.
+  approve: (id, token) => { clearReviewerHalt(id); return approveRun(id, { token }); },
+  sessionApprove: (id, token) => { clearReviewerHalt(id); return approveRun(id, { token, sessionAllow: true }); },
+  reject: id => { clearReviewerHalt(id); return rejectRun(id); }, review: (id, token) => requestReviewerOpinion(state.agentRuns.find(run => run.id === id), token),
   canSessionApprove: run => !run?.approvalIntent && !run?.routingReview?.required && !!window.WorkstationPermissionPolicy?.allowableTypes?.(run?.pendingActions || []).length
 });
 async function openHistoryResult(type, id) {
@@ -7682,7 +7618,6 @@ window.SourcePeek?.init({ state: () => state, toast, open: (type, id, page, sour
 
 window.WorkspaceTour?.init({getState:()=>state,ready:()=>storageHydrated&&!serverConflict,showWorkspace:()=>showView('agent'),isBusy:()=>!!sendMessage.busy||!!sendMessage.preparingWiki,onError:toast,autoStart:true,onFinish:record=>{state.ui.workspaceTour=record;save();}});
 
-window.HalaskaWorkspace?.init();
 if(window.HalaskaUI && state.currentProjectId) renderProject(state.currentProjectId);
 
 // Refresh data-driven Kit labels on language changes; existing renderers preserve drafts.
