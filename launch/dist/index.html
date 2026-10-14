@@ -3,120 +3,181 @@
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AI Bro — Mac 上的 AI 学习与研究助手</title>
-  <meta name="description" content="用 AI 阅读课件与论文，整理带来源的笔记，安排任务和日程。适用于 Mac，本地保存资料，自选模型。">
-  <meta name="theme-color" content="#0c0f0d"><link rel="icon" href="assets/mark.png">
+  <meta name="description" content="向课件和论文提问，回答标明文件与页码；划词追问，一句话记下作业和日程。资料保存在 Mac，模型由你选择。">
+  <meta name="theme-color" content="#f4f5ef"><meta name="color-scheme" content="light">
+  <link rel="icon" href="assets/v095/mark-128.png">
   <link rel="canonical" href="https://zihenghe04.github.io/AIBro/">
   <meta property="og:title" content="AI Bro — Mac 上的 AI 学习与研究助手">
-  <meta property="og:description" content="读课件和论文，整理可编辑的笔记，安排待办与日程。">
-  <meta property="og:type" content="website"><meta property="og:image" content="https://zihenghe04.github.io/AIBro/assets/demo/native-overview.png">
-  <link rel="stylesheet" href="style.css?v=hero-candidate-20261003"><script src="script.js?v=release091-20261004" defer></script>
+  <meta property="og:description" content="读懂资料，安排下一步。AI Bro 0.9.5 Mac 预览版。">
+  <meta property="og:type" content="website"><meta property="og:image" content="https://zihenghe04.github.io/AIBro/assets/v095/og-overview.jpg">
+  <link rel="stylesheet" href="style.css?v=095-20261014"><script src="script.js?v=095-20261014" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#main" data-t="skip">跳至内容</a>
 <header class="site-header"><div class="nav-wrap">
-  <a class="brand" href="#top"><img src="assets/mark.png" width="30" height="30" alt=""><span>AI Bro</span></a>
-  <nav aria-label="主导航"><a href="#workspace" data-t="nav1">工作台</a><a href="#stories" data-t="nav2">工作方式</a><a href="#control" data-t="nav3">由你掌控</a></nav>
-  <div class="nav-actions"><button id="language" aria-label="Switch to English">EN</button><a class="nav-download" href="https://github.com/zihenghe04/AIBro/releases/tag/v0.9.4"><span data-t="get">获取 AI Bro</span><span aria-hidden="true">↗</span></a></div>
+  <a class="brand" href="#top"><img src="assets/v095/mark-128.png" width="28" height="28" alt=""><span>AI Bro</span></a>
+  <nav aria-label="主导航" data-t-aria="navLabel"><a href="#new" data-t="nav1">新功能</a><a href="#conversation" data-t="nav2">功能</a><a href="#film" data-t="nav3">短片</a><a href="#faq" data-t="nav4">问答</a></nav>
+  <div class="nav-actions"><button id="language" type="button" aria-label="Switch to English">EN</button><a class="nav-download" href="#download" data-t="get">下载</a></div>
 </div></header>
 <main id="main">
-  <section class="hero hero-product" id="top" aria-labelledby="hero-product-name">
-    <div class="hero-layout">
-      <div class="hero-copy">
-        <a class="release-pill" href="https://github.com/zihenghe04/AIBro/releases/tag/v0.9.4"><span class="live-dot"></span><span data-t="release">0.9.4 · Mac 预览版</span><span aria-hidden="true">↗</span></a>
-        <h1 id="hero-product-name">AI <span>Bro</span><span class="wordmark-period">.</span></h1>
-        <p class="hero-statement" data-t="heroStatement">Mac 上的 AI 学习与研究助手</p>
-        <p class="hero-description" data-t="heroDescription">读课件和论文，整理可编辑的笔记，安排待办与日程。</p>
-        <div class="hero-actions"><a class="button primary" href="https://github.com/zihenghe04/AIBro/releases/tag/v0.9.4"><span data-t="download">下载 Mac 预览版</span><span aria-hidden="true">↓</span></a><a class="button secondary" href="#film"><span class="play-glyph" aria-hidden="true">▶</span><span data-t="watchFilm">看 84 秒完整工作流</span></a></div>
-        <p class="hero-meta" data-t="heroMetaNative">本地优先 · 自选模型 · Apple Silicon Mac</p>
+  <section class="hero" id="top" aria-labelledby="hero-title">
+    <div class="hero-copy page-width">
+      <a class="release-pill reveal" href="https://github.com/zihenghe04/AIBro/releases/tag/v0.9.5"><span class="pill-tag" data-t="pillTag">新版本</span><span data-t="release">0.9.5 · Mac 预览版</span><span aria-hidden="true">→</span></a>
+      <h1 id="hero-title" class="reveal" data-t="heroTitle">读懂资料，<br><span>安排下一步。</span></h1>
+      <p class="hero-lead reveal" data-t="heroLead">向课件和论文提问，回答标明文件与页码。划一句原文就能追问，作业和日程一句话记下。</p>
+      <div class="hero-actions reveal">
+        <a class="button primary" href="https://github.com/zihenghe04/AIBro/releases/download/v0.9.5/AI-Bro-0.9.5-macos-arm64-preview.dmg"><span data-t="downloadDmg">下载 Mac 版</span><span aria-hidden="true">↓</span></a>
+        <a class="button ghost" href="#new"><span data-t="seeNew">看看 0.9.5 新功能</span><span aria-hidden="true">→</span></a>
       </div>
-      <figure class="hero-evidence" style="--crop-w:1960;--crop-h:1030;--image-w:2560;--image-h:1686;--crop-x:548;--crop-y:385">
-        <button type="button" class="image-expand hero-result" data-image="assets/demo/result-course.jpg" data-caption="scenarioCaptionCourse" aria-label="放大：课程笔记 · 交互设计方法">
-          <span class="scenario-crop"><img class="scenario-source" src="assets/demo/result-course.jpg" width="2560" height="1686" alt="课程笔记已保存，包含核心思路、四步框架和本周行动。" fetchpriority="high" decoding="async"></span>
-          <span class="expand-badge"><span aria-hidden="true">⤢</span><span data-t="expand">放大查看</span></span>
+      <p class="hero-meta reveal" data-t="heroMeta">Apple Silicon · macOS 14+ · 开源 AGPL-3.0</p>
+    </div>
+    <div class="hero-stage page-wide">
+      <div class="stage-glow" aria-hidden="true"></div>
+      <figure class="window hero-window">
+        <button class="zoom" type="button" data-zoom="overview-light" data-caption="capOverview" aria-label="放大：总览">
+          <picture><source type="image/avif" srcset="assets/v095/overview-light-1600.avif 1600w, assets/v095/overview-light-2560.avif 2560w" sizes="(max-width: 720px) 100vw, 1200px"><img src="assets/v095/overview-light-1600.png" width="2560" height="1682" alt="AI Bro 总览页：侧栏是对话、日程、随记和三个项目，右侧是今天与接下来的任务。" data-t-alt="altOverview" fetchpriority="high" decoding="async"></picture>
         </button>
-        <figcaption><span data-t="scenarioCaptionCourse">课程笔记 · 交互设计方法</span><span data-t="scenarioMaterial">实际 App · 虚构示例</span></figcaption>
+      </figure>
+      <figure class="float-card hero-float" aria-hidden="true">
+        <picture><source type="image/avif" srcset="assets/v095/agenda-card.avif"><img src="assets/v095/agenda-card.jpg" width="1500" height="470" alt="" decoding="async"></picture>
       </figure>
     </div>
-    <a class="hero-scroll" href="#workspace"><span data-t="explore">看看能做什么</span><span aria-hidden="true">↓</span></a>
+    <p class="disclosure page-width" data-t="disclosure">真实 App 界面 · 虚构资料 · 演示回答为预设</p>
   </section>
 
-  <section class="film-section page-width" id="film" aria-labelledby="film-heading">
-    <div class="section-heading"><div><p class="eyebrow">THE AI BRO FILM</p><h2 id="film-heading" data-t="filmNativeTitle">一份课件，<br><span>整理成笔记和计划。</span></h2></div><p data-t="filmNativeDesc">看 AI 如何读取资料、保存笔记、创建日程，<br>再从新对话查回之前读过的研究。</p></div>
-    <div class="film-stage">
-      <div class="film-topline"><span class="film-edition">AI BRO <span aria-hidden="true">/</span> PRODUCT FILM</span><span class="film-format" data-t="filmFormat">84 秒 · 1080p · 开发预览</span></div>
-      <div class="film-frame"><video id="workflow-film" controls playsinline preload="none" src="assets/film/motion-84-zh.mp4?v=motion12-20261003" width="1920" height="1080" poster="assets/film/motion-84-poster-zh.jpg?v=motion12-20261003" aria-label="AI Bro 产品宣传短片"></video><button class="film-start" id="film-start" aria-controls="workflow-film"><span class="film-play-symbol" aria-hidden="true">▶</span><span data-t="filmPlay">播放产品短片</span><span class="film-play-time" aria-hidden="true">1:24</span></button></div>
-      <nav class="film-chapters" aria-label="产品短片章节">
-        <button type="button" data-film-time="0" aria-controls="workflow-film"><span class="film-chapter-time">00:00</span><span data-t="filmChapterIntro">导入与整理</span></button>
-        <button type="button" data-film-time="21.1" aria-controls="workflow-film"><span class="film-chapter-time">00:21</span><span data-t="filmChapterWorkspace">审阅笔记</span></button>
-        <button type="button" data-film-time="28" aria-controls="workflow-film"><span class="film-chapter-time">00:28</span><span data-t="filmChapterRead">创建日程</span></button>
-        <button type="button" data-film-time="36.1" aria-controls="workflow-film"><span class="film-chapter-time">00:36</span><span data-t="filmChapterWrite">查询旧资料</span></button>
-        <button type="button" data-film-time="54.5" aria-controls="workflow-film"><span class="film-chapter-time">00:54</span><span data-t="filmChapterPlan">补充随记</span></button>
-        <button type="button" data-film-time="67.9" aria-controls="workflow-film"><span class="film-chapter-time">01:07</span><span data-t="filmChapterClose">查看待办</span></button>
-      </nav>
+  <section class="release page-width" id="new" aria-labelledby="new-title">
+    <div class="release-head reveal">
+      <p class="eyebrow">WHAT’S NEW · 0.9.5</p>
+      <h2 id="new-title" data-t="newTitle">0.9.5 新功能</h2>
+      <a class="text-link" href="https://github.com/zihenghe04/AIBro/blob/main/CHANGELOG.md"><span data-t="fullChangelog">完整更新日志</span><span aria-hidden="true"> ↗</span></a>
     </div>
-    <div class="media-caption film-caption"><p data-t="filmNativeDisclosure">真实 App 操作素材 · 虚构资料 · 多会话剪辑，等待已压缩</p><a id="film-download" href="assets/film/motion-84-zh.mp4?v=motion12-20261003" download="AI-Bro-Workflow-84s-ZH.mp4"><span data-t="downloadFilm">下载短片 · 约 16 MB</span><span aria-hidden="true"> ↓</span></a></div><p id="film-status" class="media-status" role="status" hidden></p>
+    <ol class="release-list">
+      <li class="reveal"><span class="r-num">01</span><h3 data-t="new1">对话更顺手</h3><p data-t="new1d">消息从输入框升入对话，新文字逐段淡入，思考段在模型思考时自动展开。</p></li>
+      <li class="reveal"><span class="r-num">02</span><h3 data-t="new2">执行时间线</h3><p data-t="new2d">检索、读取原件、模型思考按顺序排开，检索到的资料以胶囊显示。</p></li>
+      <li class="reveal"><span class="r-num">03</span><h3 data-t="new3">划词操作</h3><p data-t="new3d">在 PDF 里选中文字，可解释、翻译、批注或问 AI，并附文档名与页码。</p></li>
+      <li class="reveal"><span class="r-num">04</span><h3 data-t="new4">玻璃与胶囊</h3><p data-t="new4d">按钮、分段控件和浮层改用 macOS 胶囊与玻璃材质，过渡统一。</p></li>
+      <li class="reveal"><span class="r-num">05</span><h3 data-t="new5">Agent 更可靠</h3><p data-t="new5d">瞬时失败自动重试，格式错误交回模型修正，未收到结果的工具标为「结果未知」。</p></li>
+    </ol>
   </section>
-
-  <section class="workspace-section page-width" id="workspace" aria-labelledby="scenario-heading">
-    <div class="section-heading workspace-heading"><div><p class="eyebrow">STUDY · RESEARCH · EVERYDAY</p><h2 id="scenario-heading" data-t="scenarioHeading">你要整理什么？</h2></div><p data-t="scenarioIntro">选一个场景，看看资料会变成什么。<br>也可以直接观看对应的操作。</p></div>
-    <div class="scenario-tabs" role="tablist" aria-label="选择使用场景" hidden>
-      <button type="button" role="tab" id="scenario-tab-course" aria-controls="scenario-course" aria-selected="true" tabindex="0" data-scenario="course"><span class="scenario-number" aria-hidden="true">01</span><span data-t="scenarioTabCourse">整理课程</span><span class="scenario-arrow" aria-hidden="true">↗</span></button>
-      <button type="button" role="tab" id="scenario-tab-research" aria-controls="scenario-research" aria-selected="false" tabindex="-1" data-scenario="research"><span class="scenario-number" aria-hidden="true">02</span><span data-t="scenarioTabResearch">找回研究</span><span class="scenario-arrow" aria-hidden="true">↗</span></button>
-      <button type="button" role="tab" id="scenario-tab-capture" aria-controls="scenario-capture" aria-selected="false" tabindex="-1" data-scenario="capture"><span class="scenario-number" aria-hidden="true">03</span><span data-t="scenarioTabCapture">补充随记</span><span class="scenario-arrow" aria-hidden="true">↗</span></button>
+  <section class="feature page-width" id="conversation" aria-labelledby="f1-title">
+    <div class="feature-copy reveal">
+      <p class="eyebrow">01 · ASK</p>
+      <h2 id="f1-title" data-t="f1Title">问一句，<br><span>看它怎么找。</span></h2>
+      <p data-t="f1Text">发出问题后，AI 先检索项目里的资料，再读取原件。每一步都写在时间线上：查了什么、读了哪一页、何时完成。</p>
+      <ul class="facts"><li data-t="f1a">消息从输入框升入对话</li><li data-t="f1b">思考时自动展开，结束后收起</li><li data-t="f1c">检索结果以资料胶囊显示</li></ul>
     </div>
-    <div class="scenario-stage">
-      <article class="scenario-panel" id="scenario-course" data-scenario-panel="course">
-        <div class="scenario-summary"><div><p class="scenario-input" data-t="scenarioInputCourse">导入课件，请 AI 整理这一讲的重点和作业。</p><h3 data-t="scenarioTitleCourse">一份可以继续修改的课程笔记。</h3><p class="scenario-result" data-t="scenarioResultCourse">核心概念、学习框架和本周行动，保存到同一门课。</p></div><a class="scenario-watch" href="#film" data-scene-film="0"><span class="scenario-play" aria-hidden="true">▶</span><span><span data-t="scenarioWatchCourse">从课件到笔记</span><small data-t="scenarioFromCourse">影片 00:00 起</small></span><span aria-hidden="true">↗</span></a></div>
-        <figure class="scenario-figure" style="--crop-w:1960;--crop-h:1030;--image-w:2560;--image-h:1686;--crop-x:548;--crop-y:385">
-          <div class="scenario-media-pan" tabindex="0" role="group" aria-label="成果图片，可横向滚动或放大">
-            <button type="button" class="image-expand scenario-image" data-image="assets/demo/result-course.jpg" data-caption="scenarioCaptionCourse" aria-label="放大：课程笔记 · 交互设计方法"><span class="scenario-crop"><img class="scenario-source" src="assets/demo/result-course.jpg" width="2560" height="1686" alt="课程笔记已保存，包含核心思路、四步框架和本周行动。" loading="lazy" decoding="async"></span><span class="expand-badge"><span aria-hidden="true">⤢</span><span data-t="expand">放大查看</span></span></button>
-          </div>
-          <div class="scenario-image-state" role="status" hidden><p data-t="scenarioLoading">正在加载成果图片…</p><button type="button" class="scenario-retry" hidden data-t="scenarioRetry">重新加载图片</button></div>
-          <figcaption><span data-t="scenarioCaptionCourse">课程笔记 · 交互设计方法</span><span data-t="scenarioMaterial">实际 App · 虚构示例</span></figcaption>
-          <p class="scenario-pan-hint" data-t="scenarioPanHint">左右滑动查看，或点开大图。</p>
-        </figure>
+    <figure class="window feature-media reveal">
+      <div class="loop-frame">
+        <video class="loop" muted playsinline loop preload="none" width="1600" height="1052" poster="assets/v095/course-qa-poster.jpg" data-sources="assets/v095/course-qa.webm|video/webm,assets/v095/course-qa.mp4|video/mp4" aria-label="录屏：发送问题，AI 检索并读取课件后给出回答" data-t-aria="ariaLoop1"></video>
+        <button class="loop-toggle" type="button" aria-label="暂停录屏"><span aria-hidden="true">Ⅱ</span></button>
+      </div>
+      <figcaption><span data-t="cap1">录屏 · 27 秒 · 等待时间未压缩</span><button class="zoom-link" type="button" data-zoom="course-timeline" data-caption="capTimeline"><span data-t="seeStill">查看静帧</span> ⤢</button></figcaption>
+    </figure>
+  </section>
+
+  <section class="feature reverse page-width" id="citations" aria-labelledby="f2-title">
+    <div class="feature-copy reveal">
+      <p class="eyebrow">02 · CITE</p>
+      <h2 id="f2-title" data-t="f2Title">每个要点，<br><span>都能回到原文。</span></h2>
+      <p data-t="f2Text">回答里的编号对应本轮实际读取的来源。点开就能看到文件名、页码和原文摘录，再一键打开 PDF 核对。</p>
+      <ul class="facts"><li data-t="f2a">来源按文件与页码列出</li><li data-t="f2b">摘录与回答并排对照</li><li data-t="f2c">「打开原文」跳到对应页</li></ul>
+    </div>
+    <figure class="window feature-media reveal">
+      <button class="zoom" type="button" data-zoom="citation-peek" data-caption="capCitation" aria-label="放大：引用来源">
+        <picture><source type="image/avif" srcset="assets/v095/citation-peek-1600.avif 1600w, assets/v095/citation-peek-2560.avif 2560w" sizes="(max-width: 720px) 100vw, 760px"><img src="assets/v095/citation-peek-1600.png" width="2560" height="1682" alt="回答「第一讲·四步复习要点」旁打开了引用 1 的浮层，显示 PDF 文件名、第 1 页和原文摘录。" data-t-alt="altCitation" loading="lazy" decoding="async"></picture>
+      </button>
+    </figure>
+  </section>
+
+  <section class="feature page-width" id="pdf" aria-labelledby="f3-title">
+    <div class="feature-copy reveal">
+      <p class="eyebrow">03 · SELECT</p>
+      <h2 id="f3-title" data-t="f3Title">划一句，<br><span>接着问。</span></h2>
+      <p data-t="f3Text">对话和 PDF 并排打开。选中原文，浮出解释、翻译、批注和问 AI；问 AI 会把这句话连同文档名与页码放进输入框。</p>
+      <ul class="facts"><li data-t="f3a">阅读区与对话分屏</li><li data-t="f3b">引用自动带上文件和页码</li><li data-t="f3c">无痕模式不发送选中内容</li></ul>
+    </div>
+    <figure class="window feature-media reveal">
+      <div class="loop-frame">
+        <video class="loop" muted playsinline loop preload="none" width="1600" height="1052" poster="assets/v095/pdf-ask-poster.jpg" data-sources="assets/v095/pdf-ask.webm|video/webm,assets/v095/pdf-ask.mp4|video/mp4" aria-label="录屏：在 PDF 中选中一句话，点击问 AI，引用进入输入框" data-t-aria="ariaLoop2"></video>
+        <button class="loop-toggle" type="button" aria-label="暂停录屏"><span aria-hidden="true">Ⅱ</span></button>
+      </div>
+      <figcaption><span data-t="cap2">录屏 · 11 秒</span><button class="zoom-link" type="button" data-zoom="ask-ai-quote" data-caption="capQuote"><span data-t="seeResult">查看引用结果</span> ⤢</button></figcaption>
+    </figure>
+  </section>
+
+  <section class="more page-width" id="more" aria-labelledby="more-title">
+    <div class="section-head reveal"><p class="eyebrow">04 · EVERYDAY</p><h2 id="more-title" data-t="moreTitle">从一个想法开始，<br><span>落到具体的一件事。</span></h2></div>
+    <div class="bento">
+      <article class="tile tile-wide reveal">
+        <div class="tile-copy"><h3 data-t="t1">边读边聊</h3><p data-t="t1d">回答在左，原件在右。核对一句，不用切换窗口。</p></div>
+        <button class="zoom tile-shot" type="button" data-zoom="reader-split" data-caption="capReader" aria-label="放大：分屏阅读">
+          <picture><source type="image/avif" srcset="assets/v095/reader-split-1600.avif 1600w, assets/v095/reader-split-2560.avif 2560w" sizes="(max-width: 720px) 100vw, 1100px"><img src="assets/v095/reader-split-1600.png" width="2560" height="1682" alt="左侧是课程要点回答，右侧打开 PDF《第一讲·从观察到原型》。" data-t-alt="altReader" loading="lazy" decoding="async"></picture>
+        </button>
       </article>
-      <article class="scenario-panel" id="scenario-research" data-scenario-panel="research">
-        <div class="scenario-summary"><div><p class="scenario-input" data-t="scenarioInputResearch">“之前那份讲等待感受的资料，比较了什么？”</p><h3 data-t="scenarioTitleResearch">查回这份研究，再核对原文。</h3><p class="scenario-result" data-t="scenarioResultResearch">查回原资料、关键数字与引用页码，再打开原文核对。</p></div><a class="scenario-watch" href="#film" data-scene-film="36.1"><span class="scenario-play" aria-hidden="true">▶</span><span><span data-t="scenarioWatchResearch">看查找与核对</span><small data-t="scenarioFromResearch">影片 00:36 起</small></span><span aria-hidden="true">↗</span></a></div>
-        <figure class="scenario-figure" style="--crop-w:1595;--crop-h:526;--image-w:2560;--image-h:1678;--crop-x:735;--crop-y:738">
-          <div class="scenario-media-pan" tabindex="0" role="group" aria-label="成果图片，可横向滚动或放大">
-            <button type="button" class="image-expand scenario-image" data-image="assets/demo/result-research.jpg" data-caption="scenarioCaptionResearch" aria-label="放大：资料追问 · 城市低碳交通"><span class="scenario-crop"><img class="scenario-source" src="assets/demo/result-research.jpg" width="2560" height="1678" alt="研究资料的自然语言追问，回答列出原资料名称、比较方法、关键数字和引用。" loading="lazy" decoding="async"></span><span class="expand-badge"><span aria-hidden="true">⤢</span><span data-t="expand">放大查看</span></span></button>
-          </div>
-          <div class="scenario-image-state" role="status" hidden><p data-t="scenarioLoading">正在加载成果图片…</p><button type="button" class="scenario-retry" hidden data-t="scenarioRetry">重新加载图片</button></div>
-          <figcaption><span data-t="scenarioCaptionResearch">资料追问 · 城市低碳交通</span><span data-t="scenarioMaterial">实际 App · 虚构示例</span></figcaption>
-          <p class="scenario-pan-hint" data-t="scenarioPanHint">左右滑动查看，或点开大图。</p>
-        </figure>
+      <article class="tile reveal">
+        <div class="tile-copy"><h3 data-t="t2">一句话记日程</h3><p data-t="t2d">“明天下午三点，安排二十分钟校园观察。”保存前可以审阅。</p></div>
+        <div class="tile-card"><picture><source type="image/avif" srcset="assets/v095/agenda-card.avif"><img src="assets/v095/agenda-card.jpg" width="1500" height="470" alt="对话中的日程卡片：二十分钟校园观察，已保存 1/1，归属交互设计方法。" data-t-alt="altAgenda" loading="lazy" decoding="async"></picture></div>
       </article>
-      <article class="scenario-panel" id="scenario-capture" data-scenario-panel="capture">
-        <div class="scenario-summary"><div><p class="scenario-input" data-t="scenarioInputCapture">打开已有观察随记，补充现场记录。</p><h3 data-t="scenarioTitleCapture">一条观察，放回相关课程。</h3><p class="scenario-result" data-t="scenarioResultCapture">补充内容后保存，再回看此前与课程的关联。</p></div><a class="scenario-watch" href="#film" data-scene-film="54.5"><span class="scenario-play" aria-hidden="true">▶</span><span><span data-t="scenarioWatchCapture">看补记与已有成果</span><small data-t="scenarioFromCapture">影片 00:54 起</small></span><span aria-hidden="true">↗</span></a></div>
-        <figure class="scenario-figure" style="--crop-w:2012;--crop-h:765;--image-w:2560;--image-h:1678;--crop-x:548;--crop-y:325">
-          <div class="scenario-media-pan" tabindex="0" role="group" aria-label="成果图片，可横向滚动或放大">
-            <button type="button" class="image-expand scenario-image" data-image="assets/demo/result-capture.jpg" data-caption="scenarioCaptionCapture" aria-label="放大：原始随记 · 已关联课程"><span class="scenario-crop"><img class="scenario-source" src="assets/demo/result-capture.jpg" width="2560" height="1678" alt="校园候车观察随记已保存，信息栏显示归属交互设计方法课程，原始记录保留。" loading="lazy" decoding="async"></span><span class="expand-badge"><span aria-hidden="true">⤢</span><span data-t="expand">放大查看</span></span></button>
-          </div>
-          <div class="scenario-image-state" role="status" hidden><p data-t="scenarioLoading">正在加载成果图片…</p><button type="button" class="scenario-retry" hidden data-t="scenarioRetry">重新加载图片</button></div>
-          <figcaption><span data-t="scenarioCaptionCapture">原始随记 · 已关联课程</span><span data-t="scenarioMaterial">实际 App · 虚构示例</span></figcaption>
-          <p class="scenario-pan-hint" data-t="scenarioPanHint">左右滑动查看，或点开大图。</p>
-        </figure>
+      <article class="tile tile-dark reveal">
+        <div class="tile-copy"><h3 data-t="t3">深色也一样安静</h3><p data-t="t3d">跟随系统外观切换。玻璃浮层和胶囊控件在深色下保持层次。</p></div>
+        <button class="zoom tile-shot crop-top" type="button" data-zoom="overview-dark" data-caption="capDark" aria-label="放大：深色外观">
+          <picture><source type="image/avif" srcset="assets/v095/overview-dark-1600.avif 1600w, assets/v095/overview-dark-2560.avif 2560w" sizes="(max-width: 720px) 100vw, 560px"><img src="assets/v095/overview-dark-1600.png" width="2560" height="1682" alt="深色外观下的 AI Bro 总览页。" data-t-alt="altDark" loading="lazy" decoding="async"></picture>
+        </button>
+      </article>
+      <article class="tile tile-control reveal" id="control">
+        <div class="tile-copy"><h3 data-t="t4">资料留在 Mac，模型由你选</h3><p data-t="t4d">资料、对话和笔记保存在本机。连接兼容 API 或本机 Codex CLI 通道；使用远程模型时，所需内容会发送给你选择的服务。</p></div>
+        <ul class="chips"><li data-t="c1">本地优先</li><li data-t="c2">自选模型</li><li data-t="c3">按需自托管同步</li><li data-t="c4">AGPL-3.0 开源</li></ul>
       </article>
     </div>
-    <div class="workspace-rail"><span data-t="value1">从回答打开引用的原文</span><i></i><span data-t="value2">确认 AI 的修改后再保存</span><i></i><span data-t="value3">在新对话中查询已有资料</span></div>
   </section>
 
-  <section class="showcase page-width" id="stories">
-    <div class="section-heading"><div><p class="eyebrow">THE ACTUAL APP. A CLOSER LOOK.</p><h2 data-t="storiesTitle">读资料、写笔记，<br><span>再安排要做的事。</span></h2></div><p data-t="storiesDesc">从一个问题开始，得到能保存、修改和查找的笔记。<br>需要落实的事，记进任务或日程。</p></div>
-    <div class="motion-toolbar"><nav class="demo-navigation" aria-label="浏览工作流程"><a href="#feature-reader"><span>01</span><span data-t="tabRead">阅读资料</span></a><a href="#feature-files"><span>02</span><span data-t="tabReview">编辑笔记</span></a><a href="#feature-agenda"><span>03</span><span data-t="tabPlan">安排任务</span></a></nav><button id="motion-toggle" aria-pressed="true"><span aria-hidden="true">Ⅱ</span><span data-t="pauseMotion">暂停页面动效</span></button></div>
-
-    <article class="story" id="feature-reader"><div class="story-copy"><span class="section-number">01 / READ & CONNECT</span><h3 data-t="readTitle">带着问题，<br>读课件和论文。</h3><p class="story-hook" data-t="readHook">问重点、问例子，也可以继续追问。</p><p data-t="readDesc">导入资料后，让 AI 解释概念、比较方法或整理要点。回答中的来源可以点开核对，PDF 原文和对话能并排查看。</p><div class="feature-line" data-t="readDetails">PDF 原页 / 来源引用 / 项目资料</div></div><figure class="story-media"><div class="clip-frame"><video class="chapter-video" muted playsinline loop preload="none" width="1600" height="1062" poster="assets/demo/native-reader.png" data-src="assets/demo/source-to-note.mp4" aria-label="资料阅读工作流，实际界面截图编排"></video><button class="clip-play" aria-label="播放资料阅读演示"><span aria-hidden="true">▶</span></button><button class="media-expand" data-image="assets/demo/native-reader.png" data-caption="readerCaption" aria-label="放大资料阅读截图">⤢</button></div><figcaption><span data-t="readerCaption">实际阅读界面 · 虚构资料</span><a href="assets/demo/source-to-note.gif" download>GIF ↓</a></figcaption><p class="clip-note" data-t="clipNote">实际界面截图编排展示</p></figure></article>
-
-    <article class="story reverse" id="feature-files"><div class="story-copy"><span class="section-number">02 / WRITE & REVIEW</span><h3 data-t="reviewTitle">笔记可以改，<br>修改可以逐项看。</h3><p class="story-hook" data-t="reviewHook">AI 起草后，补上自己的理解。</p><p data-t="reviewDesc">直接编辑文字、表格和公式，或切换到 Markdown 源码。让 AI 修改时，对照差异审阅，确认后保存到项目。</p><div class="feature-line" data-t="reviewDetails">可视编辑 / Markdown 源码 / 文档审阅</div></div><figure class="story-media"><div class="clip-frame"><video class="chapter-video" muted playsinline loop preload="none" width="1600" height="1062" poster="assets/demo/native-editor.png" data-src="assets/demo/review-to-save.mp4" aria-label="文档编辑工作流，实际界面截图编排"></video><button class="clip-play" aria-label="播放文档编辑演示"><span aria-hidden="true">▶</span></button><button class="media-expand" data-image="assets/demo/native-editor.png" data-caption="editorCaption" aria-label="放大文档编辑截图">⤢</button></div><figcaption><span data-t="editorCaption">实际文档界面 · 虚构资料</span><a href="assets/demo/review-to-save.gif" download>GIF ↓</a></figcaption><p class="clip-note" data-t="clipNote">实际界面截图编排展示</p></figure></article>
-
-    <article class="story" id="feature-agenda"><div class="story-copy"><span class="section-number">03 / PLAN & CONTINUE</span><h3 data-t="planTitle">作业和日程，<br>用一句话记下来。</h3><p class="story-hook" data-t="planHook">“明天下午三点，安排二十分钟校园观察。”</p><p data-t="planDesc">用自然语言提出安排，核对时间与项目后保存。也可以手动创建任务、设置截止日期，或导入 ICS 课表。</p><div class="feature-line" data-t="planDetails">项目任务 / 日程安排 / ICS 课表</div></div><figure class="story-media"><div class="clip-frame"><video class="chapter-video" muted playsinline loop preload="none" width="1600" height="1062" poster="assets/demo/native-agenda.png" data-src="assets/demo/plan-to-agenda.mp4" aria-label="任务与日程工作流，实际界面截图编排"></video><button class="clip-play" aria-label="播放任务与日程演示"><span aria-hidden="true">▶</span></button><button class="media-expand" data-image="assets/demo/native-agenda.png" data-caption="agendaCaption" aria-label="放大日程截图">⤢</button></div><figcaption><span data-t="agendaCaption">实际日程界面 · 虚构安排</span><a href="assets/demo/plan-to-agenda.gif" download>GIF ↓</a></figcaption><p class="clip-note" data-t="clipNote">实际界面截图编排展示</p></figure></article>
+  <section class="film page-width" id="film" aria-labelledby="film-title">
+    <div class="section-head center reveal"><p class="eyebrow">THE FILM</p><h2 id="film-title" data-t="filmTitle">一分钟看完 0.9.5</h2></div>
+    <div class="film-stage reveal">
+      <div class="film-frame">
+        <video id="film-video" controls playsinline preload="none" width="1920" height="1080" data-src-zh="assets/film/promo-095-zh.mp4" data-src-en="assets/film/promo-095-en.mp4" data-poster-zh="assets/film/promo-095-poster-zh.jpg" data-poster-en="assets/film/promo-095-poster-en.jpg" aria-label="AI Bro 0.9.5 产品短片" data-t-aria="ariaFilm"></video>
+        <div class="film-fallback" id="film-fallback">
+          <picture><source type="image/avif" srcset="assets/v095/course-answer-1600.avif"><img src="assets/v095/course-answer-1600.png" width="2560" height="1682" alt="" loading="lazy" decoding="async"></picture>
+          <p role="status" data-t="filmPending">短片制作中。先看看上面的真实录屏。</p>
+        </div>
+      </div>
+    </div>
+    <p class="disclosure" data-t="filmDisclosure">真实 App 界面 · 虚构资料 · 演示回答为预设 · 短片经剪辑</p>
   </section>
 
-  <section class="control page-width" id="control"><div><p class="eyebrow">LOCAL STORAGE · MODEL CHOICE</p><h2 data-t="controlTitle">资料保存在 Mac。<br><span>模型由你选择。</span></h2><a class="source-link" href="https://github.com/zihenghe04/AIBro"><span data-t="openSource">查看开源代码与构建说明</span><span aria-hidden="true">↗</span></a></div><div class="control-points"><article><span>01</span><div><h3 data-t="localTitle">本地优先</h3><p data-t="localText">资料、对话和笔记保存在 Mac。使用远程模型时，所需内容会发送给你选择的服务。</p></div></article><article><span>02</span><div><h3 data-t="modelTitle">自选模型</h3><p data-t="modelText">连接兼容 API，或使用本机官方 Codex CLI 通道。模型订阅与额度需自行准备。</p></div></article><article><span>03</span><div><h3 data-t="syncTitle">按需同步</h3><p data-t="syncText">连接自托管服务，推送和拉取工作区内容。SSH 用于同步连接，不提供远端文件管理。</p></div></article></div></section>
-  <section class="faq page-width"><h2 data-t="faqTitle">常见问题</h2><div class="faq-list"><details><summary data-t="faq1">支持什么设备？</summary><p data-t="faq1A">0.9.4 预览版面向 Apple Silicon Mac，要求 macOS 14 或以上。安装包包含 Python 与 PDF 运行时。当前采用 ad-hoc 签名，尚未经过 Apple 公证；首次安装请阅读发布页说明。</p></details><details><summary data-t="faqNative">这些画面来自实际 App 吗？</summary><p data-t="faqNativeA">是，画面来自 AI Bro App，使用虚构的课件、论文和项目。短片经过剪辑，缩短了操作和等待时间，不代表模型的实际响应速度。片中的部分功能属于开发预览，公开下载版目前为 0.9.4。</p></details><details><summary data-t="faq3">可以自行构建或部署同步服务吗？</summary><p><span data-t="faq3A">可以。AI Bro 以 AGPL-3.0 开源，提供源码构建与自托管同步说明。同步是个人设备间的推送和拉取，当前不提供端到端加密；模型凭据与本机目录授权不会同步。</span> <a href="https://github.com/zihenghe04/AIBro/blob/main/docs/DISTRIBUTION.md" data-t="guide">阅读指南 ↗</a></p></details></div></section>
-  <section class="download-section" id="download"><div class="download-glow" aria-hidden="true"></div><div class="page-width download-content"><img src="assets/mark.png" width="56" height="56" alt=""><p class="eyebrow">GET STARTED WITH AI BRO</p><h2 data-t="downloadTitle">带上一份课件，<br>问你想弄懂的问题。</h2><p data-t="downloadDesc">下载 AI Bro，连接模型，再把资料加入你的第一个项目。</p><div class="download-actions"><a class="button primary" href="https://github.com/zihenghe04/AIBro/releases/tag/v0.9.4"><span data-t="download">下载 Mac 预览版</span><span aria-hidden="true">↗</span></a><a class="button secondary" href="https://github.com/zihenghe04/AIBro/blob/main/docs/DISTRIBUTION.md" data-t="buildSource">从源码构建 ↗</a></div><span class="download-meta" data-t="downloadMeta">Apple Silicon · macOS 14+ · 开源预览版</span></div></section>
+  <section class="faq page-width" id="faq" aria-labelledby="faq-title">
+    <h2 id="faq-title" class="reveal" data-t="faqTitle">常见问题</h2>
+    <div class="faq-list reveal">
+      <details><summary data-t="q1">支持什么设备？</summary><p data-t="a1">0.9.5 预览版面向 Apple Silicon Mac，要求 macOS 14 或以上，安装包包含 Python 与 PDF 运行时。当前为 ad-hoc 签名，尚未经过 Apple 公证；首次打开请按发布页说明操作。本版不包含新的移动端安装包。</p></details>
+      <details><summary data-t="q2">这些画面来自实际 App 吗？</summary><p data-t="a2">是。截图和录屏来自 AI Bro 0.9.5，在独立的演示工作区中使用虚构的课件和项目。演示中的模型回答由本地脚本预设，界面、工具步骤、引用和 PDF 阅读器均为真实功能，不代表模型的实际速度或回答质量。</p></details>
+      <details><summary data-t="q3">需要自己准备模型吗？</summary><p data-t="a3">需要。AI Bro 连接兼容的模型 API，或本机官方 Codex CLI 通道；模型订阅与额度需自行准备。凭据保存在本机，不随工作区同步。</p></details>
+      <details><summary data-t="q4">可以自行构建或部署同步服务吗？</summary><p><span data-t="a4">可以。AI Bro 以 AGPL-3.0 开源，提供源码构建与自托管同步说明。同步是个人设备间的推送和拉取，当前不提供端到端加密。</span> <a href="https://github.com/zihenghe04/AIBro/blob/main/docs/DISTRIBUTION.md" data-t="guide">阅读指南 ↗</a></p></details>
+    </div>
+  </section>
+
+  <section class="cta" id="download" aria-labelledby="cta-title">
+    <div class="cta-inner page-width reveal">
+      <img src="assets/v095/mark-128.png" width="64" height="64" alt="">
+      <h2 id="cta-title" data-t="ctaTitle">带上一份课件，<br>问你想弄懂的问题。</h2>
+      <p data-t="ctaText">下载 AI Bro 0.9.5，连接模型，把资料加入第一个项目。</p>
+      <div class="hero-actions center">
+        <a class="button primary" href="https://github.com/zihenghe04/AIBro/releases/download/v0.9.5/AI-Bro-0.9.5-macos-arm64-preview.dmg"><span data-t="downloadDmg">下载 Mac 版</span><span aria-hidden="true">↓</span></a>
+        <a class="button ghost" href="https://github.com/zihenghe04/AIBro/releases/tag/v0.9.5"><span data-t="releaseNotes">发布说明</span><span aria-hidden="true">↗</span></a>
+      </div>
+      <p class="hero-meta" data-t="ctaMeta">Apple Silicon · macOS 14+ · 未公证预览版 · <a href="https://github.com/zihenghe04/AIBro/blob/main/docs/DISTRIBUTION.md">从源码构建 ↗</a></p>
+    </div>
+  </section>
 </main>
-<footer class="page-width"><a class="brand" href="#top"><img src="assets/mark.png" width="27" height="27" alt="">AI Bro</a><p data-t="footerLine">Mac 上的 AI 学习与研究助手</p><div><a href="https://github.com/zihenghe04/AIBro">GitHub ↗</a><a href="https://github.com/zihenghe04/AIBro/blob/main/CHANGELOG.md" data-t="changelog">更新日志</a><a href="https://github.com/zihenghe04/AIBro/issues" data-t="feedback">反馈</a></div><small data-t="footerNative">隔离 App 实际界面 · 全部使用虚构资料 · AGPL-3.0</small></footer>
-<dialog id="media-dialog" aria-label="放大 App 界面"><div class="dialog-bar"><span id="dialog-caption"></span><button id="close-media" aria-label="关闭">✕</button></div><img id="expanded-image" alt=""><div id="dialog-image-status" role="status" hidden><p></p><button id="dialog-image-retry" type="button" data-t="scenarioRetry">重新加载图片</button></div><div class="dialog-note" data-t="overviewCaption">App 实际界面 · 虚构示例资料</div></dialog>
-</body></html>
+<footer class="page-width">
+  <a class="brand" href="#top"><img src="assets/v095/mark-128.png" width="24" height="24" alt="">AI Bro</a>
+  <nav aria-label="页脚" data-t-aria="footLabel"><a href="https://github.com/zihenghe04/AIBro">GitHub ↗</a><a href="https://github.com/zihenghe04/AIBro/blob/main/CHANGELOG.md" data-t="changelog">更新日志</a><a href="https://github.com/zihenghe04/AIBro/issues" data-t="feedback">反馈</a></nav>
+  <small data-t="footNote">页面所有画面来自 AI Bro 0.9.5 演示工作区 · 虚构资料 · AGPL-3.0</small>
+</footer>
+<dialog id="zoom-dialog" aria-label="放大 App 界面">
+  <div class="dialog-bar"><span id="dialog-caption"></span><button id="dialog-close" type="button" aria-label="关闭">✕</button></div>
+  <img id="dialog-image" alt="" width="2560" height="1682">
+  <p id="dialog-status" role="status" hidden></p>
+</dialog>
+</main>
+</body>
+</html>
