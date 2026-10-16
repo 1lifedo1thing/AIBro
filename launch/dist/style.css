@@ -48,7 +48,7 @@ h2 span,h1 span{color:var(--muted)}
 .text-link{font-size:14px;color:var(--accent-ink);font-weight:550}
 .text-link:hover{text-decoration:underline;text-underline-offset:3px}
 /* Hero */
-.hero{position:relative;padding:56px 0 40px;overflow:hidden;isolation:isolate}
+.hero{position:relative;padding:28px 0 40px;overflow:hidden;isolation:isolate}
 .hero:before{content:'';position:absolute;inset:0 0 auto;height:980px;z-index:-2;background:
   radial-gradient(60% 50% at 50% 0%,#dff0e5 0%,transparent 70%),
   radial-gradient(40% 40% at 85% 55%,#e3ecf4aa 0%,transparent 70%),
@@ -57,13 +57,16 @@ h2 span,h1 span{color:var(--muted)}
 .release-pill{display:inline-flex;align-items:center;gap:10px;font-size:13px;padding:5px 14px 5px 5px;border-radius:999px;background:var(--glass);box-shadow:0 0 0 1px var(--line) inset,0 6px 20px -12px #1c3a2a55;backdrop-filter:blur(12px);color:var(--ink-2);transition:background .2s}
 .release-pill:hover{background:#fff}
 .pill-tag{background:var(--accent-2);color:var(--accent-ink);font-weight:650;font-size:12px;padding:3px 10px;border-radius:999px}
-.hero h1{margin-top:22px;font-size:clamp(44px,5.6vw,76px);line-height:1.08;letter-spacing:-.035em;font-weight:700;text-wrap:balance}
-.hero-lead{margin-top:20px;max-width:560px;font-size:clamp(16px,1.6vw,19px);line-height:1.7;color:var(--ink-2);text-wrap:pretty}
-.hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+.hero h1{margin-top:16px;font-size:clamp(40px,4.4vw,58px);line-height:1.08;letter-spacing:-.035em;font-weight:700;text-wrap:balance}
+/* Each half of the headline is its own line box, so text-wrap:balance can even out narrow screens. */
+.hero h1 br{display:none}
+.hero h1 span{display:block}
+.hero-lead{margin-top:16px;max-width:780px;font-size:clamp(16px,1.3vw,18px);line-height:1.7;color:var(--ink-2);text-wrap:pretty}
+.hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
 .hero-actions.center{justify-content:center}
 .hero-meta{margin-top:18px;font-size:13px;color:var(--muted)}
 .hero-meta a{color:var(--accent-ink)}
-.hero-stage{position:relative;margin-top:52px}
+.hero-stage{position:relative;margin-top:28px}
 .stage-glow{position:absolute;inset:8% 6% -6%;z-index:-1;border-radius:50%;background:radial-gradient(closest-side,#bfe0cd99,transparent);filter:blur(40px)}
 
 /* Window framing: the captures carry their own transparent rounded corners, so the
@@ -76,7 +79,9 @@ h2 span,h1 span{color:var(--muted)}
 .zoom img{width:100%;aspect-ratio:2560/1682}
 /* AVIF stills are flattened (no alpha); round them to the App window's 32pt corner. */
 .window img,.tile-shot img,.film-fallback img{border-radius:2.5%/3.8%}
-.hero-window{max-width:1200px;margin-inline:auto}
+/* The hero window is painted on first load (no reveal or entrance animation) and sized from the
+   viewport height, so short laptop screens still show a good part of it below the copy. */
+.hero-window{max-width:min(1200px,calc((100svh - 60px) * 1.52 * 1.15));margin-inline:auto}
 .float-card{position:absolute;right:-1%;bottom:-4%;width:min(38%,440px);border-radius:16px;padding:6px;background:#ffffffa6;backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);box-shadow:0 0 0 1px #ffffffcc inset,0 0 0 1px var(--line),0 30px 60px -24px #1c3a2a55}
 .float-card img{border-radius:11px;width:100%}
 .hero .disclosure{margin-top:46px}
@@ -187,12 +192,8 @@ footer small{flex-basis:100%;font-size:12px}
 /* Reveal motion: only hidden when JS is running and motion is allowed */
 .js .reveal{opacity:0;transform:translate3d(0,22px,0);transition:opacity .8s var(--ease),transform .8s var(--ease)}
 .js .reveal.in{opacity:1;transform:none}
-.js .hero .reveal{transition-duration:1s}
-.js .hero-copy .reveal:nth-child(2){transition-delay:.06s}.js .hero-copy .reveal:nth-child(3){transition-delay:.12s}.js .hero-copy .reveal:nth-child(4){transition-delay:.18s}.js .hero-copy .reveal:nth-child(5){transition-delay:.24s}
 .js .release-list .reveal:nth-child(2){transition-delay:.05s}.js .release-list .reveal:nth-child(3){transition-delay:.1s}.js .release-list .reveal:nth-child(4){transition-delay:.15s}.js .release-list .reveal:nth-child(5){transition-delay:.2s}
-.hero-window{animation:rise 1.2s var(--ease) .15s both}
 .hero-float{animation:float-in 1.2s var(--ease) .55s both}
-@keyframes rise{from{opacity:0;transform:translateY(40px) scale(.985)}to{opacity:1;transform:none}}
 @keyframes float-in{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
 
 @media(max-width:1000px){
@@ -208,7 +209,8 @@ footer small{flex-basis:100%;font-size:12px}
   .nav-wrap{width:calc(100% - 32px);height:56px}
   .site-header nav{display:none}
   .hero{padding-top:52px}
-  .hero h1{font-size:44px;margin-top:22px}
+  .hero h1{font-size:42px;margin-top:18px}
+  .hero-window{max-width:none}
   .hero-lead{font-size:16px}
   .hero-actions{justify-content:center;margin-top:28px}
   .hero-stage{margin-top:44px}
@@ -234,3 +236,6 @@ footer small{flex-basis:100%;font-size:12px}
   .js .reveal{opacity:1;transform:none}
   .zoom:hover,.button.primary:hover,.tile-shot:hover{transform:none}
 }
+/* On wide screens the Chinese headline fits one line, keeping the App window above the fold.
+   English keeps its two lines: joined, it would break after “Plan”. */
+@media(min-width:1000px){.hero h1:lang(zh) span{display:inline}}

@@ -8,7 +8,6 @@ const EN={
   heroTitle:'Understand your sources.<br><span>Plan what comes next.</span>',
   heroLead:'Ask your lectures and papers. Answers cite the file and page. Select a line to follow up, and note assignments and events in one sentence.',
   downloadDmg:'Download for Mac',seeNew:'See what’s new in 0.9.5',
-  heroMeta:'Apple Silicon · macOS 14+ · Open source, AGPL-3.0',
   disclosure:'Actual App UI (shown in Chinese) · fictional materials · scripted demo answers',
   altOverview:'AI Bro Overview: the sidebar lists conversations, agenda, notes and three projects; the main area shows today’s and upcoming tasks.',
   newTitle:'New in 0.9.5',fullChangelog:'Full changelog',
