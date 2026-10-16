@@ -39,9 +39,9 @@ const EN={
   altDark:'AI Bro Overview in dark appearance.',
   t4:'Your files stay on your Mac. You pick the model.',t4d:'Materials, conversations and notes are stored locally. Connect a compatible API or the local Codex CLI channel; with a remote model, the needed content goes to the service you choose.',
   c1:'Local first',c2:'Your model',c3:'Optional self-hosted sync',c4:'Open source, AGPL-3.0',
-  filmTitle:'0.9.5 in about a minute',ariaFilm:'AI Bro 0.9.5 product film',
+  filmTitle:'0.9.5 in 30 seconds',ariaFilm:'AI Bro 0.9.5 product film',ariaFilmPlay:'Play the film',
   filmPending:'The film is on its way. The recordings above are the real thing.',
-  filmDisclosure:'Actual App UI · fictional materials · scripted demo answers · edited film. The App interface shown is in Chinese.',
+  filmDisclosure:'UI shown as animation, rebuilt from the real App · fictional materials. The film is in Chinese.',
   faqTitle:'Questions',
   q1:'Which devices are supported?',a1:'The 0.9.5 preview is for Apple Silicon Macs on macOS 14 or later, and bundles Python and PDF runtimes. It is ad-hoc signed and not yet notarized by Apple; follow the release notes the first time you open it. This release has no new mobile build.',
   q2:'Is this the actual App?',a2:'Yes. Screenshots and recordings come from AI Bro 0.9.5 in a separate demo workspace with fictional lectures and projects. The model’s answers are scripted locally; the interface, tool steps, citations and PDF reader are real. They do not show actual model speed or answer quality.',
@@ -78,7 +78,7 @@ const loops=[...document.querySelectorAll('video.loop')].map(video=>{
       video.preload='auto';video.load();
     },
     sync(){
-      const run=state.visible&&!state.userPaused&&!state.failed&&!document.hidden&&!dialog.open;
+      const run=state.visible&&!state.userPaused&&!state.failed&&!document.hidden&&!dialog.open&&film.paused;
       if(run){state.load();const p=video.play();if(p)p.catch(()=>{});}else video.pause();
       frame.classList.toggle('is-failed',state.failed);
       const paused=!run;
@@ -88,7 +88,10 @@ const loops=[...document.querySelectorAll('video.loop')].map(video=>{
   };
   button.addEventListener('click',()=>{
     if(state.failed){state.failed=false;state.loaded=false;video.querySelectorAll('source').forEach(s=>s.remove());state.userPaused=false;}
-    else state.userPaused=!state.userPaused;
+    // Act on what the button shows: a loop held back by the film reads as paused, so a press means play.
+    else state.userPaused=!video.paused;
+    // Asking a loop to play hands the stage back from the film.
+    if(!state.userPaused&&!film.paused)film.pause();
     state.sync();
   });
   return state;
@@ -107,9 +110,11 @@ const revealObserver=new IntersectionObserver(entries=>{
 document.querySelectorAll('.reveal').forEach(el=>revealObserver.observe(el));
 
 // Product film. Falls back to a still and a status line until the files are published.
-const film=document.getElementById('film-video'),fallback=document.getElementById('film-fallback');
+const film=document.getElementById('film-video'),fallback=document.getElementById('film-fallback'),filmPlay=document.getElementById('film-play');
 let filmLang=null;
-function showFilmFallback(on){fallback.hidden=!on;film.hidden=on;}
+function showFilmFallback(on){fallback.hidden=!on;film.hidden=on;syncFilm();}
+// The big play button covers the poster before the first play and after the end; the native controls take over between.
+function syncFilm(){filmPlay.hidden=film.hidden||!film.paused||(film.currentTime>0&&!film.ended);loops.forEach(s=>s.sync());}
 function setFilmLanguage(){
   if(filmLang===lang)return;filmLang=lang;
   film.pause();film.removeAttribute('src');film.load();showFilmFallback(true);
@@ -118,7 +123,9 @@ function setFilmLanguage(){
   fetch(src,{method:'HEAD'}).then(r=>{if(!r.ok||want!==lang)return;film.poster=poster;film.src=src;showFilmFallback(false);}).catch(()=>{});
 }
 film.addEventListener('error',()=>showFilmFallback(true));
-film.addEventListener('play',()=>loops.forEach(s=>{if(!s.video.paused){s.video.pause();}}));
+// While the film plays the loops stay paused, even when scrolled back into view; they resume when it pauses or ends.
+['play','pause','ended','seeked'].forEach(type=>film.addEventListener(type,syncFilm));
+filmPlay.addEventListener('click',()=>{const p=film.play();if(p)p.catch(()=>{});film.focus();});
 
 // Image zoom dialog with focus return.
 const dialog=document.getElementById('zoom-dialog'),dialogImage=document.getElementById('dialog-image'),dialogStatus=document.getElementById('dialog-status');
